@@ -35,7 +35,7 @@ Create the `config.json` file (see the [example](app/config-sample.json)) settin
 | CMDB_URL | CMDB service URL | Y for Orchestrator version < 2.2.0 | N/A
 | IM_URL | Infrastructure Manager service URL | Y for Orchestrator version < 2.2.0 | N/A
 | SUPPORT_EMAIL | Email address that will be shown in case of errors | N | ""
-| ENABLE_ADVANCED_MENU | Toggle to enable/disable the advanced menu <br>Valid values: yes, no | N | no
+| ENABLE_ADVANCED_MENU | Enable/disable the advanced menu, allowing or not to select the deployment infrastructure <br>Valid values: yes, no | N | no
 | EXTERNAL_LINKS | List of dictionaries ({ "url": "example.com" , "menu_item_name": "Example link"}) specifying links that will be shown under the "External Links" menu | N | []
 | LOG_LEVEL | Set Logging level | N | info
 
