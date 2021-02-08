@@ -31,6 +31,34 @@ instance
 |____vaul-config.json [optional]
 
 ````
+Create the `config.json` file (see the [example](app/config-sample.json)) setting the following variables:
+
+| Parameter name  | Description | Mandatory (Y/N) | Default Value 
+| -------------- | ------------- |------------- |------------- |
+| SQLALCHEMY_DATABASE_URI | The database URI that should be used for the connection. Example: mysql://username:password@server/db | N | mysql+pymysql://dashboard:dashboard@localhost/orchestrator_dashboard 
+| IAM_CLIENT_ID | IAM client ID | Y | N/A
+| IAM_CLIENT_SECRET | IAM client Secret | Y | N/A
+| IAM_BASE_URL | IAM service URL | Y | N/A
+| IAM_GROUP_MEMBERSHIP | List of IAM groups to be checked for allowing access | N | []
+| TOSCA_TEMPLATES_DIR | Absolute path where the TOSCA templates are stored | Y | N/A
+| ORCHESTRATOR_URL | PaaS Orchestrator Service URL | Y | N/A
+| SLAM_URL | SLAM service URL | Y for Orchestrator version < 2.2.0 | N/A
+| CMDB_URL | CMDB service URL | Y for Orchestrator version < 2.2.0 | N/A
+| IM_URL | Infrastructure Manager service URL | Y for Orchestrator version < 2.2.0 | N/A
+| MONITORING_URL | Monitoring API endpoint URL |  Y for Orchestrator version < 2.2.0 | N/A
+| SUPPORT_EMAIL | Email address that will be shown in case of errors | N | ""
+| ENABLE_ADVANCED_MENU | Toggle to enable/disable the advanced menu <br>Valid values: yes, no | N | no
+| LOG_LEVEL | Set Logging level | N | info
+| EXTERNAL_LINKS | List of dictionaries ({ "url": "example.com" , "menu_item_name": "Example link"}) specifying links that will be shown under the "External Links" menu | N | []
+| VAULT_URL | Vault URL | N | ""
+| VAULT_ROLE | JWT role used for Vault authentication | N | ""  
+| VAULT_OIDC_AUDIENCE | JWT audience needed for Vault authentication | N | ""
+| MAIL_SERVER | Mail server | N | localhost
+| MAIL_PORT | Mail port | N | 25
+| MAIL_SENDER | Mail sender | N | admin@orchestrator-dashboard
+| MAIL_USERNAME | Mail username | N | None
+| MAIL_PASSWORD | Mail password | N | None
+
 
 Clone the tosca-templates repository to get a set of tosca templates that the dashboard will load, e.g.:
 
@@ -43,6 +71,42 @@ You need to run the Orchestrator dashboard on HTTPS (otherwise you will get an e
 - using an HTTPS proxy
 
 Details are provided in the next paragraphs.
+
+## TOSCA Template Metadata 
+
+The Orchestrator dashboard can exploit some optional information provided in the TOSCA templates for rendering the cards describing the type of applications/services or virtual infrastructure that a user can deploy.
+
+
+In particular, the following tags are supported:
+
+| Tag name  | Description        | Type               |
+| -------------- | ------------- | ------------------ |              
+| description | Used for showing the card description  |  String |
+| metadata.display_name | Used for the card title. If not pro  |    String |
+| metadata.icon  |  Used for showing the card image. If no image URL is provided, the dashboard will load this [icon](https://cdn4.iconfinder.com/data/icons/mosaicon-04/512/websettings-512.png). | String |
+| metadata.display_name | Used for the card title. If not provided, the template name will be used   | String |
+| metadata.tag  | Used for the card ribbon (displayed on the right bottom corner)   |     String |
+| metadata.allowed_groups | Used for showing the template only to members of specific groups |  String <br> - "*" == any group can see the template <br> - "group1,group2" == only members of _group1_ and _group2_ can see the template. :boom: Do not use spaces to separate the groups |
+
+
+Example of template metadata:
+
+```
+tosca_definitions_version: tosca_simple_yaml_1_0
+
+imports:
+  - indigo_custom_types: https://raw.githubusercontent.com/indigo-dc/tosca-types/v4.0.0/custom_types.yaml
+
+description: Deploy a Mesos Cluster (with Marathon and Chronos frameworks) on top of Virtual machines
+
+metadata:
+  display_name: Deploy a Mesos cluster
+  icon: https://indigo-paas.cloud.ba.infn.it/public/images/apache-mesos-icon.png
+
+topology_template:
+
+....
+```
 
 ### Enabling HTTPS
 
