@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from app import app, iam_blueprint, db
+from app import app, db
 from . import settings
 import requests
 from dateutil import parser
@@ -121,7 +121,7 @@ def updatedeploymentsstatus(deployments, userid):
             app.logger.info("Deployment with uuid:{} not found!".format(uuid))
 
             # retrieve template
-            access_token = iam_blueprint.session.token['access_token']
+            access_token = app.get_auth_blueprint().session.token['access_token']
             headers = {'Authorization': 'bearer %s' % access_token}
 
             url = settings.orchestratorUrl + "/deployments/" + uuid + "/template"

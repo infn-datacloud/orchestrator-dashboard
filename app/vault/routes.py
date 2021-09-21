@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from flask import Blueprint, render_template, flash, request, redirect, url_for, session, json
-from app import app, iam_blueprint, vaultservice
+from app import app, vaultservice
 from app.lib import auth, sshkey as sshkeyhelpers, settings, dbhelpers
 from app.providers import sla
 from app.models.Deployment import Deployment
@@ -42,7 +42,7 @@ def read_secret(depid=None):
     vault_read_token_time_duration = app.config.get("READ_TOKEN_TIME_DURATION")
     vault_read_token_renewal_duration = app.config.get("READ_TOKEN_RENEWAL_TIME_DURATION")
 
-    access_token = iam_blueprint.session.token['access_token']
+    access_token = app.get_auth_blueprint().session.token['access_token']
 
     # retrieve deployment from DB
     dep = dbhelpers.get_deployment(depid)
@@ -76,7 +76,7 @@ def read_secret(depid=None):
 @vault_bp.route('/create_ssh_key/<subject>')
 @auth.authorized_with_valid_token
 def create_ssh_key(subject):
-    access_token = iam_blueprint.session.token['access_token']
+    access_token = app.get_auth_blueprint().session.token['access_token']
     privkey, pubkey = sshkeyhelpers.generate_ssh_key()
     privkey = privkey.decode("utf-8").replace("\n", "\\n")
     store_privkey(access_token, privkey)
@@ -132,7 +132,7 @@ def read_privkey(subject):
     vault_read_token_time_duration = app.config.get("READ_TOKEN_TIME_DURATION")
     vault_read_token_renewal_duration = app.config.get("READ_TOKEN_RENEWAL_TIME_DURATION")
 
-    access_token = iam_blueprint.session.token['access_token']
+    access_token = app.get_auth_blueprint().session.token['access_token']
 
     jwt_token = auth.exchange_token_with_audience(iam_base_url,
                                                   iam_client_id, iam_client_secret, access_token, vault_bound_audience)
@@ -169,7 +169,7 @@ def delete_ssh_key(subject):
 
     dbhelpers.delete_ssh_key(subject)
 
-    access_token = iam_blueprint.session.token['access_token']
+    access_token = app.get_auth_blueprint().session.token['access_token']
     privkey_key = session['userid'] + '/ssh_private_key'
 
     jwt_token = auth.exchange_token_with_audience(iam_base_url,
@@ -204,7 +204,7 @@ def manage_service_creds():
   slas={}
 
   try:
-    access_token = iam_blueprint.session.token['access_token']
+    access_token = app.get_auth_blueprint().session.token['access_token']
     slas = sla.get_slas(access_token, settings.orchestratorConf['slam_url'], settings.orchestratorConf['cmdb_url'])
     app.logger.debug("Service details: {}".format(slas))
 
@@ -223,7 +223,7 @@ def read_service_creds():
     serviceid = request.args.get('service_id', None)
     servicetype = request.args.get('service_type', None)
 
-    access_token = iam_blueprint.session.token['access_token']
+    access_token = app.get_auth_blueprint().session.token['access_token']
     jwt_token = auth.exchange_token_with_audience(iam_base_url,
                                                   iam_client_id, iam_client_secret, access_token, vault_bound_audience)
 
@@ -257,7 +257,7 @@ def write_service_creds():
 
         creds = request.form.to_dict()
 
-        access_token = iam_blueprint.session.token['access_token']
+        access_token = app.get_auth_blueprint().session.token['access_token']
 
         jwt_token = auth.exchange_token_with_audience(iam_base_url,
                                                   iam_client_id, iam_client_secret, access_token, vault_bound_audience)
@@ -279,7 +279,7 @@ def delete_service_creds():
 
     serviceid = request.args.get('service_id', "")
 
-    access_token = iam_blueprint.session.token['access_token']
+    access_token = app.get_auth_blueprint().session.token['access_token']
 
     jwt_token = auth.exchange_token_with_audience(iam_base_url,
                                                   iam_client_id, iam_client_secret, access_token, vault_bound_audience)

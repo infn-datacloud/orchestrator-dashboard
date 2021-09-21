@@ -15,7 +15,7 @@
 from flask import Blueprint, session, render_template, flash, request
 from app.lib import auth, dbhelpers, settings
 from app.models.User import User
-from app import app, iam_blueprint
+from app import app
 import requests
 
 
@@ -68,7 +68,7 @@ def show_deployments(subject):
     if user is not None:
         #
         # retrieve deployments from orchestrator
-        access_token = iam_blueprint.session.token['access_token']
+        access_token = app.get_auth_blueprint().session.token['access_token']
 
         headers = {'Authorization': 'bearer %s' % access_token}
 

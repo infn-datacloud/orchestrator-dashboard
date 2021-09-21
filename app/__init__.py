@@ -15,18 +15,19 @@
 import sys
 import socket
 
-from flask import Flask
+from flask import Flask, session
 from flask_alembic import Alembic
 from sqlalchemy_utils import database_exists, create_database
 from sqlalchemy import Table, Column, String, MetaData
 from werkzeug.middleware.proxy_fix import ProxyFix
-from flask_dance.consumer import OAuth2ConsumerBlueprint
 from flask_mail import Mail
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate, upgrade
+from flask_login import LoginManager
 from app.lib.ToscaInfo import ToscaInfo
 from app.lib.Vault import Vault
-
+from flaat import Flaat
+from flask_dance.consumer import oauth_authorized
 import logging
 
 # initialize SQLAlchemy
@@ -57,6 +58,15 @@ profile = app.config.get('CONFIGURATION_PROFILE')
 if profile is not None and profile != 'default':
     app.config.from_object('config.' + profile)
 
+flaat = Flaat()
+flaat.set_web_framework('flask')
+flaat.set_trusted_OP_list([idp['iss'] for idp in app.config.get('TRUSTED_OIDC_IDP_LIST')])
+flaat.set_timeout(20)
+flaat.set_client_connect_timeout(20)
+flaat.set_iss_config_timeout(20)
+
+from app.lib import indigoiam, egicheckin
+from app.models.User import User
 
 @app.context_processor
 def inject_settings():
@@ -94,22 +104,56 @@ mail = Mail(app)
 from app.errors.routes import errors_bp
 app.register_blueprint(errors_bp)
 
-iam_base_url = app.config['IAM_BASE_URL']
-iam_token_url = iam_base_url + '/token'
-iam_refresh_url = iam_base_url + '/token'
-iam_authorization_url = iam_base_url + '/authorize'
+def get_auth_blueprint(self):
+    if 'auth_blueprint' in session.keys():
+        bp = session['auth_blueprint']
+        if bp == 'iam':
+            return app.iam_blueprint
+        if bp == 'egi':
+            return app.egicheckin_blueprint
+    return None
 
-iam_blueprint = OAuth2ConsumerBlueprint(
-    "iam", __name__,
-    client_id=app.config['IAM_CLIENT_ID'],
-    client_secret=app.config['IAM_CLIENT_SECRET'],
-    base_url=iam_base_url,
-    token_url=iam_token_url,
-    auto_refresh_url=iam_refresh_url,
-    authorization_url=iam_authorization_url,
-    redirect_to='home'
-)
-app.register_blueprint(iam_blueprint, url_prefix="/login")
+app.get_auth_blueprint = get_auth_blueprint.__get__('')
+
+
+with app.app_context():
+    app.iam_blueprint = indigoiam.create_blueprint()
+    app.register_blueprint(app.iam_blueprint, url_prefix="/login")
+
+    # create/login local user on successful OAuth login
+    @oauth_authorized.connect_via(app.iam_blueprint)
+    def iam_logged_in(blueprint, token):
+        session['auth_blueprint'] = 'iam'
+        return indigoiam.auth_blueprint_login(blueprint, token)
+
+
+    if app.config.get('EGI_AAI_CLIENT_ID') and app.config.get('EGI_AAI_CLIENT_SECRET'):
+        app.egicheckin_blueprint = egicheckin.create_blueprint()
+        app.register_blueprint(app.egicheckin_blueprint, url_prefix="/login")
+
+        @oauth_authorized.connect_via(app.egicheckin_blueprint)
+        def egicheckin_logged_in(blueprint, token):
+            session['auth_blueprint'] = 'egi'
+            return egicheckin.auth_blueprint_login(blueprint, token)
+
+        # Inject the variable inject_egi_aai_enabled automatically into the context of templates
+        @app.context_processor
+        def inject_egi_aai_enabled():
+            return dict(is_egi_aai_enabled=True)
+
+
+
+
+login_manager = LoginManager()
+login_manager.login_message = None
+login_manager.login_message_category = "info"
+login_manager.login_view = "login"
+
+login_manager.init_app(app)
+
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(user_id)
 
 from app.home.routes import home_bp
 app.register_blueprint(home_bp, url_prefix="/home")
@@ -137,8 +181,6 @@ if not isinstance(numeric_level, int):
     raise ValueError('Invalid log level: %s' % loglevel)
 
 logging.basicConfig(level=numeric_level)
-
-from app import models
 
 # check if database exists
 engine = db.get_engine(app)

@@ -14,7 +14,7 @@
 
 from flask import Blueprint, render_template, flash, request
 from app.providers import sla
-from app import app, iam_blueprint
+from app import app
 from app.lib import auth, settings
 import requests
 
@@ -28,7 +28,7 @@ def getslas():
     slas = {}
 
     try:
-        access_token = iam_blueprint.session.token['access_token']
+        access_token = app.get_auth_blueprint().session.token['access_token']
         app.logger.debug("SLAM_URL: {}".format(settings.orchestratorConf['slam_url']))
         slas = sla.get_slas(access_token, settings.orchestratorConf['slam_url'], settings.orchestratorConf['cmdb_url'])
         app.logger.debug("SLAs: {}".format(slas))
@@ -46,7 +46,7 @@ def get_monitoring_info():
     serviceid = request.args.get('service_id', None)
     # servicetype = request.args.get('service_type',None)
 
-    access_token = iam_blueprint.session.token['access_token']
+    access_token = app.get_auth_blueprint().session.token['access_token']
 
     headers = {'Authorization': 'bearer %s' % access_token}
     url = settings.orchestratorConf[

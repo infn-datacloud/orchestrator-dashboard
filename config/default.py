@@ -4,6 +4,12 @@ CONFIGURATION_PROFILE = "default"
 IAM_CLIENT_ID = "XXX-XXX-XXX-XXX-XXX"
 IAM_CLIENT_SECRET = "************"
 IAM_BASE_URL = "https://iam.example.com"
+EGI_AAI_BASE_URL="https://https://aai-dev.egi.eu/oidc/"
+EGI_AAI_CLIENT_ID=""
+EGI_AAI_CLIENT_SECRET=""
+
+TRUSTED_OIDC_IDP_LIST = [ { 'iss': 'https://iam.example.org/', 'type': 'indigoiam' } ]
+
 ORCHESTRATOR_URL = "https://orchestrator.example.com"
 CALLBACK_URL = "https://dashboard.example.com/home/callback"
 

@@ -15,8 +15,8 @@
 import copy
 
 from flask import Blueprint, session, render_template, flash, redirect, url_for, json, request
-from app import app, iam_blueprint, tosca, vaultservice
-from app.lib import auth, utils, settings, dbhelpers, yourls
+from app import app, tosca, vaultservice
+from app.lib import auth, utils, mail_utils, settings, dbhelpers, yourls
 from app.lib.ldap_user import LdapUserManager
 from app.models.Deployment import Deployment
 from app.providers import sla
@@ -53,7 +53,7 @@ if not issuer.endswith('/'):
 @deployments_bp.route('/all')
 @auth.authorized_with_valid_token
 def showdeployments():
-    access_token = iam_blueprint.session.token['access_token']
+    access_token = app.get_auth_blueprint().session.token['access_token']
 
     headers = {'Authorization': 'bearer %s' % access_token}
     params = "createdBy=me&page={}&size={}".format(0, 999999)
@@ -82,7 +82,7 @@ def showdeployments():
 @deployments_bp.route('/<depid>/template')
 @auth.authorized_with_valid_token
 def deptemplate(depid=None):
-    access_token = iam_blueprint.session.token['access_token']
+    access_token = app.get_auth_blueprint().session.token['access_token']
     headers = {'Authorization': 'bearer %s' % access_token}
 
     url = settings.orchestratorUrl + "/deployments/" + depid + "/template"
@@ -156,7 +156,7 @@ def depoutput(depid=None):
                 inputs[k] = v
 
 
-        additional_outputs = getadditionaloutputs(dep, iam_blueprint.session.token['access_token'])
+        additional_outputs = getadditionaloutputs(dep, app.get_auth_blueprint().session.token['access_token'])
 
         outputs = {**outputs, **additional_outputs}
 
@@ -219,7 +219,7 @@ def extract_info_from_deplog(access_token, uuid, info_type):
 
 @deployments_bp.route('/<depid>/templatedb')
 def deptemplatedb(depid):
-    if not iam_blueprint.session.authorized:
+    if not app.get_auth_blueprint().session.authorized:
         return redirect(url_for('home_bp.login'))
 
     # retrieve deployment from DB
@@ -234,7 +234,7 @@ def deptemplatedb(depid):
 @deployments_bp.route('/<depid>/log')
 @auth.authorized_with_valid_token
 def deplog(depid=None):
-    access_token = iam_blueprint.session.token['access_token']
+    access_token = app.get_auth_blueprint().session.token['access_token']
     headers = {'Authorization': 'bearer %s' % access_token}
 
     # app.logger.debug("Configuration: " + json.dumps(settings.orchestratorConf))
@@ -253,7 +253,7 @@ def deplog(depid=None):
 @deployments_bp.route('/<depid>/infradetails')
 @auth.authorized_with_valid_token
 def depinfradetails(depid=None, path=None):
-    access_token = iam_blueprint.session.token['access_token']
+    access_token = app.get_auth_blueprint().session.token['access_token']
     headers = {'Authorization': 'bearer %s' % access_token}
 
     # app.logger.debug("Configuration: " + json.dumps(settings.orchestratorConf))
@@ -275,7 +275,7 @@ def depinfradetails(depid=None, path=None):
 @deployments_bp.route('/<depid>/qcgdetails')
 @auth.authorized_with_valid_token
 def depqcgdetails(depid=None, path=None):
-    access_token = iam_blueprint.session.token['access_token']
+    access_token = app.get_auth_blueprint().session.token['access_token']
     headers = {'Authorization': 'bearer %s' % access_token}
 
     # app.logger.debug("Configuration: " + json.dumps(settings.orchestratorConf))
@@ -298,7 +298,7 @@ def depqcgdetails(depid=None, path=None):
 @deployments_bp.route('/<depid>/delete')
 @auth.authorized_with_valid_token
 def depdel(depid=None):
-    access_token = iam_blueprint.session.token['access_token']
+    access_token = app.get_auth_blueprint().session.token['access_token']
     headers = {'Authorization': 'bearer %s' % access_token}
     url = settings.orchestratorUrl + "/deployments/" + depid
     response = requests.delete(url, headers=headers)
@@ -320,7 +320,7 @@ def depupdate(depid=None):
     if depid is not None:
         dep = dbhelpers.get_deployment(depid)
         if dep is not None:
-            access_token = iam_blueprint.session.token['access_token']
+            access_token = app.get_auth_blueprint().session.token['access_token']
             template = dep.template
             tosca_info = tosca.extracttoscainfo(yaml.full_load(io.StringIO(template)), None)
             inputs = json.loads(dep.inputs.strip('\"')) if dep.inputs else {}
@@ -362,7 +362,7 @@ def depupdate(depid=None):
 @auth.authorized_with_valid_token
 def updatedep():
 
-    access_token = iam_blueprint.session.token['access_token']
+    access_token = app.get_auth_blueprint().session.token['access_token']
 
     form_data = request.form.to_dict()
 
@@ -432,7 +432,7 @@ def updatedep():
 @deployments_bp.route('/configure', methods=['GET', 'POST'])
 @auth.authorized_with_valid_token
 def configure():
-    access_token = iam_blueprint.session.token['access_token']
+    access_token = app.get_auth_blueprint().session.token['access_token']
 
     selected_tosca = None
 
@@ -508,7 +508,7 @@ def add_sla_to_template(template, sla_id):
 @deployments_bp.route('/submit', methods=['POST'])
 @auth.authorized_with_valid_token
 def createdep():
-    access_token = iam_blueprint.session.token['access_token']
+    access_token = app.get_auth_blueprint().session.token['access_token']
     selected_template = request.args.get('template')
     source_template = tosca.tosca_info[selected_template]
 
@@ -677,7 +677,7 @@ def createdep():
             except Forbidden as e:
                 app.logger.error("Error while testing S3: {}".format(e))
                 flash(" Sorry, your request needs a special authorization. A notification has been sent automatically to the support team. You will be contacted soon.", 'danger')
-                utils.send_authorization_request_email("Sync&Share aaS for group {}".format(session["active_usergroup"]))
+                mail_utils.send_authorization_request_email("Sync&Share aaS for group {}".format(session["active_usergroup"]))
                 doprocess = False
             except Exception as e:
                 flash(" The deployment submission failed with: {}. Please contact the admin(s): {}".format(e, app.config.get('SUPPORT_EMAIL')), 'danger')

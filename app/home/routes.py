@@ -12,8 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .. import app, iam_blueprint, tosca
-from app.lib import utils, auth, settings, dbhelpers, openstack
+from .. import app, tosca
+from app.lib import utils, mail_utils, auth, settings, dbhelpers, openstack
 from app.models.User import User
 from markupsafe import Markup
 from flask import Blueprint, json, render_template, request, redirect, url_for, session, make_response, flash
@@ -86,10 +86,14 @@ def check_template_access(user_groups):
 @app.route('/')
 @home_bp.route('/')
 def home():
-    if not iam_blueprint.session.authorized:
+    auth_blueprint = app.get_auth_blueprint()
+    if auth_blueprint is None or not app.get_auth_blueprint().session.authorized:
         return redirect(url_for('home_bp.login'))
 
-    account_info = iam_blueprint.session.get("/userinfo")
+    account_info = app.get_auth_blueprint().session.get("/userinfo")
+
+    templates_info = {}
+    tg = False
 
     if account_info.ok:
         account_info_json = account_info.json()
@@ -165,8 +169,9 @@ def set_active_usergroup():
 
 @home_bp.route('/logout')
 def logout():
+
+    app.get_auth_blueprint().session.get("/logout")
     session.clear()
-    iam_blueprint.session.get("/logout")
     return redirect(url_for('home_bp.login'))
 
 
@@ -211,25 +216,25 @@ def callback():
     if mail_sender and user_email != '' and rf == 1:
         if status == 'CREATE_COMPLETE':
             try:
-                utils.create_and_send_email("Deployment complete", mail_sender, [user_email], uuid, status)
+                mail_utils.create_and_send_email("Deployment complete", mail_sender, [user_email], uuid, status)
             except Exception as error:
                 utils.logexception("sending email:".format(error))
 
         if status == 'CREATE_FAILED':
             try:
-                utils.create_and_send_email("Deployment failed", mail_sender, [user_email], uuid, status)
+                mail_utils.create_and_send_email("Deployment failed", mail_sender, [user_email], uuid, status)
             except Exception as error:
                 utils.logexception("sending email:".format(error))
 
         if status == 'UPDATE_COMPLETE':
             try:
-                utils.create_and_send_email("Deployment update complete", mail_sender, [user_email], uuid, status)
+                mail_utils.create_and_send_email("Deployment update complete", mail_sender, [user_email], uuid, status)
             except Exception as error:
                 utils.logexception("sending email:".format(error))
 
         if status == 'UPDATE_FAILED':
             try:
-                utils.create_and_send_email("Deployment update failed", mail_sender, [user_email], uuid, status)
+                mail_utils.create_and_send_email("Deployment update failed", mail_sender, [user_email], uuid, status)
             except Exception as error:
                 utils.logexception("sending email:".format(error))
 
@@ -245,12 +250,12 @@ def getauthorization():
     tasks = json.loads(request.form.to_dict()["pre_tasks"].replace("'", "\""))
 
     functions = {'openstack.get_unscoped_keystone_token': openstack.get_unscoped_keystone_token,
-                 'send_mail': utils.send_authorization_request_email}
+                 'send_mail': mail_utils.send_authorization_request_email}
 
     for task in tasks["pre_tasks"]:
         func = task["action"]
         args = task["args"]
-        args["access_token"] = iam_blueprint.session.token['access_token']
+        args["access_token"] = app.get_auth_blueprint().session.token['access_token']
         if func in functions:
             functions[func](**args)
 
@@ -263,7 +268,7 @@ def sendaccessrequest():
     form_data = request.form.to_dict()
 
     try:
-        utils.send_authorization_request_email(form_data['service_type'], email=form_data['email'], message=form_data['message'])
+        mail_utils.send_authorization_request_email(form_data['service_type'], email=form_data['email'], message=form_data['message'])
 
         flash(
             "Your request has been sent to the support team. You will receive soon a notification email about your request. Thank you!",
@@ -285,7 +290,7 @@ def contact():
     try:
         message = Markup(
             "Name: {}<br>Email: {}<br>Message: {}".format(form_data['name'], form_data['email'], form_data['message']))
-        utils.send_email("New contact",
+        mail_utils.send_email("New contact",
                    sender=app.config.get('MAIL_SENDER'),
                    recipients=[app.config.get('SUPPORT_EMAIL')],
                    html_body=message)

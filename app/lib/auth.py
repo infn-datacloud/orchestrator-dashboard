@@ -12,18 +12,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from app import app, iam_blueprint
+from app import app
 from flask import redirect, render_template, session, url_for, json
 from functools import wraps
 import ast
 import requests
-from . import utils, settings
+from . import utils, settings, dbhelpers
+
+
+def get_access_token(sub):
+    user = dbhelpers.get_user(sub)
+    if user is not None:
+        return user.oauth.token
+    return None
 
 
 def validate_configuration():
     if not settings.orchestratorConf.get('im_url'):
         app.logger.debug("Trying to (re)load config from Orchestrator: " + json.dumps(settings.orchestratorConf))
-        access_token = iam_blueprint.session.token['access_token']
+        access_token = app.get_auth_blueprint().session.token['access_token']
         configuration = utils.getorchestratorconfiguration(settings.orchestratorUrl, access_token)
         settings.orchestratorConf = configuration
 
@@ -32,12 +39,12 @@ def authorized_with_valid_token(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
 
-        if not iam_blueprint.session.authorized or 'username' not in session:
-            return redirect(url_for('iam.login'))
+        if not app.get_auth_blueprint().session.authorized or 'username' not in session:
+            return render_template(app.config.get('HOME_TEMPLATE'))
 
-        if iam_blueprint.session.token['expires_in'] < 60:
+        if app.get_auth_blueprint().session.token['expires_in'] < 60:
             app.logger.debug("Force refresh token")
-            iam_blueprint.session.get('/userinfo')
+            app.get_auth_blueprint().session.get('/userinfo')
 
         validate_configuration()
 
