@@ -90,7 +90,7 @@ def home():
     if auth_blueprint is None or not app.get_auth_blueprint().session.authorized:
         return redirect(url_for('home_bp.login'))
 
-    account_info = app.get_auth_blueprint().session.get("/userinfo")
+    account_info = app.get_auth_userinfo()
 
     templates_info = {}
     tg = False
@@ -170,7 +170,9 @@ def set_active_usergroup():
 @home_bp.route('/logout')
 def logout():
 
-    app.get_auth_blueprint().session.get("/logout")
+    blueprint = app.get_auth_blueprint()
+    if blueprint is not None:
+        blueprint.session.get("/logout")
     session.clear()
     return redirect(url_for('home_bp.login'))
 

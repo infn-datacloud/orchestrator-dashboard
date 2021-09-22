@@ -116,6 +116,18 @@ def get_auth_blueprint(self):
 app.get_auth_blueprint = get_auth_blueprint.__get__('')
 
 
+def get_auth_userinfo(self):
+    if 'auth_blueprint' in session.keys():
+        bp = session['auth_blueprint']
+        if bp == 'iam':
+            return app.iam_blueprint.session.get("/userinfo")
+        if bp == 'egi':
+            return app.egicheckin_blueprint.session.get('/oidc/userinfo')
+    return None
+
+app.get_auth_userinfo = get_auth_userinfo.__get__('')
+
+
 with app.app_context():
     app.iam_blueprint = indigoiam.create_blueprint()
     app.register_blueprint(app.iam_blueprint, url_prefix="/login")

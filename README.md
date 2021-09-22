@@ -22,7 +22,7 @@ Register a client in IAM with the following properties:
 - introspection endpoint enabled
 
 Create the folder `instance` to put the application configuration files:
- - (mandatory) `config.json` file (see the [example](app/config-sample.json))
+ - (mandatory) `config.json` file (see the [example](instance/config-sample.json))
  - (optional) `vault-config.json` file (see the [example]() needed to enable the integration with Vault 
  
 ````

@@ -44,7 +44,7 @@ def authorized_with_valid_token(f):
 
         if app.get_auth_blueprint().session.token['expires_in'] < 60:
             app.logger.debug("Force refresh token")
-            app.get_auth_blueprint().session.get('/userinfo')
+            app.get_auth_userinfo()
 
         validate_configuration()
 
