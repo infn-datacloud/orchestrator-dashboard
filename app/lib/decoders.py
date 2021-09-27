@@ -21,10 +21,13 @@ class IndigoTokenDecoder:
 
 class EgiTokenDecoder:
     def get_groups(self, info):
-        memberships = info['eduperson_entitlement']
+        if info is not None and 'eduperson_entitlement' in info.keys():
+            memberships = info['eduperson_entitlement']
+        else:
+            memberships = []
         pattern = 'urn:mace:egi.eu:group:(.*):role=vm_operator#aai.egi.eu'
 
-        groups=[]
+        groups = []
         for m in memberships:
             match = re.search(pattern, m)
             if match:

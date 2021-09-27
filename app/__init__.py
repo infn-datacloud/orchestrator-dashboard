@@ -30,6 +30,7 @@ from flaat import Flaat
 from flask_dance.consumer import oauth_authorized
 import logging
 
+
 # initialize SQLAlchemy
 db: SQLAlchemy = SQLAlchemy()
 
@@ -66,6 +67,7 @@ flaat.set_client_connect_timeout(20)
 flaat.set_iss_config_timeout(20)
 
 from app.lib import indigoiam, egicheckin
+from app.lib import dbhelpers
 from app.models.User import User
 
 @app.context_processor
@@ -165,7 +167,7 @@ login_manager.init_app(app)
 
 @login_manager.user_loader
 def load_user(user_id):
-    return User.query.get(user_id)
+    return dbhelpers.get_user(user_id)
 
 from app.home.routes import home_bp
 app.register_blueprint(home_bp, url_prefix="/home")

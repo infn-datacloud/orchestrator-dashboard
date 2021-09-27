@@ -12,16 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from flaat import tokentools
-from flask import flash, current_app as app
+from flask import flash, current_app as app, request
 from flask_dance import OAuth2ConsumerBlueprint
 from flask_dance.consumer.storage.sqla import SQLAlchemyStorage
 from app import db
 from app.models.OAuth import OAuth
 from app.models.User import User
 from flask_login import current_user, login_user
-from app import app
+from app import app, flaat
 from app.lib import utils, dbhelpers, decoders
-
+from flaat import tokentools, issuertools
 
 from flask import json, session
 
@@ -67,7 +67,11 @@ def auth_blueprint_login(blueprint, token):
     session['userrole'] = 'user'
     session['gravatar'] = utils.avatar(account_info_json['email'], 26)
     session['organisation_name'] = user_id.split('@')[1]
-    #session['usergroups'] = account_info_json['groups']
+
+    info = flaat.get_info_from_userinfo_endpoints(token['access_token'])
+    groups = decoders.EgiTokenDecoder.get_groups(None, info)
+    session['usergroups'] = groups
+    session.permanent = False
 
     # check database
     # if user not found, insert

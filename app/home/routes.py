@@ -87,7 +87,7 @@ def check_template_access(user_groups):
 @home_bp.route('/')
 def home():
     auth_blueprint = app.get_auth_blueprint()
-    if auth_blueprint is None or not app.get_auth_blueprint().session.authorized:
+    if auth_blueprint is None or not auth_blueprint.session.authorized:
         return redirect(url_for('home_bp.login'))
 
     account_info = app.get_auth_userinfo()
@@ -97,7 +97,8 @@ def home():
 
     if account_info.ok:
         account_info_json = account_info.json()
-        user_groups = account_info_json['groups']
+        user_groups = session['usergroups'] #auth_blueprint.session['usergroups']
+        #user_groups = account_info_json['groups']
         user_id = account_info_json['sub']
 
         supported_groups = []
@@ -106,14 +107,14 @@ def home():
             if len(supported_groups) == 0:
                 app.logger.warning("The user {} does not belong to any supported user group".format(user_id))
 
-        session['userid'] = user_id
-        session['username'] = account_info_json['name']
-        session['preferred_username'] = account_info_json['preferred_username']
-        session['useremail'] = account_info_json['email']
-        session['userrole'] = 'user'
-        session['gravatar'] = utils.avatar(account_info_json['email'], 26)
-        session['organisation_name'] = account_info_json['organisation_name']
-        session['usergroups'] = user_groups
+        #session['userid'] = user_id
+        #session['username'] = account_info_json['name']
+        #session['preferred_username'] = account_info_json['preferred_username']
+        #session['useremail'] = account_info_json['email']
+        #session['userrole'] = 'user'
+        #session['gravatar'] = utils.avatar(account_info_json['email'], 26)
+        #session['organisation_name'] = account_info_json['organisation_name']
+        #session['usergroups'] = user_groups
         session['supported_usergroups'] = supported_groups
         if 'active_usergroup' not in session:
             session['active_usergroup'] = next(iter(supported_groups), None)
@@ -174,6 +175,7 @@ def logout():
     if blueprint is not None:
         blueprint.session.get("/logout")
     session.clear()
+    session.permanent = False
     return redirect(url_for('home_bp.login'))
 
 

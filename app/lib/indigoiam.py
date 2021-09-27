@@ -82,6 +82,7 @@ def auth_blueprint_login(blueprint, token):
     session['gravatar'] = utils.avatar(account_info_json['email'], 26)
     session['organisation_name'] = account_info_json['organisation_name']
     session['usergroups'] = account_info_json['groups']
+    session.permanent = False
 
     # check database
     # if user not found, insert
