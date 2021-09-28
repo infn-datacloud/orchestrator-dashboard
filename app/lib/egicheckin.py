@@ -63,8 +63,11 @@ def auth_blueprint_login(blueprint, token):
     account_info_json = account_info.json()
     session['userid'] = user_id  #account_info_json['sub']
     session['username'] = account_info_json['preferred_username']
-    session['useremail'] = account_info_json['email']
-    session['userrole'] = 'user'
+    email = account_info_json['email']
+    session['useremail'] = email
+    admins = json.dumps(app.config['ADMINS'])
+    role = 'admin' if email in admins else 'user'
+    session['userrole'] = role
     session['gravatar'] = utils.avatar(account_info_json['email'], 26)
     session['organisation_name'] = user_id.split('@')[1]
 
@@ -79,10 +82,6 @@ def auth_blueprint_login(blueprint, token):
     app.logger.info(dir(User))
     user = dbhelpers.get_user(account_info_json['sub'])
     if user is None:
-        email = account_info_json['email']
-        admins = json.dumps(app.config['ADMINS'])
-        role = 'admin' if email in admins else 'user'
-
         user = User(sub=user_id,
                     name=account_info_json['name'],
                     username=account_info_json['preferred_username'],
@@ -95,7 +94,7 @@ def auth_blueprint_login(blueprint, token):
                     active=1)
         dbhelpers.add_object(user)
 
-    session['userrole'] = user.role  # role
+    # session['userrole'] = user.role  # role
 
     # Find this OAuth token in the database, or create it
     oauth = OAuth.query.filter_by(

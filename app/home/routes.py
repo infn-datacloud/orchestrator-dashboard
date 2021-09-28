@@ -99,7 +99,7 @@ def home():
     if account_info.ok:
         account_info_json = account_info.json()
         user_groups = session['usergroups'] #auth_blueprint.session['usergroups']
-        #user_groups = account_info_json['groups']
+        # user_groups = account_info_json['groups']
         user_id = account_info_json['sub']
 
         supported_groups = []
@@ -108,14 +108,14 @@ def home():
             if len(supported_groups) == 0:
                 app.logger.warning("The user {} does not belong to any supported user group".format(user_id))
 
-        #session['userid'] = user_id
-        #session['username'] = account_info_json['name']
-        #session['preferred_username'] = account_info_json['preferred_username']
-        #session['useremail'] = account_info_json['email']
-        #session['userrole'] = 'user'
-        #session['gravatar'] = utils.avatar(account_info_json['email'], 26)
-        #session['organisation_name'] = account_info_json['organisation_name']
-        #session['usergroups'] = user_groups
+        # session['userid'] = user_id
+        # session['username'] = account_info_json['name']
+        # session['preferred_username'] = account_info_json['preferred_username']
+        # session['useremail'] = account_info_json['email']
+        # session['userrole'] = 'user'
+        # session['gravatar'] = utils.avatar(account_info_json['email'], 26)
+        # session['organisation_name'] = account_info_json['organisation_name']
+        # session['usergroups'] = user_groups
         session['supported_usergroups'] = supported_groups
         if 'active_usergroup' not in session:
             session['active_usergroup'] = next(iter(supported_groups), None)
