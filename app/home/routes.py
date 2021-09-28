@@ -17,6 +17,7 @@ from app.lib import utils, mail_utils, auth, settings, dbhelpers, openstack
 from app.models.User import User
 from markupsafe import Markup
 from flask import Blueprint, json, render_template, request, redirect, url_for, session, make_response, flash
+from flask_login import logout_user
 import json
 
 iam_base_url = settings.iamUrl
@@ -171,11 +172,15 @@ def set_active_usergroup():
 @home_bp.route('/logout')
 def logout():
 
-    blueprint = app.get_auth_blueprint()
-    if blueprint is not None:
-        blueprint.session.get("/logout")
+    # blueprint = app.get_auth_blueprint()
+    # if blueprint is not None:
+    #    blueprint.session.get("/logout")
+    oauth = app.get_user_oauth()
+    if oauth is not None:
+        dbhelpers.delete_object(oauth)
+
+    logout_user()
     session.clear()
-    session.permanent = False
     return redirect(url_for('home_bp.login'))
 
 

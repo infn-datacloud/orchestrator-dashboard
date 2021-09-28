@@ -130,6 +130,21 @@ def get_auth_userinfo(self):
 app.get_auth_userinfo = get_auth_userinfo.__get__('')
 
 
+def get_user_oauth(self):
+    userid = session['userid']
+    if userid is not None:
+        user = dbhelpers.get_user(userid)
+        if user is not None and 'auth_blueprint' in session.keys():
+            bp = session['auth_blueprint']
+            if bp == 'iam':
+                return user.oauth['iam']
+            if bp == 'egi':
+                return user.oauth['egiaai']
+    return None
+
+app.get_user_oauth = get_user_oauth.__get__('')
+
+
 with app.app_context():
     app.iam_blueprint = indigoiam.create_blueprint()
     app.register_blueprint(app.iam_blueprint, url_prefix="/login")

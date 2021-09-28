@@ -18,12 +18,18 @@ import requests
 from dateutil import parser
 from app.models.Deployment import Deployment
 from app.models.User import User
+from app.models.OAuth import OAuth
 from flask import json
 import datetime
 
 
 def add_object(object):
     db.session.add(object)
+    db.session.commit()
+
+
+def delete_object(object):
+    db.session.delete(object)
     db.session.commit()
 
 
@@ -49,6 +55,10 @@ def get_ssh_pub_key(subject):
 def delete_ssh_key(subject):
     User.query.get(subject).sshkey = None
     db.session.commit()
+
+
+def get_oauth(id):
+    return OAuth.query.get(id)
 
 
 def update_deployment(depuuid, data):
