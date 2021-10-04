@@ -115,6 +115,12 @@ def unlockdeployment(depid=None):
         dbhelpers.add_object(dep)
     return redirect(url_for('deployments_bp.showdeployments'))
 
+@deployments_bp.route('/edit', methods=['POST'])
+@auth.authorized_with_valid_token
+def editdeployment():
+    form_data = request.form.to_dict()
+    dbhelpers.update_deployment(form_data["deployment_uuid"],dict(description=form_data["description"]))
+    return redirect(url_for('deployments_bp.showdeployments'))
 
 def preprocess_outputs(browser, outputs, stoutputs):
     for key, value in stoutputs.items():
