@@ -70,6 +70,7 @@ from app.lib import indigoiam, egicheckin
 from app.lib import dbhelpers
 from app.models.User import User
 
+
 @app.context_processor
 def inject_settings():
     return dict(
@@ -106,6 +107,7 @@ mail = Mail(app)
 from app.errors.routes import errors_bp
 app.register_blueprint(errors_bp)
 
+
 def get_auth_blueprint(self):
     if 'auth_blueprint' in session.keys():
         bp = session['auth_blueprint']
@@ -114,6 +116,7 @@ def get_auth_blueprint(self):
         if bp == 'egi':
             return app.egicheckin_blueprint
     return None
+
 
 app.get_auth_blueprint = get_auth_blueprint.__get__('')
 
@@ -126,6 +129,7 @@ def get_auth_userinfo(self):
         if bp == 'egi':
             return app.egicheckin_blueprint.session.get('/oidc/userinfo')
     return None
+
 
 app.get_auth_userinfo = get_auth_userinfo.__get__('')
 
@@ -141,6 +145,7 @@ def get_user_oauth(self):
             if bp == 'egi':
                 return user.oauth['egiaai']
     return None
+
 
 app.get_user_oauth = get_user_oauth.__get__('')
 
@@ -171,8 +176,6 @@ with app.app_context():
             return dict(is_egi_aai_enabled=True)
 
 
-
-
 login_manager = LoginManager()
 login_manager.login_message = None
 login_manager.login_message_category = "info"
@@ -180,9 +183,11 @@ login_manager.login_view = "login"
 
 login_manager.init_app(app)
 
+
 @login_manager.user_loader
 def load_user(user_id):
     return dbhelpers.get_user(user_id)
+
 
 from app.home.routes import home_bp
 app.register_blueprint(home_bp, url_prefix="/home")
