@@ -17,19 +17,20 @@ down_revision = '7e9fa167c199'
 branch_labels = None
 depends_on = None
 
+
 def upgrade():
     try:
         op.drop_constraint('deployments_ibfk_1', 'deployments', type_='foreignkey')
     except:
         pass
     op.alter_column('deployments', 'sub',
-               existing_type=mysql.VARCHAR(length=36),
-               type_=mysql.VARCHAR(length=256),
-               nullable=False)
+                    existing_type=mysql.VARCHAR(length=36),
+                    type_=mysql.VARCHAR(length=256),
+                    nullable=False)
     op.alter_column('users', 'sub',
-               existing_type=mysql.VARCHAR(length=36),
-               type_=mysql.VARCHAR(length=256),
-               nullable=False)
+                    existing_type=mysql.VARCHAR(length=36),
+                    type_=mysql.VARCHAR(length=256),
+                    nullable=False)
     op.create_foreign_key('deployments_ibfk_1', 'deployments', 'users', ['sub'], ['sub'])
     op.create_table('flask_dance_oauth',
                     sa.Column('id', sa.Integer(), nullable=False),
@@ -54,13 +55,12 @@ def downgrade():
     except:
         pass
     op.alter_column('deployments', 'sub',
-               existing_type=mysql.VARCHAR(length=256),
-               type_=mysql.VARCHAR(length=36),
-               nullable=False)
+                    existing_type=mysql.VARCHAR(length=256),
+                    type_=mysql.VARCHAR(length=36),
+                    nullable=False)
     op.alter_column('users', 'sub',
-               existing_type=mysql.VARCHAR(length=256),
-               type_=mysql.VARCHAR(length=36),
-               nullable=False)
+                    existing_type=mysql.VARCHAR(length=256),
+                    type_=mysql.VARCHAR(length=36),
+                    nullable=False)
     op.create_foreign_key('deployments_ibfk_1', 'deployments', 'users', ['sub'], ['sub'])
     # ### end Alembic commands ###
-

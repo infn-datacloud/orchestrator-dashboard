@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from app import app
-from flask import redirect, render_template, session, url_for, json
+from flask import render_template, session, json
 from functools import wraps
 import ast
 import requests

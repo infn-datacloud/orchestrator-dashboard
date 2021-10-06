@@ -36,7 +36,6 @@ import os
 import re
 
 
-
 deployments_bp = Blueprint('deployments_bp', __name__,
                            template_folder='templates',
                            static_folder='static')
@@ -130,9 +129,12 @@ def preprocess_outputs(browser, outputs, stoutputs):
                         app.logger.debug('Error creating short url: {}'.format(str(e)))
                         pass
 
-                if origin_url.scheme == 'http' and browser['name'] == "chrome" and browser['version'] >= 86:
-                    message = stoutputs[key]['warning'] if 'warning' in stoutputs[key] else ""
-                    stoutputs[key]['warning'] = "{}<br>{}".format("The download will be blocked by Chrome. Please, use Firefox for a full user experience.", message)
+                    if origin_url.scheme == 'http' and browser['name'] == "chrome" and browser['version'] >= 86:
+                        message = stoutputs[key]['warning'] if 'warning' in stoutputs[key] else ""
+                        stoutputs[key]['warning'] = "{}<br>{}".format("The download will be blocked by Chrome. Please, "
+                                                                      "use Firefox for a full user experience.",
+                                                                      message)
+
 
 @deployments_bp.route('/<depid>/details')
 @auth.authorized_with_valid_token
@@ -152,9 +154,8 @@ def depoutput(depid=None):
         stoutputs = json.loads(dep.stoutputs.strip('\"')) if dep.stoutputs else {}
         inputs = {}
         for k, v in i.items():
-            if ((stinputs[k]['printable'] if 'printable' in stinputs[k] else True) if k in stinputs else True):
+            if (stinputs[k]['printable'] if 'printable' in stinputs[k] else True) if k in stinputs else True:
                 inputs[k] = v
-
 
         additional_outputs = getadditionaloutputs(dep, app.get_auth_blueprint().session.token['access_token'])
 
@@ -163,13 +164,14 @@ def depoutput(depid=None):
         browser = request.user_agent.browser
         version = request.user_agent.version and int(request.user_agent.version.split('.')[0])
 
-        preprocess_outputs(dict(name = browser, version = version), outputs, stoutputs)
+        preprocess_outputs(dict(name=browser, version=version), outputs, stoutputs)
 
         return render_template('depoutput.html',
                                deployment=dep,
                                inputs=inputs,
                                outputs=outputs,
                                stoutputs=stoutputs)
+
 
 def getadditionaloutputs(dep, access_token):
     uuid = dep.uuid
@@ -182,7 +184,7 @@ def getadditionaloutputs(dep, access_token):
         # try to get kubeconfig file from log
         try:
             kubeconfig = extract_info_from_deplog(access_token, uuid, 'kubeconfig')
-            additional_outputs = { "kubeconfig": kubeconfig }
+            additional_outputs = {"kubeconfig": kubeconfig}
             update = True
         except:
             app.logger.debug("Error while extracting kubeconfig file from log for deployment {}".format(dep.uuid))
@@ -192,7 +194,6 @@ def getadditionaloutputs(dep, access_token):
         dbhelpers.add_object(dep)
 
     return additional_outputs
-
 
 
 def extract_info_from_deplog(access_token, uuid, info_type):
@@ -209,13 +210,13 @@ def extract_info_from_deplog(access_token, uuid, info_type):
 
         if info_type == "kubeconfig":
 
-            match = None
             for line in lines:
                 match = re.search('^.*KUBECONFIG file.*\n.*\n.*\n.*\n.*\n.*\"(apiVersion.*)\"\n.*\n.*$', line)
                 if match is not None:
                     info = match.group(1)
 
     return info
+
 
 @deployments_bp.route('/<depid>/templatedb')
 def deptemplatedb(depid):
@@ -266,11 +267,12 @@ def depinfradetails(depid=None, path=None):
         app.logger.debug("VMs details: {}".format(response.text))
         details = []
         for vm_details in vminfos:
-             vminfo = utils.format_json_radl(vm_details["vmProperties"])
-             details.append(vminfo)
+            vminfo = utils.format_json_radl(vm_details["vmProperties"])
+            details.append(vminfo)
 
         return render_template('depinfradetails.html', vmsdetails=details)
     return redirect(url_for('deployments_bp.showdeployments'))
+
 
 @deployments_bp.route('/<depid>/qcgdetails')
 @auth.authorized_with_valid_token
@@ -340,7 +342,6 @@ def depupdate(depid=None):
                                 settings.orchestratorConf['cmdb_url'], dep.deployment_type)
             ssh_pub_key = dbhelpers.get_ssh_pub_key(session['userid'])
 
-
             return render_template('updatedep.html',
                                    template=tosca_info,
                                    template_description=tosca_info['description'],
@@ -391,8 +392,8 @@ def updatedep():
             remove_sla_from_template(template)
 
         inputs = {k: v for (k, v) in form_data.items() if not k.startswith("extra_opts.") and not k == '_depid'}
-        #oldinputs = json.loads(dep.inputs.strip('\"')) if dep.inputs else {}
-        #inputs = {**oldinputs, **inputs}
+        # oldinputs = json.loads(dep.inputs.strip('\"')) if dep.inputs else {}
+        # inputs = {**oldinputs, **inputs}
 
         additionaldescription = form_data['additional_description']
 
@@ -420,7 +421,7 @@ def updatedep():
             dep.feedback_required = feedback_required
             dep.description = additionaldescription
             dep.template = template_text
-            #dep.inputs = json.dumps(inputs),
+            # dep.inputs = json.dumps(inputs),
             oldinputs = json.loads(dep.inputs.strip('\"')) if dep.inputs else {}
             updatedinputs = {**oldinputs, **inputs}
             dep.inputs = json.dumps(updatedinputs),
@@ -463,7 +464,8 @@ def configure():
         ssh_pub_key = dbhelpers.get_ssh_pub_key(session['userid'])
 
         if not ssh_pub_key and app.config.get('FEATURE_REQUIRE_USER_SSH_PUBKEY') == 'yes':
-            flash('Warning! You will not be able to deploy your service as no Public SSH key has been uploaded.', "danger")
+            flash('Warning! You will not be able to deploy your service as no Public SSH key has been uploaded.',
+                  "danger")
 
         return render_template('createdep.html',
                                template=template,
@@ -514,7 +516,6 @@ def createdep():
 
     app.logger.debug("Form data: " + json.dumps(request.form.to_dict()))
 
-
     with io.open(os.path.join(settings.toscaDir, selected_template)) as stream:
         template = yaml.full_load(stream)
         # rewind file
@@ -552,20 +553,20 @@ def createdep():
     swift_filename = []
     swift_map = {}
 
-    uuidgen_deployment = str(uuid_generator.uuid1());
+    uuidgen_deployment = str(uuid_generator.uuid1())
 
-    for key,value in stinputs.items():
+    for key, value in stinputs.items():
         # Manage security groups
-        if value["type"]=="map" and value["entry_schema"]["type"]=="tosca.datatypes.network.PortSpec":
+        if value["type"] == "map" and value["entry_schema"]["type"] == "tosca.datatypes.network.PortSpec":
             if key in inputs:
                 try:
                     inputs[key] = json.loads(form_data[key])
-                    for k,v in inputs[key].items():
+                    for k, v in inputs[key].items():
                         if ',' in v['source']:
-                          v['source_range'] = json.loads(v.pop('source', None))
+                            v['source_range'] = json.loads(v.pop('source', None))
                 except:
                     del inputs[key]
-                    inputs[key] = { "ssh": { "protocol": "tcp", "source": 22 } }
+                    inputs[key] = {"ssh": {"protocol": "tcp", "source": 22}}
 
                 if "required_ports" in value:
                     inputs[key] = {**value["required_ports"], **inputs[key]}
@@ -573,21 +574,22 @@ def createdep():
                 if "required_ports" in value:
                     inputs[key] = value["required_ports"]
         # Manage map of string
-        if value["type"]=="map" and value["entry_schema"]["type"]=="string":
+        if value["type"] == "map" and value["entry_schema"]["type"] == "string":
             if key in inputs:
                 try:
                     inputs[key] = {}
-                    map = json.loads(form_data[key])
-                    for k,v in map.items():
+                    m = json.loads(form_data[key])
+                    for k,v in m.items():
                         inputs[key][v['key']] = v['value']
                 except:
                     del inputs[key]
         # Manage list
-        if value["type"]=="list":
+        if value["type"] == "list":
             if key in inputs:
                 try:
                     json_data = json.loads(form_data[key])
-                    if value["entry_schema"]["type"]=="map" and value["entry_schema"]["entry_schema"]["type"]=="string":
+                    if value["entry_schema"]["type"] == "map" and value["entry_schema"]["entry_schema"]["type"] == \
+                            "string":
                         array = []
                         for el in json_data:
                             array.append({el['key']: el['value']})
@@ -595,9 +597,12 @@ def createdep():
                     # elif value["entry_schema"]["type"]=="tosca.datatypes.indigo.User":
                     #     if app.config.get('FEATURE_REQUIRE_USER_SSH_PUBKEY')=='yes':
                     #         if dbhelpers.get_ssh_pub_key(session['userid']):
-                    #             inputs[key] = [ { "os_user_name": session['preferred_username'], "os_user_add_to_sudoers": True, "os_user_ssh_public_key": dbhelpers.get_ssh_pub_key(session['userid'])  } ]
+                    #             inputs[key] = [ { "os_user_name": session['preferred_username'],
+                    #             "os_user_add_to_sudoers": True, "os_user_ssh_public_key":
+                    #             dbhelpers.get_ssh_pub_key(session['userid'])  } ]
                     #         else:
-                    #             flash("Deployment request failed: no SSH key found. Please upload your key.", "danger")
+                    #             flash("Deployment request failed: no SSH key found. Please upload your key.",
+                    #             "danger")
                     #             doprocess = False
                     #     else:
                     #         inputs[key] = json_data
@@ -608,9 +613,10 @@ def createdep():
 
         if value['type'] == 'ssh_user':
             app.logger.info("Add ssh user")
-            if app.config.get('FEATURE_REQUIRE_USER_SSH_PUBKEY')=='yes':
+            if app.config.get('FEATURE_REQUIRE_USER_SSH_PUBKEY') == 'yes':
                 if dbhelpers.get_ssh_pub_key(session['userid']):
-                    inputs[key] = [ { "os_user_name": session['preferred_username'], "os_user_add_to_sudoers": True, "os_user_ssh_public_key": dbhelpers.get_ssh_pub_key(session['userid'])  } ]
+                    inputs[key] = [{"os_user_name": session['preferred_username'], "os_user_add_to_sudoers": True,
+                                    "os_user_ssh_public_key": dbhelpers.get_ssh_pub_key(session['userid'])}]
                 else:
                     flash("Deployment request failed: no SSH key found. Please upload your key.", "danger")
                     doprocess = False
@@ -650,15 +656,19 @@ def createdep():
             prefix = ''
             suffix = ''
             if "extra_specs" in value:
-              prefix = value["extra_specs"]["prefix"] if "prefix" in value["extra_specs"] else ""
-              suffix = value["extra_specs"]["suffix"] if "suffix" in value["extra_specs"] else ""
+                prefix = value["extra_specs"]["prefix"] if "prefix" in value["extra_specs"] else ""
+                suffix = value["extra_specs"]["suffix"] if "suffix" in value["extra_specs"] else ""
             inputs[key] = prefix + uuidgen_deployment + suffix
 
         if value["type"] == "openstack_ec2credentials":
             try:
                 del inputs[key]
-                project = next(filter(lambda tenant: tenant.get('group') == session['active_usergroup'], value['auth']['tenants']), None)
-                access, secret = keystone.get_or_create_ec2_creds(access_token, project.get('name'), value["auth"]["url"], value["auth"]["identity_provider"], value["auth"]["protocol"])
+                project = next(filter(lambda tenant: tenant.get('group') == session['active_usergroup'],
+                                      value['auth']['tenants']), None)
+                access, secret = keystone.get_or_create_ec2_creds(access_token, project.get('name'),
+                                                                  value["auth"]["url"],
+                                                                  value["auth"]["identity_provider"],
+                                                                  value["auth"]["protocol"])
                 access_key_input_name = value["inputs"]["aws_access_key"]
                 inputs[access_key_input_name] = access
                 secret_key_input_name = value["inputs"]["aws_secret_key"]
@@ -668,19 +678,23 @@ def createdep():
 
                 if "tests" in value and value["tests"]:
                     for test in value["tests"]:
-                       func = test["action"]
-                       args = test["args"]
-                       args["access_key"] = access
-                       args["secret_key"] = secret
-                       if func in functions:
-                           functions[func](**args)
+                        func = test["action"]
+                        args = test["args"]
+                        args["access_key"] = access
+                        args["secret_key"] = secret
+                        if func in functions:
+                            functions[func](**args)
             except Forbidden as e:
                 app.logger.error("Error while testing S3: {}".format(e))
-                flash(" Sorry, your request needs a special authorization. A notification has been sent automatically to the support team. You will be contacted soon.", 'danger')
-                mail_utils.send_authorization_request_email("Sync&Share aaS for group {}".format(session["active_usergroup"]))
+                flash(" Sorry, your request needs a special authorization. "
+                      "A notification has been sent automatically to the support team. You will be contacted soon.",
+                      'danger')
+                mail_utils.send_authorization_request_email(
+                    "Sync&Share aaS for group {}".format(session["active_usergroup"]))
                 doprocess = False
             except Exception as e:
-                flash(" The deployment submission failed with: {}. Please contact the admin(s): {}".format(e, app.config.get('SUPPORT_EMAIL')), 'danger')
+                flash(" The deployment submission failed with: {}. Please contact the admin(s): {}"
+                      .format(e, app.config.get('SUPPORT_EMAIL')), 'danger')
                 doprocess = False
 
         if value["type"] == "ldap_user":
@@ -695,10 +709,10 @@ def createdep():
                 email = session['useremail']
 
                 jwt_token = auth.exchange_token_with_audience(iam_base_url,
-                                                      iam_client_id,
-                                                      iam_client_secret,
-                                                      access_token,
-                                                      app.config.get('VAULT_BOUND_AUDIENCE'))
+                                                              iam_client_id,
+                                                              iam_client_secret,
+                                                              access_token,
+                                                              app.config.get('VAULT_BOUND_AUDIENCE'))
 
                 vaultclient = vaultservice.connect(jwt_token, app.config.get("VAULT_ROLE"))
                 luser = LdapUserManager(app.config['LDAP_SOCKET'],
@@ -715,10 +729,9 @@ def createdep():
 
             except Exception as e:
                 app.logger.error("Error: {}".format(e))
-                flash(" The deployment submission failed with: {}. Please try later or contact the admin(s): {}".format(e, app.config.get('SUPPORT_EMAIL')), 'danger')
+                flash(" The deployment submission failed with: {}. Please try later or contact the admin(s): {}"
+                      .format(e, app.config.get('SUPPORT_EMAIL')), 'danger')
                 doprocess = False
-
-
 
     if swift and swift_map:
         for k, v in swift_map.items():
@@ -726,56 +739,51 @@ def createdep():
             if val is not None:
                 inputs[v] = val
 
-
-
     swiftprocess = False
     containername = filename = None
 
     if swift_filename:
 
-      for f in swift_filename:
+        for f in swift_filename:
 
-        file = request.files[f]
-        if file:
-            upload_folder = app.config['UPLOAD_FOLDER']
-            upload_folder = os.path.join(upload_folder, swift_uuid)
-            filename = secure_filename(file.filename)
-            fullfilename = os.path.join(upload_folder, filename)
-            if not os.path.exists(upload_folder):
-                os.makedirs(upload_folder)
-            file.save(fullfilename)
+            file = request.files[f]
+            if file:
+                upload_folder = app.config['UPLOAD_FOLDER']
+                upload_folder = os.path.join(upload_folder, swift_uuid)
+                filename = secure_filename(file.filename)
+                fullfilename = os.path.join(upload_folder, filename)
+                if not os.path.exists(upload_folder):
+                    os.makedirs(upload_folder)
+                file.save(fullfilename)
 
-            if f not in inputs:
-                inputs[f] = file.filename
+                if f not in inputs:
+                    inputs[f] = file.filename
 
-            containername = basecontainername = swift.basecontainername
-            containers = swift.getownedcontainers()
-            basecontainer = next(filter(lambda x: x['name'] == basecontainername, containers), None)
-            if basecontainer is None:
-                swift.createcontainer(basecontainername)
+                containername = basecontainername = swift.basecontainername
+                containers = swift.getownedcontainers()
+                basecontainer = next(filter(lambda x: x['name'] == basecontainername, containers), None)
+                if basecontainer is None:
+                    swift.createcontainer(basecontainername)
 
+                containername = basecontainername + "/" + swift_uuid
 
-            containername = basecontainername + "/" + swift_uuid
+                with open(fullfilename, 'rb') as ff:
+                    calchash = swift.md5hash(ff)
+                with open(fullfilename, 'rb') as ff:
+                    objecthash = swift.createobject(containername, filename, contents=ff.read())
 
-            with open(fullfilename, 'rb') as f:
-                calchash = swift.md5hash(f)
-            with open(fullfilename, 'rb') as f:
-                objecthash = swift.createobject(containername, filename, contents=f.read())
+                if hash is not None and objecthash != swift.emptyMd5:
+                    swiftprocess = True
 
-            if hash is not None and objecthash != swift.emptyMd5:
-                swiftprocess = True
+                os.remove(fullfilename)
+                os.rmdir(upload_folder)
 
-            os.remove(fullfilename)
-            os.rmdir(upload_folder)
-
-            if calchash != objecthash:
+                if calchash != objecthash:
+                    doprocess = False
+                    flash("Wrong swift file checksum!", 'danger')
+            else:
                 doprocess = False
-                flash("Wrong swift file checksum!", 'danger')
-        else:
-            doprocess = False
-            flash("Missing file object!", 'danger')
-
-
+                flash("Missing file object!", 'danger')
 
     if doprocess:
 

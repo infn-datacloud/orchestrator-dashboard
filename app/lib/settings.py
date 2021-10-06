@@ -33,4 +33,3 @@ orchestratorConf = {
   'monitoring_url': app.config.get('MONITORING_URL'),
   'vault_url': app.config.get('VAULT_URL')
 }
-

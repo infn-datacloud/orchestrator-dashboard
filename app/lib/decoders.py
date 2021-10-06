@@ -15,12 +15,16 @@ import re
 from flaat import tokentools, issuertools
 from app import app, flaat
 
+
 class IndigoTokenDecoder:
-    def get_groups(self, info):
+    @staticmethod
+    def get_groups(info):
         return info['groups']
 
+
 class EgiTokenDecoder:
-    def get_groups(self, info):
+    @staticmethod
+    def get_groups( info):
         if info is not None and 'eduperson_entitlement' in info.keys():
             memberships = info['eduperson_entitlement']
         else:
@@ -35,18 +39,19 @@ class EgiTokenDecoder:
 
         return groups
 
+
 class TokenDecoderFactory:
 
     def __init__(self):
         self._creators = {}
 
-    def register_format(self, format, creator):
-        self._creators[format] = creator
+    def register_format(self, fmt, creator):
+        self._creators[fmt] = creator
 
-    def get_decoder(self, format):
-        creator = self._creators.get(format)
+    def get_decoder(self, fmt):
+        creator = self._creators.get(fmt)
         if not creator:
-            raise ValueError(format)
+            raise ValueError(fmt)
         return creator()
 
 
@@ -56,14 +61,15 @@ factory.register_format('egicheckin', EgiTokenDecoder)
 
 
 class TokenDecoder:
-    def get_groups(self, request):
+    @staticmethod
+    def get_groups(request):
         access_token = tokentools.get_access_token_from_request(request)
         issuer = issuertools.find_issuer_config_in_at(access_token)
-        #info = flaat.get_info_thats_in_at(access_token)
+        # info = flaat.get_info_thats_in_at(access_token)
         info = flaat.get_info_from_userinfo_endpoints(access_token)
         iss = issuer['issuer']
 
-        idp = next(filter(lambda x: x['iss']==iss, app.config.get('TRUSTED_OIDC_IDP_LIST')))
+        idp = next(filter(lambda x: x['iss'] == iss, app.config.get('TRUSTED_OIDC_IDP_LIST')))
 
         if 'client_id' in idp and 'client_secret' in idp:
             flaat.set_client_id(idp['client_id'])

@@ -12,7 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import requests, json
+import requests
+import json
 
 
 def get_unscoped_keystone_token(access_token, auth_url, identity_provider='infn-cc', protocol='oidc', **kwargs):
@@ -22,6 +23,7 @@ def get_unscoped_keystone_token(access_token, auth_url, identity_provider='infn-
     ----------
     access_token : str
         The bearer token
+    auth_url: str
     identity_provider : str, optional
         the name of the identity provider as configured in keystone (default is infn-cc)
     protocol: str, optional
@@ -46,12 +48,12 @@ def get_unscoped_keystone_token(access_token, auth_url, identity_provider='infn-
     return token, user_id
 
 
-
 def get_project_list(auth_url, unscoped_token):
     """Get the list of projects the user is authorized to access
 
     Parameters
     ----------
+    auth_url : str
     unscoped_token : str
         The unscoped token
 
@@ -70,12 +72,12 @@ def get_project_list(auth_url, unscoped_token):
     return response.json().get('projects')
 
 
-
 def get_scoped_token(auth_url, unscoped_token, project_id):
     """Get a scoped (tenant-specific) keystone token using an unscoped token.
 
     Parameters
     ----------
+    auth_url : str
     unscoped_token : str
         The unscoped token
     project_id : str
@@ -104,6 +106,7 @@ def list_ec2_credentials(auth_url, user_id, project_id, scoped_token):
 
     Parameters
     ----------
+    auth_url : str
     user_id : str
         The id of the user
     project_id : str
@@ -130,11 +133,12 @@ def list_ec2_credentials(auth_url, user_id, project_id, scoped_token):
     return credentials
 
 
-def create_ec2_credentials(auth_url, user_id,project_id,scoped_token):
+def create_ec2_credentials(auth_url, user_id, project_id, scoped_token):
     """Create EC2 credentials for the given user in the given project.
 
     Parameters
     ----------
+    auth_url : str
     user_id : str
         The id of the user
     project_id : str
@@ -171,6 +175,7 @@ def get_or_create_ec2_creds(access_token, project, auth_url, identity_provider='
         The user access token issued by the OpenID Connect IdP
     project : str
         The project the credentials must be valid for
+    auth_url : str
     identity_provider : str
         the identity provider as configured in keystone (default is infn-cc)
     protocol:
@@ -200,19 +205,21 @@ def get_or_create_ec2_creds(access_token, project, auth_url, identity_provider='
             credentials = list_ec2_credentials(auth_url, user_id, project_id, scoped_token)
 
             if not credentials:
-                credentials = [ create_ec2_credentials(auth_url, user_id,project_id,scoped_token) ]
+                credentials = [create_ec2_credentials(auth_url, user_id, project_id, scoped_token)]
 
             if credentials:
-                    access = credentials[0].get('access')
-                    secret = credentials[0].get('secret')
+                access = credentials[0].get('access')
+                secret = credentials[0].get('secret')
 
     return access, secret
+
 
 def delete_ec2_credential(auth_url, user_id, credential_id, scoped_token):
     """Delete EC2 credential for given user.
 
     Parameters
     ----------
+    auth_url : str
     user_id : str
         The id of the user
     credential_id : str
@@ -229,7 +236,6 @@ def delete_ec2_credential(auth_url, user_id, credential_id, scoped_token):
     requests.delete(url, headers=headers)
 
 
-
 def delete_ec2_creds(access_token, project, auth_url, identity_provider='infn-cc', protocol='oidc'):
     """Delete EC2 credential using the user access token issued by an OpenID Connect IdP
 
@@ -239,6 +245,7 @@ def delete_ec2_creds(access_token, project, auth_url, identity_provider='infn-cc
         The user access token issued by the OpenID Connect IdP
     project : str
         The project the credentials must be valid for
+    auth_url : str
     identity_provider : str
         the identity provider as configured in keystone (default is infn-cc)
     protocol:
@@ -260,4 +267,3 @@ def delete_ec2_creds(access_token, project, auth_url, identity_provider='infn-cc
             if credentials:
                 for cred in credentials:
                     delete_ec2_credential(auth_url, user_id, cred.get('access'), scoped_token)
-

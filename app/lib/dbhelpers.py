@@ -23,13 +23,13 @@ from flask import json
 import datetime
 
 
-def add_object(object):
-    db.session.add(object)
+def add_object(obj):
+    db.session.add(obj)
     db.session.commit()
 
 
-def delete_object(object):
-    db.session.delete(object)
+def delete_object(obj):
+    db.session.delete(obj)
     db.session.commit()
 
 
@@ -57,8 +57,8 @@ def delete_ssh_key(subject):
     db.session.commit()
 
 
-def get_oauth(id):
-    return OAuth.query.get(id)
+def get_oauth(idoauth):
+    return OAuth.query.get(idoauth)
 
 
 def update_deployment(depuuid, data):
@@ -72,6 +72,7 @@ def get_user_deployments(user_sub):
 
 def get_deployment(uuid):
     return Deployment.query.get(uuid)
+
 
 def getdeploymenttype(dep):
     deptype = ''
@@ -226,10 +227,10 @@ def cvdeployment(d):
                             template_parameters=d.template_parameters if d.template_parameters is not None else '',
                             template_metadata=d.template_metadata if d.template_metadata is not None else '',
                             selected_template=d.selected_template,
-                            inputs=json.loads(
-                                d.inputs.replace("\n", "\\n")) if (d.inputs is not None and d.inputs is not '') else '',
-                            stinputs=json.loads(
-                                d.stinputs.replace("\n", "\\n")) if (d.stinputs is not None and d.stinputs is not '') else '',
+                            inputs=json.loads(d.inputs.replace("\n", "\\n"))
+                            if (d.inputs is not None and d.inputs is not '') else '',
+                            stinputs=json.loads(d.stinputs.replace("\n", "\\n"))
+                            if (d.stinputs is not None and d.stinputs is not '') else '',
                             params=d.params,
                             deployment_type=d.deployment_type,
                             provider_name='' if d.provider_name is None else d.provider_name,

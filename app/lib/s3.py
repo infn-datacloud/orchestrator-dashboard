@@ -16,6 +16,7 @@ import boto3
 import botocore
 from werkzeug.exceptions import Forbidden
 
+
 def create_bucket(access_key, secret_key, s3_url, bucket, **kwargs):
 
     client = boto3.client(
@@ -33,6 +34,7 @@ def create_bucket(access_key, secret_key, s3_url, bucket, **kwargs):
             raise Forbidden("You don't have the permission for the requested storage resource")
         else:
             raise error
+
 
 def delete_bucket(access_key, secret_key, s3_url, bucket, **kwargs):
 

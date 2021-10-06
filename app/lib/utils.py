@@ -34,12 +34,13 @@ def intersect(a, b):
 
 def extract_netinterface_ips(input):
     res = {}
-    for key,value in input.items():
+    for key, value in input.items():
         if re.match("net_interface.[0-9].ip", key):
-            new_key = key.replace('.','_')
+            new_key = key.replace('.', '_')
             res[new_key] = value
 
     return res
+
 
 def xstr(s):
     return '' if s is None else str(s)
@@ -83,6 +84,7 @@ def getorchestratorconfiguration(orchestrator_url, access_token):
 
     return configuration
 
+
 def format_json_radl(vminfo):
     res = {}
     for elem in vminfo:
@@ -107,5 +109,3 @@ def generate_password():
             break
 
     return password
-
-

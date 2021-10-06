@@ -98,7 +98,7 @@ def home():
 
     if account_info.ok:
         account_info_json = account_info.json()
-        user_groups = session['usergroups'] #auth_blueprint.session['usergroups']
+        user_groups = session['usergroups']  # auth_blueprint.session['usergroups']
         # user_groups = account_info_json['groups']
         user_id = account_info_json['sub']
 
@@ -269,7 +269,8 @@ def getauthorization():
             functions[func](**args)
 
     return render_template("success_message.html", title="Message sent",
-                           message="Your request has been sent to the support team. <br>You will receive soon a notification email about your request. <br>Thank you!")
+                           message="Your request has been sent to the support team. "
+                                   "<br>You will receive soon a notification email about your request. <br>Thank you!")
 
 
 @home_bp.route('/sendaccessreq', methods=['POST'])
@@ -277,10 +278,12 @@ def sendaccessrequest():
     form_data = request.form.to_dict()
 
     try:
-        mail_utils.send_authorization_request_email(form_data['service_type'], email=form_data['email'], message=form_data['message'])
+        mail_utils.send_authorization_request_email(form_data['service_type'], email=form_data['email'],
+                                                    message=form_data['message'])
 
         flash(
-            "Your request has been sent to the support team. You will receive soon a notification email about your request. Thank you!",
+            "Your request has been sent to the support team. "
+            "You will receive soon a notification email about your request. Thank you!",
             "success")
 
     except Exception as error:
@@ -300,9 +303,9 @@ def contact():
         message = Markup(
             "Name: {}<br>Email: {}<br>Message: {}".format(form_data['name'], form_data['email'], form_data['message']))
         mail_utils.send_email("New contact",
-                   sender=app.config.get('MAIL_SENDER'),
-                   recipients=[app.config.get('SUPPORT_EMAIL')],
-                   html_body=message)
+                              sender=app.config.get('MAIL_SENDER'),
+                              recipients=[app.config.get('SUPPORT_EMAIL')],
+                              html_body=message)
 
     except Exception as error:
         utils.logexception("sending email:".format(error))

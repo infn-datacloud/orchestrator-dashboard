@@ -222,13 +222,14 @@ def eleasticdeployment(template):
 
 def updatabledeployment(inputs):
     updatable = False
-    for key,value in inputs.items():
+    for key, value in inputs.items():
         if 'updatable' in value:
-            if value['updatable'] == True:
+            if value['updatable'] is True:
                 updatable = True
                 break
 
     return updatable
+
 
 def hasnodeoftype(template, nodetype):
     found = False

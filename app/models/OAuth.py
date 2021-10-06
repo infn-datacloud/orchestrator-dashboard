@@ -13,7 +13,6 @@
 # limitations under the License.
 
 from app import db
-from sqlalchemy.orm import relationship
 from sqlalchemy.orm.collections import attribute_mapped_collection
 from flask_dance.consumer.storage.sqla import OAuthConsumerMixin
 from app.models.User import User
@@ -43,7 +42,7 @@ class OAuth(OAuthConsumerMixin, db.Model):
         super().__init__(**kwargs)
         token = kwargs['token']
         jwt = tokentools.get_accesstoken_info(token['id_token'])
-        if not 'provider_user_id' in kwargs:
+        if 'provider_user_id' not in kwargs:
             self.provider_user_id = jwt['body']['sub']
-        if not 'issuer' in kwargs:
+        if 'issuer' not in kwargs:
             self.issuer = jwt['body']['iss']

@@ -15,6 +15,7 @@
 from app import app
 import requests
 
+
 def url_shorten(url, keyword=None):
     shorturl = None
     api_url = "{}/yourls-api.php".format(app.config.get('YOURLS_SITE'))
@@ -29,4 +30,3 @@ def url_shorten(url, keyword=None):
             shorturl = json_resp["shorturl"]
 
     return shorturl
-

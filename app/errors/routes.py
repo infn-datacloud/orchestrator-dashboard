@@ -16,9 +16,9 @@ from flask import render_template, request, Blueprint
 from app import app
 
 errors_bp = Blueprint('errors', __name__,
-                           template_folder='templates',
-                           static_folder='static'
-                           )
+                      template_folder='templates',
+                      static_folder='static'
+                      )
 
 
 @errors_bp.app_errorhandler(403)

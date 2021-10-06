@@ -23,7 +23,7 @@ from app.models.OAuth import OAuth
 from app.models.User import User
 from markupsafe import Markup
 from werkzeug.exceptions import Forbidden
-from flask import  json, session
+from flask import json, session
 
 
 def create_blueprint():
@@ -33,17 +33,17 @@ def create_blueprint():
     iam_authorization_url = iam_base_url + '/authorize'
 
     return OAuth2ConsumerBlueprint(
-    "iam", __name__,
-    client_id=app.config['IAM_CLIENT_ID'],
-    client_secret=app.config['IAM_CLIENT_SECRET'],
-    scope=['openid', 'profile', 'email', 'offline_access'],
-    base_url=iam_base_url,
-    token_url=iam_token_url,
-    auto_refresh_url=iam_refresh_url,
-    authorization_url=iam_authorization_url,
-    redirect_to='home',
-    storage=SQLAlchemyStorage(OAuth, db.session, user=current_user)
-  )
+        "iam", __name__,
+        client_id=app.config['IAM_CLIENT_ID'],
+        client_secret=app.config['IAM_CLIENT_SECRET'],
+        scope=['openid', 'profile', 'email', 'offline_access'],
+        base_url=iam_base_url,
+        token_url=iam_token_url,
+        auto_refresh_url=iam_refresh_url,
+        authorization_url=iam_authorization_url,
+        redirect_to='home',
+        storage=SQLAlchemyStorage(OAuth, db.session, user=current_user)
+    )
 
 
 def auth_blueprint_login(blueprint, token):
@@ -75,7 +75,7 @@ def auth_blueprint_login(blueprint, token):
                     app.config.get('SUPPORT_EMAIL')))
             raise Forbidden(description=message)
 
-    session['userid'] = user_id  #account_info_json['sub']
+    session['userid'] = user_id  # account_info_json['sub']
     session['username'] = account_info_json['name']
     email = account_info_json['email']
     admins = json.dumps(app.config['ADMINS'])
@@ -85,7 +85,6 @@ def auth_blueprint_login(blueprint, token):
     session['gravatar'] = utils.avatar(account_info_json['email'], 26)
     session['organisation_name'] = account_info_json['organisation_name']
     session['usergroups'] = account_info_json['groups']
-    session.permanent = False
 
     # check database
     # if user not found, insert
@@ -119,7 +118,7 @@ def auth_blueprint_login(blueprint, token):
                       token=token,
                       issuer=issuer)
     else:
-        oauth.token = token #store token
+        oauth.token = token  # store token
 
     if not oauth.user:
         oauth.user = user
@@ -129,8 +128,3 @@ def auth_blueprint_login(blueprint, token):
     # flash("Successfully signed in.")
 
     return False
-
-
-
-
-

@@ -112,7 +112,7 @@ class Swift:
         iv = get_random_bytes(AES.block_size)
         cipher = AES.new(self.private_key, AES.MODE_CBC, iv)
         return b64encode(iv + cipher.encrypt(pad(data.encode('utf-8'),
-                                                      AES.block_size))).decode('utf-8')
+                         AES.block_size))).decode('utf-8')
 
     def _unpack(self, data):
         raw = b64decode(data)

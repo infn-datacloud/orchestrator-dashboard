@@ -49,9 +49,9 @@ def get_monitoring_info():
     access_token = app.get_auth_blueprint().session.token['access_token']
 
     headers = {'Authorization': 'bearer %s' % access_token}
-    url = settings.orchestratorConf[
-              'monitoring_url'] + "/monitoring/adapters/zabbix/zones/indigo/types/infrastructure/groups/" + \
-          provider + "/hosts/" + serviceid
+    url = settings.orchestratorConf['monitoring_url'] + \
+        "/monitoring/adapters/zabbix/zones/indigo/types/infrastructure/groups/" + \
+        provider + "/hosts/" + serviceid
     response = requests.get(url, headers=headers)
 
     monitoring_data = {}

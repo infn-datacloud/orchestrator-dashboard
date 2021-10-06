@@ -17,6 +17,7 @@ from sqlalchemy.types import TypeDecorator, CHAR, Integer
 from sqlalchemy.dialects.postgresql import UUID
 import uuid
 
+
 class GUID(TypeDecorator):
     """Platform-independent GUID type.
 
@@ -51,7 +52,6 @@ class GUID(TypeDecorator):
             if not isinstance(value, uuid.UUID):
                 value = uuid.UUID(value)
             return value
-
 
 
 class IntEnum(TypeDecorator):
