@@ -34,37 +34,33 @@
   <div class="container">
     <br>
     <img src="static/images/background2.jpeg" class="parallax-img">
-    <!--img src="static/images/indigodc_logo.png" alt="INDIGO-DataCloud" class="profile-img"-->
     <h1>INDIGO-DC PaaS Orchestrator</h1>
     <hr class="style-seven" />
     <h4>High level orchestration of heterogeneous Cloud resources</h4>
     <p>
-      <button type="button" class="btn btn-info" style="position: relative" data-wow-delay="0.4s" data-toggle="modal" data-target="#signinModal">Sign in</button>
+      <button type="button" class="btn btn-info login-btn" data-toggle="modal" data-target="#signinModal"><i class="fa fa-sign-in"> Login</i></button>
     </p>
   </div>
 
     <!-- Modal -->
     <div class="modal fade" id="signinModal" tabindex="-1" role="dialog" aria-labelledby="signinModalLabel" aria-hidden="true">
-      <div class="modal-dialog modal-notify modal-info modal-sm" role="document">
+      <div class="modal-dialog modal-sm" style="margin: 20px auto;" role="document">
         <div class="modal-content">
           <div class="modal-header">
-            <p class="heading lead" style="display:inline; color:black">Sign in with:</p>
-            <!-- h4 class="modal-title w-100 font-weight-bold">Sign in</h4-->
+            <p class="lead">Sign in with:</p>
             <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-              <span aria-hidden="true" class="white-text">&times;</span>
+              <span aria-hidden="true">&times;</span>
             </button>
           </div>
-          <div class="modal-body mx-3">
-            <!--div class="md-form mb-5"-->
-              <div class="row justify-content-center">
-                <a class="btn btn-outline-black wow fadeInDown" data-wow-delay="0.4s" href="{{ url_for('iam.login') }}"><img src="/home/static/images/indigodc_logo.png" height="25"/>&nbsp;INDIGO - IAM</a>
+          <div class="modal-body">
+              <div class="row">
+                <a class="btn" href="{{ url_for('iam.login') }}"><img src="/home/static/images/indigodc_logo.png" height="40"/>&nbsp;INDIGO - IAM</a>
               </div>
               {% if is_egi_aai_enabled is defined %}
-              <div class="row justify-content-center">
-                <a class="btn btn-outline-black wow fadeInDown" data-wow-delay="0.4s" href="{{ url_for('egiaai.login') }}"><img src="/home/static/images/egi_logo.png" height="25"/>&nbsp;EGI Checkin</a>
+              <div class="row">
+                <a class="btn" href="{{ url_for('egiaai.login') }}"><img src="/home/static/images/egi_logo.png" height="40"/>&nbsp;EGI Checkin</a>
               </div>
               {% endif %}
-            <!--/div-->
           </div>
         </div>
       </div>
@@ -169,7 +165,7 @@
         <div class="row">
           <div class="col-md-12 soft-transition">
             <br>
-            <a class="btn btn-lg btn-info" role="button" href="{{url_for('iam.login')}}">Try it now!</a>
+            <a class="btn btn-lg btn-info" role="button" data-toggle="modal" data-target="#signinModal">Try it now!</a>
           </div>
         </div>
 
@@ -262,11 +258,9 @@
         <fieldset class="form-group">
           <textarea class="form-control" id="input_project_info" rows="3" placeholder="Tell us about your project!" name="message"></textarea>
         </fieldset>
+        <input type="submit" id="submit" class="btn btn-clear-light soft-transition" name="submit" value="Send">
+      </form>
     </div>
-    <input type="submit" id="submit" class="btn btn-clear-light soft-transition" name="submit" value="Send">
-    </form>
-
-</div>
 
 </section>
 

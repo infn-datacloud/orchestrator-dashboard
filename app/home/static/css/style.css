@@ -264,11 +264,16 @@ hr.style-seven:before { /* Not really supposed to work, but does */
 }
 
 .login-btn {
+    position: relative;
     border: 4px solid #eee;
     -moz-box-shadow:    0px 0px 20px #ccc;
     -webkit-box-shadow: 0px 0px 20px #ccc;
     box-shadow:         0px 0px 20px #ccc;
+}
 
+.login-btn > i {
+  font-size: 20px;
+  font-family: FontAwesome, 'Raleway', sans-serif;
 }
 
 .project-thumb {
@@ -299,12 +304,18 @@ hr.style-seven:before { /* Not really supposed to work, but does */
 
 /*-- Custom Modal Settings --*/
 .modal-content {
-  border-radius: 0;
+  border-radius: 10px;
 }
 
 .modal-dialog {
   /* width: 80%; */
   margin: 0 auto; /* Eliminate top margin on bootstrap modal */
+}
+
+.modal-header > p {
+  display: inline; 
+  color: black; 
+  font-size: 20px;
 }
 
 .modal-thumb img {
@@ -317,6 +328,11 @@ hr.style-seven:before { /* Not really supposed to work, but does */
   text-align: left;
   width: 66%;
   margin: 0 auto;
+}
+
+.modal-body > div > a {
+  font-size: 18px; 
+  display: block;
 }
 
 .close {
