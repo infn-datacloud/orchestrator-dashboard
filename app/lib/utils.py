@@ -109,3 +109,54 @@ def generate_password():
             break
 
     return password
+
+
+def send_authorization_request_email(service_type, **kwargs):
+    user_email = kwargs['email'] if 'email' in kwargs else ""
+    message = kwargs['message'] if 'message' in kwargs else ""
+    message = Markup(
+        "The following user has requested access for service \"{}\": <br>username: {} " \
+        "<br>IAM id (sub): {} <br>IAM groups: {} <br>email registered in IAM: {} " \
+        "<br>email provided by the user: {} " \
+        "<br>Message: {}".format(service_type, session['username'], session['userid'],
+                                 session['usergroups'], session['useremail'], user_email, message))
+
+    sender = kwargs['email'] if 'email' in kwargs else session['useremail']
+    send_email("New Authorization Request",
+               sender=sender,
+               recipients=[app.config.get('SUPPORT_EMAIL')],
+               html_body=message)
+
+def send_ports_request_email(deployment_uuid, **kwargs):
+    user_email = kwargs['email'] if 'email' in kwargs else ""
+    message = kwargs['message'] if 'message' in kwargs else ""
+    message = Markup(
+        "The following user has requested to open further ports for deployment \"{}\": <br>username: {} " \
+        "<br>IAM id (sub): {} <br>email registered in IAM: {} " \
+        "<br>email provided by the user: {} " \
+        "<br>Message: {}".format(deployment_uuid, session['username'], session['userid'],
+                                  session['useremail'], user_email, message))
+
+    sender = kwargs['email'] if 'email' in kwargs else session['useremail']
+    send_email("New Ports Request",
+               sender=sender,
+               recipients=[app.config.get('SUPPORT_EMAIL')],
+               html_body=message)
+
+def create_and_send_email(subject, sender, recipients, uuid, status):
+    send_email(subject,
+               sender=sender,
+               recipients=recipients,
+               html_body=render_template(app.config.get('MAIL_TEMPLATE'), uuid=uuid, status=status))
+
+
+def send_email(subject, sender, recipients, html_body):
+    msg = Message(subject, sender=sender, recipients=recipients)
+    msg.html = html_body
+    msg.body = "This email is an automatic notification"  # Add plain text, needed to avoid MPART_ALT_DIFF with AntiSpam
+    Thread(target=send_async_email, args=(app, msg)).start()
+
+
+def send_async_email(app, msg):
+    with app.app_context():
+        mail.send(msg)
