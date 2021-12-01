@@ -145,11 +145,11 @@ def send_ports_request_email(deployment_uuid, **kwargs):
                recipients=[app.config.get('SUPPORT_EMAIL')],
                html_body=message)
 
-def create_and_send_email(subject, sender, recipients, uuid, status):
+def create_and_send_email(subject, sender, recipients, uuid, status, endpoint, display_name, inputs):
     send_email(subject,
                sender=sender,
                recipients=recipients,
-               html_body=render_template(app.config.get('MAIL_TEMPLATE'), uuid=uuid, status=status))
+               html_body=render_template(app.config.get('MAIL_TEMPLATE'), uuid=uuid, status=status, endpoint=endpoint, display_name=display_name, inputs=inputs))
 
 
 def send_email(subject, sender, recipients, html_body):

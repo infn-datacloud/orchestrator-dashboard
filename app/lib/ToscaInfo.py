@@ -20,7 +20,7 @@ import os
 import io
 from fnmatch import fnmatch
 import yaml
-
+import json
 
 class ToscaInfo(object):
 
@@ -109,9 +109,12 @@ class ToscaInfo(object):
             if 'description' in template:
                 tosca_info["description"] = template['description']
 
+            metadata_keys = ['display_name'] # metadata keys to store in the database. Add new keys to save more metadata in the database.
             if 'metadata' in template and template['metadata'] is not None:
-                for k, v in template['metadata'].items():
-                    tosca_info["metadata"][k] = v
+                tosca_info['metadata'].update({**(template['metadata'])})
+                if template['metadata']['display_name']:
+                    extracted_metadata = {x:template['metadata'][x] for x in metadata_keys}
+                    tosca_info['metadata_file'] = json.dumps(extracted_metadata)
 
             if tosca and self.tosca_metadata_dir:
                 tosca_metadata_path = self.tosca_metadata_dir + "/"
@@ -124,13 +127,18 @@ class ToscaInfo(object):
                             if mname[0] != '.':
                                 tosca_metadata_file = os.path.join(mpath, mname)
                                 with io.open(tosca_metadata_file) as metadata_file:
-                                    tosca_info['metadata_file'] = metadata_file.read()
-                                    metadata_template = yaml.full_load(io.StringIO(tosca_info['metadata_file']))
+                                    metadata_template = yaml.full_load(metadata_file)
 
+                                    # tosca_info['metadata'] is used for UI configuration.
+                                    # tosca_info['metadata_file'] is used to store info in the database.
+                                    # Full metadata are stored in tosca_info['metadata'], thus allowing the UI to be properly configures.
+                                    # Currently only the "display_name" will be stored in the database, i.e. using tosca_info['metadata_file'].
                                     if 'metadata' in metadata_template \
                                             and metadata_template['metadata'] is not None:
-                                        for k, v in metadata_template['metadata'].items():
-                                            tosca_info["metadata"][k] = v
+                                        tosca_info['metadata'].update({**(metadata_template['metadata'])})
+                                        if metadata_template['metadata']['display_name']:
+                                            extracted_metadata = {x:metadata_template['metadata'][x] for x in metadata_keys}
+                                            tosca_info['metadata_file'] = json.dumps(extracted_metadata)
 
             # override description from metadata, if available
             if 'description' in tosca_info['metadata']:

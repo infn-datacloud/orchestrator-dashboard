@@ -207,12 +207,18 @@ def callback():
     else:
         app.logger.info("Deployment with uuid:{} not found!".format(uuid))
 
+    endpoint = dep.endpoint
+    # get display_name from template_metadata in the database.
+    metadata_info = json.loads(dep.template_metadata)
+    display_name = metadata_info['display_name']
+    inputs = json.loads(dep.inputs)
+
     # send email to user
     mail_sender = app.config.get('MAIL_SENDER')
     if mail_sender and user_email != '' and rf == 1:
         if status == 'CREATE_COMPLETE':
             try:
-                utils.create_and_send_email("Deployment complete", mail_sender, [user_email], uuid, status)
+                utils.create_and_send_email("Deployment complete", mail_sender, [user_email], uuid, status, endpoint, display_name, inputs)
             except Exception as error:
                 utils.logexception("sending email:".format(error))
 

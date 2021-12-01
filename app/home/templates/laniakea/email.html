@@ -17,17 +17,20 @@
                                 This is an automatically generated notification mail<BR>
                                 YOU DO NOT NEED TO ANSWER THIS MESSAGE<BR>
                                 <p>
-                                Your Galaxy instance is up and running at URL_ADDRESS
+				    Your {{ display_name }} instance "{{ inputs['additional_description'] }}" is up and running at "{{ endpoint }}"
                                 <p>
+				{% if 'galaxy' in display_name|lower %}
                                 Please login using your credentials<BR>
-				username: "{{ session['username'] }} "<BR>
+				username: "{{ inputs['admin_email'] }}"<BR>
                                 password: "galaxy_admin_password"
                                 <p>
                                 Remember to change Galaxy password and the API key as soon as possible!
                                 <p>
+				{% endif %}
                                 Kind Regards. <BR>
+				The Laniakea development team.
 				{% elif status == "CREATE_FAILED" %}
-				your reployment is failed
+				your deployment "{{ inputs['additional_description'] }}" with uuid ""{{ uuid }}" is failed.
 				{% endif %}
                             </td>
                         </tr>
