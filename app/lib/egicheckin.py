@@ -27,29 +27,33 @@ from flask import json, session
 
 def create_blueprint():
     egicheckin_base_url = app.config['EGI_AAI_BASE_URL']
-    egicheckin_token_url = egicheckin_base_url + '/token'
-    egicheckin_refresh_url = egicheckin_base_url + '/token'
-    egicheckin_authorization_url = egicheckin_base_url + '/authorize'
+    egicheckin_token_url = egicheckin_base_url + '/protocol/openid-connect/token'
+    egicheckin_refresh_url = egicheckin_base_url + '/protocol/openid-connect/token'
+    egicheckin_authorization_url = egicheckin_base_url + '/protocol/openid-connect/auth'
 
     return OAuth2ConsumerBlueprint(
         "egiaai", __name__,
         client_id=app.config['EGI_AAI_CLIENT_ID'],
         client_secret=app.config['EGI_AAI_CLIENT_SECRET'],
+        auto_refresh_kwargs={
+            "client_id": app.config['EGI_AAI_CLIENT_ID'],
+            "client_secret": app.config['EGI_AAI_CLIENT_SECRET'],
+        },
         base_url=egicheckin_base_url,
         token_url=egicheckin_token_url,
         auto_refresh_url=egicheckin_refresh_url,
         authorization_url=egicheckin_authorization_url,
+        scope=['openid', 'profile', 'email', 'offline_access', 'eduperson_entitlement'],
         redirect_to='home',
         storage=SQLAlchemyStorage(OAuth, db.session, user=current_user)
     )
-
 
 def auth_blueprint_login(blueprint, token):
     if not token:
         flash("Failed to log in with EGI Checkin.", category="error")
         return False
 
-    account_info = blueprint.session.get('/oidc/userinfo')
+    account_info = blueprint.session.get('/auth/realms/egi/protocol/openid-connect/userinfo')
     jwt = tokentools.get_accesstoken_info(token['access_token'])
 
     if not account_info.ok:
@@ -111,8 +115,8 @@ def auth_blueprint_login(blueprint, token):
 
     if not oauth.user:
         oauth.user = user
-        dbhelpers.add_object(oauth)
 
+    dbhelpers.add_object(oauth)
     login_user(oauth.user)
     # flash("Successfully signed in.")
 

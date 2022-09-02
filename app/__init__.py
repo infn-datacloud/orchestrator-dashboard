@@ -129,7 +129,7 @@ def get_auth_userinfo(self):
         if bp == 'iam':
             return app.iam_blueprint.session.get("/userinfo")
         if bp == 'egi':
-            return app.egicheckin_blueprint.session.get('/oidc/userinfo')
+            return app.egicheckin_blueprint.session.get('/auth/realms/egi/protocol/openid-connect/userinfo')
     return None
 
 
