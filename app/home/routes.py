@@ -91,10 +91,14 @@ def check_template_access(user_groups, active_group):
 @home_bp.route('/')
 def home():
     auth_blueprint = app.get_auth_blueprint()
-    if auth_blueprint is None or not auth_blueprint.session.authorized:
+    try:
+        if auth_blueprint is None or not auth_blueprint.session.authorized:
+            return redirect(url_for('home_bp.login'))
+        account_info = app.get_auth_userinfo()
+    except Exception as e:
+        app.logger.error("Invalid user/token: {}".format(str(e)))
+        flash("Invalid user/token. Please login again.", 'danger')
         return redirect(url_for('home_bp.login'))
-
-    account_info = app.get_auth_userinfo()
 
     templates_info = {}
     tg = False
@@ -111,14 +115,6 @@ def home():
             if len(supported_groups) == 0:
                 app.logger.warning("The user {} does not belong to any supported user group".format(user_id))
 
-        # session['userid'] = user_id
-        # session['username'] = account_info_json['name']
-        # session['preferred_username'] = account_info_json['preferred_username']
-        # session['useremail'] = account_info_json['email']
-        # session['userrole'] = 'user'
-        # session['gravatar'] = utils.avatar(account_info_json['email'], 26)
-        # session['organisation_name'] = account_info_json['organisation_name']
-        # session['usergroups'] = user_groups
         session['supported_usergroups'] = supported_groups
         if 'active_usergroup' not in session:
             session['active_usergroup'] = next(iter(supported_groups), None)
@@ -148,16 +144,6 @@ def home():
 
         session['userrole'] = user.role  # role
 
-        # templates_info = {}
-        # tg = False
-        #
-        # if tosca.tosca_gmetadata:
-        #     templates_info = {k: v for (k, v) in tosca.tosca_gmetadata.items() if
-        #              check_template_access(v.get("metadata").get("allowed_groups"), user_groups)}
-        #     tg = True
-        # else:
-        #     templates_info = {k: v for (k, v) in toscaInfo.items() if
-        #      check_template_access(v.get("metadata").get("allowed_groups"), user_groups)}
         templates_info, enable_template_groups = check_template_access(user_groups, session['active_usergroup'] )
 
         return render_template(app.config.get('PORTFOLIO_TEMPLATE'), templates_info=templates_info,
