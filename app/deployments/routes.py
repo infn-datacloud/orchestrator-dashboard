@@ -54,7 +54,7 @@ if not issuer.endswith('/'):
 def showdeployments():
     access_token = app.get_auth_blueprint().session.token['access_token']
 
-    headers = {'Authorization': 'bearer %s' % access_token}
+    headers = {'Authorization': 'bearer %s' % access_token, 'Cache-Control': 'no-cache'}
     params = "createdBy=me&page={}&size={}".format(0, 999999)
 
     if 'active_usergroup' in session and session['active_usergroup'] is not None:
