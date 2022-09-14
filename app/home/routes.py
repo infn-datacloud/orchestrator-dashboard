@@ -31,6 +31,7 @@ if not issuer.endswith('/'):
 app.jinja_env.filters['tojson_pretty'] = utils.to_pretty_json
 app.jinja_env.filters['extract_netinterface_ips'] = utils.extract_netinterface_ips
 app.jinja_env.filters['intersect'] = utils.intersect
+app.jinja_env.filters['python_eval'] = utils.python_eval
 
 toscaInfo = tosca.tosca_info
 
@@ -63,7 +64,6 @@ def is_template_locked(allowed_groups, user_groups):
     else:
         return True
 
-
 def set_template_access(tosca, user_groups, active_group):
     info = {}
     for k, v in tosca.items():
@@ -85,7 +85,6 @@ def check_template_access(user_groups, active_group):
         templates_info = set_template_access(toscaInfo, user_groups, active_group)
         enable_template_groups = False
     return templates_info, enable_template_groups
-
 
 @app.route('/')
 @home_bp.route('/')

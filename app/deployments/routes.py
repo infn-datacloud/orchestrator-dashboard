@@ -461,7 +461,13 @@ def configure():
 
     if selected_tosca:
 
-        template = tosca.tosca_info[selected_tosca]
+        template = copy.deepcopy(tosca.tosca_info[selected_tosca])
+        # Manage eventual overrides
+        for k,v in template['inputs'].items():
+            if 'group_overrides' in v and session['active_usergroup'] in v['group_overrides']:
+                overrides = v['group_overrides'][session['active_usergroup']]
+                template['inputs'][k] = {**v, **overrides}
+
         sla_id = tosca_helpers.getslapolicy(template)
 
         slas = sla.get_slas(access_token, settings.orchestratorConf['slam_url'], settings.orchestratorConf['cmdb_url'],
@@ -559,20 +565,28 @@ def createdep():
     swift_filename = []
     swift_map = {}
 
-    uuidgen_deployment = str(uuid_generator.uuid1())
+    uuidgen_deployment = str(uuid_generator.uuid1());
 
-    for key, value in stinputs.items():
+    for key,value in stinputs.items():
+
+        # Manage special type 'dependent_definition' as first
+        if value["type"] == "dependent_definition":
+            # retrieve the real type from dedicated field
+            if inputs[key + "-ref"] in stinputs:
+                value = stinputs[inputs[key + "-ref"]]
+            del inputs[key + "-ref"]
+
         # Manage security groups
-        if value["type"] == "map" and value["entry_schema"]["type"] == "tosca.datatypes.network.PortSpec":
+        if value["type"]=="map" and (value["entry_schema"]["type"]=="tosca.datatypes.network.PortSpec" or value["entry_schema"]["type"]=="tosca.datatypes.indigo.network.PortSpec"):
             if key in inputs:
                 try:
                     inputs[key] = json.loads(form_data[key])
-                    for k, v in inputs[key].items():
+                    for k,v in inputs[key].items():
                         if ',' in v['source']:
-                            v['source_range'] = json.loads(v.pop('source', None))
+                          v['source_range'] = json.loads(v.pop('source', None))
                 except:
                     del inputs[key]
-                    inputs[key] = {"ssh": {"protocol": "tcp", "source": 22}}
+                    inputs[key] = { "ssh": { "protocol": "tcp", "source": 22 } }
 
                 if "required_ports" in value:
                     inputs[key] = {**value["required_ports"], **inputs[key]}
@@ -580,22 +594,21 @@ def createdep():
                 if "required_ports" in value:
                     inputs[key] = value["required_ports"]
         # Manage map of string
-        if value["type"] == "map" and value["entry_schema"]["type"] == "string":
+        if value["type"]=="map" and value["entry_schema"]["type"]=="string":
             if key in inputs:
                 try:
                     inputs[key] = {}
-                    m = json.loads(form_data[key])
-                    for k,v in m.items():
+                    map = json.loads(form_data[key])
+                    for k,v in map.items():
                         inputs[key][v['key']] = v['value']
                 except:
                     del inputs[key]
         # Manage list
-        if value["type"] == "list":
+        if value["type"]=="list":
             if key in inputs:
                 try:
                     json_data = json.loads(form_data[key])
-                    if value["entry_schema"]["type"] == "map" and value["entry_schema"]["entry_schema"]["type"] == \
-                            "string":
+                    if value["entry_schema"]["type"]=="map" and value["entry_schema"]["entry_schema"]["type"]=="string":
                         array = []
                         for el in json_data:
                             array.append({el['key']: el['value']})
@@ -619,19 +632,13 @@ def createdep():
 
         if value['type'] == 'ssh_user':
             app.logger.info("Add ssh user")
-            if app.config.get('FEATURE_REQUIRE_USER_SSH_PUBKEY') == 'yes':
+            if app.config.get('FEATURE_REQUIRE_USER_SSH_PUBKEY')=='yes':
                 if dbhelpers.get_ssh_pub_key(session['userid']):
                     inputs[key] = [{"os_user_name": session['preferred_username'], "os_user_add_to_sudoers": True,
                                     "os_user_ssh_public_key": dbhelpers.get_ssh_pub_key(session['userid'])}]
                 else:
                     flash("Deployment request failed: no SSH key found. Please upload your key.", "danger")
                     doprocess = False
-
-        # Manage special type 'dependent_definition'
-        if value["type"] == "dependent_definition":
-            # retrieve the real type from dedicated field
-            value["type"] = inputs[key + "-type"]
-            del inputs[key + "-type"]
 
         # Manage Swift-related fields
         if value["type"] == "swift_autouuid":
@@ -662,19 +669,17 @@ def createdep():
             prefix = ''
             suffix = ''
             if "extra_specs" in value:
-                prefix = value["extra_specs"]["prefix"] if "prefix" in value["extra_specs"] else ""
-                suffix = value["extra_specs"]["suffix"] if "suffix" in value["extra_specs"] else ""
+              prefix = value["extra_specs"]["prefix"] if "prefix" in value["extra_specs"] else ""
+              suffix = value["extra_specs"]["suffix"] if "suffix" in value["extra_specs"] else ""
             inputs[key] = prefix + uuidgen_deployment + suffix
 
         if value["type"] == "openstack_ec2credentials":
             try:
                 del inputs[key]
-                project = next(filter(lambda tenant: tenant.get('group') == session['active_usergroup'],
-                                      value['auth']['tenants']), None)
-                access, secret = keystone.get_or_create_ec2_creds(access_token, project.get('name'),
-                                                                  value["auth"]["url"],
-                                                                  value["auth"]["identity_provider"],
-                                                                  value["auth"]["protocol"])
+                project = next(filter(lambda tenant: tenant.get('group') == session['active_usergroup'], value['auth']['tenants']), None)
+                if not project:
+                    raise IndexError("Project not configured for S3")
+                access, secret = keystone.get_or_create_ec2_creds(access_token, project.get('name'), value["auth"]["url"], value["auth"]["identity_provider"], value["auth"]["protocol"])
                 access_key_input_name = value["inputs"]["aws_access_key"]
                 inputs[access_key_input_name] = access
                 secret_key_input_name = value["inputs"]["aws_secret_key"]
@@ -684,12 +689,12 @@ def createdep():
 
                 if "tests" in value and value["tests"]:
                     for test in value["tests"]:
-                        func = test["action"]
-                        args = test["args"]
-                        args["access_key"] = access
-                        args["secret_key"] = secret
-                        if func in functions:
-                            functions[func](**args)
+                       func = test["action"]
+                       args = test["args"]
+                       args["access_key"] = access
+                       args["secret_key"] = secret
+                       if func in functions:
+                           functions[func](**args)
             except Forbidden as e:
                 app.logger.error("Error while testing S3: {}".format(e))
                 flash(" Sorry, your request needs a special authorization. "
@@ -715,10 +720,10 @@ def createdep():
                 email = session['useremail']
 
                 jwt_token = auth.exchange_token_with_audience(iam_base_url,
-                                                              iam_client_id,
-                                                              iam_client_secret,
-                                                              access_token,
-                                                              app.config.get('VAULT_BOUND_AUDIENCE'))
+                                                      iam_client_id,
+                                                      iam_client_secret,
+                                                      access_token,
+                                                      app.config.get('VAULT_BOUND_AUDIENCE'))
 
                 vaultclient = vaultservice.connect(jwt_token, app.config.get("VAULT_ROLE"))
                 luser = LdapUserManager(app.config['LDAP_SOCKET'],
@@ -740,11 +745,34 @@ def createdep():
                       .format(e, app.config.get('SUPPORT_EMAIL')), 'danger')
                 doprocess = False
 
+        if value["type"] == "userinfo":
+            if key in inputs:
+                if value["attribute"] == "sub":
+                    inputs[key] = session['userid']
+
+        if value["type"] == "multiselect":
+            if key in inputs:
+                try:
+                    lval = request.form.getlist(key)
+                    if 'format' in value and value['format']['type'] == 'string':
+                        inputs[key] = value['format']['delimiter'].join(lval)
+                    else:
+                        inputs[key] = lval
+                except Exception as e:
+                    app.logger.error("Error processing input {}: {}".format(key,e))
+                    flash(
+                        " The deployment submission failed with: {}. Please try later or contact the admin(s): {}".format(
+                            e, app.config.get('SUPPORT_EMAIL')), 'danger')
+                    doprocess = False
+
+
     if swift and swift_map:
         for k, v in swift_map.items():
             val = swift.mapvalue(k)
             if val is not None:
                 inputs[v] = val
+
+
 
     swiftprocess = False
     containername = filename = None

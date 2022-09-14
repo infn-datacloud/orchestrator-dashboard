@@ -20,8 +20,8 @@ __version__ = '2.0.0'
 
 @app.route('/info')
 def info():
-    i = {"name": "orchestrator-dashboard", "version": __version__}
-    resp = make_response(i)
+    info = { "name": "orchestrator-dashboard", "version": __version__ }
+    resp = make_response(info)
     resp.status_code = 200
     resp.mimetype = 'application/json'
     return resp

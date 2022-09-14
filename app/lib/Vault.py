@@ -53,3 +53,4 @@ class Vault(object):
         if role is None:
             role = self.vault_role
         return VaultClient(self.vault_url, token, role)
+

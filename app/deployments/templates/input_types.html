@@ -5,7 +5,7 @@
  {% set mode = "" %}
 {% endif %}
 <div class="form-group" id="form-group-{{key}}">
-  {% if (value.type is not defined or (value.type != "hidden" and value.type != "swift_token" and value.type != "swift_autouuid" and value.type != "random_password" and value.type != "openstack_ec2credentials" and value.type != "uuidgen" and value.type != "ldap_user" and value.type != "ssh_user"))
+  {% if (value.type is not defined or (value.type != "hidden" and value.type != "swift_token" and value.type != "swift_autouuid" and value.type != "random_password" and value.type != "openstack_ec2credentials" and value.type != "uuidgen" and value.type != "ldap_user" and value.type != "ssh_user" and value.type != "userinfo"))
           and (update == False or value.updatable is not defined or value.updatable == True)%}
   <label for="{{key}}">
     {% if value.display_name is defined %}
@@ -29,6 +29,13 @@
       <input type="number" step="any" class="form-control" data-type="{{value.type}}" id="{{key}}" name="{{key}}" value="{{value.default}}" aria-describedby="help{{key}}" placeholder="{{value.placeholder}}" {% if value.required %}required{%endif%} {{mode}} />
     <!-- end number types -->
 
+      <!-- boolean type -->
+    {% elif value.type == "boolean" %}
+      <select class="js-example-basic-single js-states form-control" data-type="{{value.type}}" id="{{key}}" name="{{key}}" {{mode}}>
+        <option value="true" {% if value.default|lower =="true" %}selected="selected"{% endif %}>true</option>
+        <option value="false" {% if value.default|lower =="false" %}selected="selected"{% endif %}>false</option>
+      </select>
+
     <!-- list text type -->
     {% elif value.type == "list" and value.entry_schema.type|lower == "string" %}
       <fieldset class="border p-2">
@@ -51,7 +58,7 @@
       {% set range_min = value.constraints['in_range'][0].split(' ')[0] %}
       {% set range_max = value.constraints['in_range'][1].split(' ')[0] %}
       {% endif %}
-      <div class="input-group mb-3">
+      <div class="input-group">
         <input type="number" min="{{range_min}}" max="{{range_max}}" class="form-control" aria-describedby="{{key}}_append" data-validate-function="validateScalarUnitSize" data-type="{{value.type}}" data-units="{{value.default.split(' ')[1]}}" id="{{key}}" name="{{key}}" value="{{value.default.split(' ')[0]}}" {% if value.required %}required{%endif%} {{mode}} />
         <div class="input-group-append">
           <span class="input-group-text" id="{{key}}_append">{{value.default.split(' ')[1]}}</span>
@@ -60,7 +67,7 @@
     <!-- end scalar-unit.size type-->
 
     <!-- hidden types -->
-    {% elif value.type == "hidden" or value.type == "openstack_ec2credentials" or value.type == "uuidgen" or value.type == "ldap_user" or value.type == "ssh_user" %}
+    {% elif value.type == "hidden" or value.type == "openstack_ec2credentials" or value.type == "uuidgen" or value.type == "ldap_user" or value.type == "ssh_user" or value.type == "userinfo" %}
       <input type="hidden" class="form-control" data-type="{{value.type}}" id="{{key}}" name="{{key}}" value="{{value.default}}" >
     <!-- end hidden types -->
 
@@ -93,6 +100,13 @@
     {% elif value.type == "dependent_select" %}
       {% include 'inputs/dependent_select.html' %}
     <!-- end select type -->
+
+    {% elif value.type == "multiselect" %}
+     <select class="js-example-basic-multiple form-control" id="{{key}}" name="{{key}}" multiple="multiple" {{mode}}>
+       {% for opt in value.options | python_eval %}
+        <option value="{{opt}}" style="margin: 2px;">{{opt}}</option>
+       {% endfor %}
+     </select>
 
     <!-- radio type -->
     {% elif value.type == "radio" %}
@@ -158,7 +172,8 @@
     <!-- end Port field -->
 
     <!-- Port field -->
-    {% elif value.type == "map" and value.entry_schema.type == "tosca.datatypes.network.PortSpec" %}
+    {% elif value.type == "map" and (value.entry_schema.type == "tosca.datatypes.network.PortSpec" or value.entry_schema.type == "tosca.datatypes.indigo.network.PortSpec") %}
+    {% set ports_type = "indigo" if 'indigo' in value.entry_schema.type else "" %}
       <fieldset class="border p-2">
       {% include 'inputs/ports.html' %}
       </fieldset>
@@ -216,6 +231,12 @@
    let fileName = $(this).val().split('\\').pop();
    $(this).next('.custom-file-label').addClass("selected").html(fileName);
 
+});
+
+$(document).ready(function() {
+    $('.js-example-basic-multiple').select2({
+      width: '100%' // https://github.com/select2/select2/issues/4220
+    });
 });
 
 </script>
