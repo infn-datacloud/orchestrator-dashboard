@@ -27,6 +27,13 @@ def to_pretty_json(value):
     return json.dumps(value, sort_keys=True,
                       indent=4, separators=(',', ': '))
 
+def python_eval(obj):
+    if isinstance(obj, str):
+        try:
+            return eval(obj)
+        except Exception as e:
+            app.logger.warn("Error calling python_eval(): {}".format(e))
+    return obj
 
 def intersect(a, b):
     return set(a).intersection(b)
