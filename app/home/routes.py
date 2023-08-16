@@ -50,6 +50,48 @@ def show_settings():
                            vault_url=app.config.get('VAULT_URL'))
 
 
+@home_bp.route('/setsettings', methods=['POST'])
+@auth.authorized_with_valid_token
+def submit_settings():
+
+    if request.method == 'POST' and session['userrole'].lower() == 'admin':
+
+        message1 = ''
+        message2 = ''
+
+        repo_url = request.form.get('tosca_templates_url')
+        tag_or_branch = request.form.get('tosca_templates_tag_or_branch')
+        if repo_url:
+            app.logger.debug("Cloning TOSCA templates")
+            ret, message1 = utils.download_git_repo(repo_url, app.config.get('TOSCA_TEMPLATES_DIR'), tag_or_branch)
+            flash(message1, "success" if ret else "danger")
+
+        repo_url = request.form.get('dashboard_configuration_url')
+        tag_or_branch = request.form.get('dashboard_configuration_tag_or_branch')
+        if repo_url:
+            app.logger.debug("Cloning dashboard configuration")
+            ret, message2 = utils.download_git_repo(repo_url, app.config.get('DASHBOARD_CONF_DIR'), tag_or_branch)
+            flash(message2, "success" if ret else "danger")
+
+        tosca.reload()
+
+        if message1 or message2:
+            message = Markup(
+                "{} has requested the update of the dashboard configuration: " \
+                "<br>{} " \
+                "<br>{} ".format(session['username'], message1, message2))
+
+            sender = session['useremail']
+            recipients = dbhelpers.get_admins_email()
+            recipients.extend(request.form.getlist('notify_email'))
+
+            utils.send_email("Dashboard Configuration update",
+                       sender=sender,
+                       recipients=recipients,
+                       html_body=message)
+
+    return redirect(url_for('home_bp.show_settings'))
+
 @home_bp.route('/login')
 def login():
     session.clear()
