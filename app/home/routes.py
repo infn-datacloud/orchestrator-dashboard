@@ -61,16 +61,26 @@ def submit_settings():
 
         repo_url = request.form.get('tosca_templates_url')
         tag_or_branch = request.form.get('tosca_templates_tag_or_branch')
+
+        private = request.form.get('tosca_templates_private') == 'on'
+        username = request.form.get('tosca_templates_username')
+        deploy_token = request.form.get('tosca_templates_token')
+
         if repo_url:
             app.logger.debug("Cloning TOSCA templates")
-            ret, message1 = utils.download_git_repo(repo_url, app.config.get('TOSCA_TEMPLATES_DIR'), tag_or_branch)
+            ret, message1 = utils.download_git_repo(repo_url, app.config.get('TOSCA_TEMPLATES_DIR'), tag_or_branch, private, username, deploy_token)
             flash(message1, "success" if ret else "danger")
 
         repo_url = request.form.get('dashboard_configuration_url')
         tag_or_branch = request.form.get('dashboard_configuration_tag_or_branch')
+
+        private = request.form.get('dashboard_configuration_private') == 'on'
+        username = request.form.get('dashboard_configuration_username')
+        deploy_token = request.form.get('dashboard_configuration_token')
+
         if repo_url:
             app.logger.debug("Cloning dashboard configuration")
-            ret, message2 = utils.download_git_repo(repo_url, app.config.get('DASHBOARD_CONF_DIR'), tag_or_branch)
+            ret, message2 = utils.download_git_repo(repo_url, app.config.get('DASHBOARD_CONF_DIR'), tag_or_branch, private, username, deploy_token)
             flash(message2, "success" if ret else "danger")
 
         tosca.reload()

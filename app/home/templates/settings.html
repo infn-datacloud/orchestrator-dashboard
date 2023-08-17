@@ -71,6 +71,20 @@
                                     <input type="text" class="form-control" id="tosca_templates_tag_or_branch" name="tosca_templates_tag_or_branch">
                                 </div>
                             </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="tosca_templates_private" name="tosca_templates_private">
+                                <label class="form-check-label" for="tosca_templates_private">Private Repository</label>
+                            </div>
+                            <div class="form-row" id="privateRepoFields1" style="display: none;">
+                                <div class="form-group col">
+                                    <label for="tosca_templates_username">Username</label>
+                                    <input type="text" class="form-control" id="tosca_templates_username" name="tosca_templates_username">
+                                </div>
+                                <div class="form group col">
+                                    <label for="tosca_templates_token">Token</label>
+                                    <input type="password" class="form-control" id="tosca_templates_token" name="tosca_templates_token">
+                                </div>
+                            </div>
                         </fieldset>
                         <fieldset class="border p-2 mb-2">
                             <div class="text-info font-weight-bold"><h5>Dashboard configuration</h5></div>
@@ -84,6 +98,20 @@
                                 <div class="form-group col">
                                     <label for="dashboard_configuration_tag_or_branch">Tag/Branch (optional)</label>
                                     <input type="text" class="form-control" id="dashboard_configuration_tag_or_branch" name="dashboard_configuration_tag_or_branch">
+                                </div>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="dashboard_configuration_private" name="dashboard_configuration_private">
+                                <label class="form-check-label" for="dashboard_configuration_private">Private Repository</label>
+                            </div>
+                            <div class="form-row" id="privateRepoFields2" style="display: none;">
+                                <div class="form-group col">
+                                    <label for="dashboard_configuration_username">Username</label>
+                                    <input type="text" class="form-control" id="dashboard_configuration_username" name="dashboard_configuration_username">
+                                </div>
+                                <div class="form group col">
+                                    <label for="dashboard_configuration_token">Token</label>
+                                    <input type="password" class="form-control" id="dashboard_configuration_token" name="dashboard_configuration_token">
                                 </div>
                             </div>
                         </fieldset>
@@ -130,6 +158,13 @@
 
 <script>
 $(document).ready(function() {
+  $("#tosca_templates_private").change(function() {
+    $("#privateRepoFields1").toggle(this.checked);
+  });
+  $("#dashboard_configuration_private").change(function() {
+    $("#privateRepoFields2").toggle(this.checked);
+  });
+
   $("#settingsform").submit(function(event) {
     event.preventDefault();
 

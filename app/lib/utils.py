@@ -244,7 +244,7 @@ def restore_directory(backup_path, target_directory):
         return False
 
 
-def download_git_repo(repo_url, target_directory, tag_or_branch=None):
+def download_git_repo(repo_url, target_directory, tag_or_branch=None, private=False, username=None, deploy_token=None):
     try:
         if not has_write_permission(target_directory):
             return False, "No permission for creating the directory {}".format(target_directory)
@@ -258,7 +258,11 @@ def download_git_repo(repo_url, target_directory, tag_or_branch=None):
                 shutil.rmtree(target_directory)
 
             # Clone the repository
-            subprocess.run(['git', 'clone', repo_url, target_directory], check=True)
+            if private and username and deploy_token:
+                git_url = repo_url.replace("https://", f"https://{username}:{deploy_token}@")
+                subprocess.run(['git', 'clone', git_url, target_directory], check=True)
+            else:
+                subprocess.run(['git', 'clone', repo_url, target_directory], check=True)
 
             # Change directory to the cloned repository
             cwd = target_directory
