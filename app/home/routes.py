@@ -82,13 +82,17 @@ def submit_settings():
                 "<br>{} ".format(session['username'], message1, message2))
 
             sender = session['useremail']
-            recipients = dbhelpers.get_admins_email()
+            recipients = []
+
+            if request.form.get('notify_admins'):
+                recipients = dbhelpers.get_admins_email()
             recipients.extend(request.form.getlist('notify_email'))
 
-            utils.send_email("Dashboard Configuration update",
-                       sender=sender,
-                       recipients=recipients,
-                       html_body=message)
+            if recipients:
+                utils.send_email("Dashboard Configuration update",
+                           sender=app.config.get('MAIL_SENDER'),
+                           recipients=recipients,
+                           html_body=message)
 
     return redirect(url_for('home_bp.show_settings'))
 

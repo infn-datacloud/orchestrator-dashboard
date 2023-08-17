@@ -87,12 +87,21 @@
                                 </div>
                             </div>
                         </fieldset>
-                        <div class="form-row">
-                            <div class="form-group col">
-                                <label for="notify_email">Notify to (optional)</label>
-                                <select class="js-example-basic-multiple js-example-tags form-control" id="notify_email" name="notify_email" multiple="multiple"></select>
+                        <fieldset class="border p-2 mb-2">
+                            <div class="text-info font-weight-bold"><h5>Notifications</h5></div>
+                            <div class="form-row">
+                                <div class="form-check m-2">
+                                    <input type="checkbox" class="form-check-input" id="notify_admins" name="notify_admins" checked="checked">
+                                    <label class="form-check-label" for="notify_admins">Notify admins</label>
+                                </div>
                             </div>
-                        </div>
+                            <div class="form-row">
+                                <div class="form-group col">
+                                    <label for="notify_email">CC to (optional)</label>
+                                    <select class="js-example-basic-multiple js-example-tags form-control" id="notify_email" name="notify_email" multiple="multiple"></select>
+                                </div>
+                            </div>
+                        </fieldset>
 
                         <button type="submit" class="btn btn-success submitBtn">Reload</button>
                     </form>
