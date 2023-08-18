@@ -86,14 +86,12 @@ def submit_settings():
         tosca.reload()
 
         if message1 or message2:
+            comment = request.form.get('message')
             message = Markup(
-                "{} has requested the update of the dashboard configuration: " \
-                "<br>{} " \
-                "<br>{} ".format(session['username'], message1, message2))
+                "{} has requested the update of the dashboard configuration: "
+                "<br><br>{} <br>{} <br><br>Comment: {}".format(session['username'], message1, message2, comment))
 
-            sender = session['useremail']
             recipients = []
-
             if request.form.get('notify_admins'):
                 recipients = dbhelpers.get_admins_email()
             recipients.extend(request.form.getlist('notify_email'))

@@ -260,22 +260,23 @@ def download_git_repo(repo_url, target_directory, tag_or_branch=None, private=Fa
             # Clone the repository
             if private and username and deploy_token:
                 git_url = repo_url.replace("https://", f"https://{username}:{deploy_token}@")
-                subprocess.run(['git', 'clone', git_url, target_directory], check=True)
+                subprocess.run(['git', 'clone', git_url, target_directory], check=True, capture_output=True)
             else:
-                subprocess.run(['git', 'clone', repo_url, target_directory], check=True)
+                subprocess.run(['git', 'clone', repo_url, target_directory], check=True, capture_output=True)
 
             # Change directory to the cloned repository
             cwd = target_directory
             if tag_or_branch:
-                subprocess.run(['git', 'checkout', tag_or_branch], cwd=cwd, check=True)
+                subprocess.run(['git', 'checkout', tag_or_branch], cwd=cwd, check=True, capture_output=True)
                 app.logger.info(f"Switched to tag/branch '{tag_or_branch}'.")
 
             app.logger.info(f"Repository '{repo_url}' (branch: '{tag_or_branch}') downloaded to '{target_directory}'.")
             return True, f"Repository '{repo_url}' (branch: '{tag_or_branch}') downloaded to '{target_directory}'."
         except subprocess.CalledProcessError as e:
+            sanitized_error_message = f"{e} {e.stderr.decode('utf-8')}".replace(username + ':' + deploy_token, '[SENSITIVE DATA]')
             restore_directory(backup_path, target_directory)
-            app.logger.error(f"Error: {e}")
-            return False, f"Error: {e}"
+            app.logger.error(f"Error: {sanitized_error_message}")
+            return False, f"Error: {sanitized_error_message}"
     except Exception as e:
         app.logger.error(f"An error occurred: {e}")
         return False, f"An error occurred: {e}"
