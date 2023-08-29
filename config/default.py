@@ -9,9 +9,7 @@ CALLBACK_URL = "https://dashboard.example.com/home/callback"
 
 ### TOSCA-related SETTINGS
 TOSCA_TEMPLATES_DIR = "/opt/tosca-templates"
-DASHBOARD_CONF_DIR = "/opt/dashboard-configuration"
-TOSCA_PARAMETERS_DIR = "{}/tosca-parameters".format(DASHBOARD_CONF_DIR)
-TOSCA_METADATA_DIR = "{}/tosca-metadata".format(DASHBOARD_CONF_DIR)
+SETTINGS_DIR = "/opt/dashboard-configuration"
 
 ### DB SETTINGS
 SQLALCHEMY_DATABASE_URI = "mysql+pymysql://dashboard:dashboard@localhost/orchestrator_dashboard",

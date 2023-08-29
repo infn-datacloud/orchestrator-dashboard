@@ -54,7 +54,7 @@ def submit_settings():
 
         if repo_url:
             app.logger.debug("Cloning TOSCA templates")
-            ret, message1 = utils.download_git_repo(repo_url, app.config.get('TOSCA_TEMPLATES_DIR'), tag_or_branch,
+            ret, message1 = utils.download_git_repo(repo_url, settings.toscaDir, tag_or_branch,
                                                     private, username, deploy_token)
             flash(message1, "success" if ret else "danger")
 
@@ -67,7 +67,7 @@ def submit_settings():
 
         if repo_url:
             app.logger.debug("Cloning dashboard configuration")
-            ret, message2 = utils.download_git_repo(repo_url, app.config.get('DASHBOARD_CONF_DIR'), tag_or_branch,
+            ret, message2 = utils.download_git_repo(repo_url, settings.settingsDir, tag_or_branch,
                                                     private, username, deploy_token)
             flash(message2, "success" if ret else "danger")
 

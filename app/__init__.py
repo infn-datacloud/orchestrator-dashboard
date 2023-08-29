@@ -38,9 +38,6 @@ migrate: Migrate = Migrate()
 # Intialize Alembic
 alembic: Alembic = Alembic()
 
-# initialize ToscaInfo
-tosca: ToscaInfo = ToscaInfo()
-
 # initialize Vault
 vaultservice: Vault = Vault()
 
@@ -95,12 +92,15 @@ def inject_settings():
 db.init_app(app)
 migrate.init_app(app, db)
 alembic.init_app(app, run_mkdir=False)
-tosca.init_app(app)
 
 if app.config.get("FEATURE_VAULT_INTEGRATION") == "yes":
     vaultservice.init_app(app)
 
 mail = Mail(app)
+
+# initialize ToscaInfo
+tosca: ToscaInfo = ToscaInfo(app.config.get("TOSCA_TEMPLATES_DIR"),
+                             app.config.get("SETTINGS_DIR"))
 
 from app.errors.routes import errors_bp
 app.register_blueprint(errors_bp)

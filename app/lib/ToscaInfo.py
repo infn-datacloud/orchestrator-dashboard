@@ -24,34 +24,19 @@ import yaml
 
 class ToscaInfo(object):
 
-    def __init__(self, app=None, tosca_dir=None, tosca_params_dir=None, tosca_metadata_dir=None):
+    def __init__(self, tosca_dir=None, settings_dir=None):
         """
         Initialize the flask extension
-        :param app: flask.Flask application instance
         :param tosca_dir: the dir of the tosca templates
-        :param tosca_params_dir: the dir of the params files
-        :param tosca_metadata_dir: the dir of the metadata files
+        :param settings_dir: the dir of the params and metadata files
         """
 
-        self.tosca_dir = tosca_dir
-        self.tosca_params_dir = tosca_params_dir
-        self.tosca_metadata_dir = tosca_metadata_dir
+        self.tosca_dir = tosca_dir + '/'
+        self.tosca_params_dir = settings_dir + '/tosca-parameters'
+        self.tosca_metadata_dir = settings_dir + '/tosca-metadata'
         self.tosca_info = {}
         self.tosca_gmetadata = {}
         self.tosca_templates = []
-
-        self.app = app
-        if app is not None:
-            self.init_app(app)
-
-    def init_app(self, app):
-        """Init the extension"""
-        if self.tosca_dir is None:
-            self.tosca_dir = app.config['TOSCA_TEMPLATES_DIR'] + "/"
-        if self.tosca_params_dir is None:
-            self.tosca_params_dir = app.config.get('TOSCA_PARAMETERS_DIR')
-        if self.tosca_metadata_dir is None:
-            self.tosca_metadata_dir = app.config.get('TOSCA_METADATA_DIR')
 
         self.tosca_templates = self._loadtoscatemplates()
         self.tosca_info = self._extractalltoscainfo(self.tosca_templates)

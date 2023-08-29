@@ -14,9 +14,10 @@
 
 from app import app
 
+settingsDir = app.config['SETTINGS_DIR'] + "/"
 toscaDir = app.config['TOSCA_TEMPLATES_DIR'] + "/"
-toscaParamsDir = app.config.get('TOSCA_PARAMETERS_DIR')
-toscaMetadataDir = app.config.get('TOSCA_METADATA_DIR')
+toscaParamsDir = app.config.get('SETTINGS_DIR') + "/tosca-parameters"
+toscaMetadataDir = app.config.get('SETTINGS_DIR') + "/tosca-metadata"
 
 iamUrl = app.config['IAM_BASE_URL']
 iamClientID = app.config.get('IAM_CLIENT_ID')
