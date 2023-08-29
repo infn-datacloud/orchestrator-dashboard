@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import json
 import sys
 import socket
 
@@ -45,13 +45,13 @@ app = Flask(__name__, instance_relative_config=True)
 app.wsgi_app = ProxyFix(app.wsgi_app)
 app.secret_key = "30bb7cf2-1fef-4d26-83f0-8096b6dcc7a3"
 app.config.from_object('config.default')
-app.config.from_json('config.json')
+app.config.from_file('config.json', json.load)
 
 if app.config.get("FEATURE_VAULT_INTEGRATION") == "yes":
-    app.config.from_json('vault-config.json')
+    app.config.from_file('vault-config.json', json.load)
 
 if app.config.get("FEATURE_S3CREDS_MENU") == "yes":
-    app.config.from_json('s3-config.json')
+    app.config.from_file('s3-config.json', json.load)
 
 profile = app.config.get('CONFIGURATION_PROFILE')
 if profile is not None and profile != 'default':
