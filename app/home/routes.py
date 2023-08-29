@@ -19,23 +19,10 @@ from markupsafe import Markup
 from flask import Blueprint, json, render_template, request, redirect, url_for, session, make_response, flash
 import json
 
-iam_base_url = settings.iamUrl
-iam_client_id = settings.iamClientID
-iam_client_secret = settings.iamClientSecret
-
-issuer = settings.iamUrl
-if not issuer.endswith('/'):
-    issuer += '/'
-
 app.jinja_env.filters['tojson_pretty'] = utils.to_pretty_json
 app.jinja_env.filters['extract_netinterface_ips'] = utils.extract_netinterface_ips
 app.jinja_env.filters['intersect'] = utils.intersect
 app.jinja_env.filters['python_eval'] = utils.python_eval
-
-toscaInfo = tosca.tosca_info
-
-app.logger.debug("TOSCA INFO: " + json.dumps(toscaInfo))
-app.logger.debug("TOSCA DIR: " + tosca.tosca_dir)
 
 home_bp = Blueprint('home_bp', __name__, template_folder='templates', static_folder='static')
 
@@ -53,7 +40,6 @@ def show_settings():
 @home_bp.route('/setsettings', methods=['POST'])
 @auth.authorized_with_valid_token
 def submit_settings():
-
     if request.method == 'POST' and session['userrole'].lower() == 'admin':
 
         message1 = ''
@@ -68,7 +54,8 @@ def submit_settings():
 
         if repo_url:
             app.logger.debug("Cloning TOSCA templates")
-            ret, message1 = utils.download_git_repo(repo_url, app.config.get('TOSCA_TEMPLATES_DIR'), tag_or_branch, private, username, deploy_token)
+            ret, message1 = utils.download_git_repo(repo_url, app.config.get('TOSCA_TEMPLATES_DIR'), tag_or_branch,
+                                                    private, username, deploy_token)
             flash(message1, "success" if ret else "danger")
 
         repo_url = request.form.get('dashboard_configuration_url')
@@ -80,10 +67,12 @@ def submit_settings():
 
         if repo_url:
             app.logger.debug("Cloning dashboard configuration")
-            ret, message2 = utils.download_git_repo(repo_url, app.config.get('DASHBOARD_CONF_DIR'), tag_or_branch, private, username, deploy_token)
+            ret, message2 = utils.download_git_repo(repo_url, app.config.get('DASHBOARD_CONF_DIR'), tag_or_branch,
+                                                    private, username, deploy_token)
             flash(message2, "success" if ret else "danger")
 
         tosca.reload()
+        app.logger.debug("Configuration reloaded")
 
         if message1 or message2:
             comment = request.form.get('message')
@@ -98,11 +87,12 @@ def submit_settings():
 
             if recipients:
                 utils.send_email("Dashboard Configuration update",
-                           sender=app.config.get('MAIL_SENDER'),
-                           recipients=recipients,
-                           html_body=message)
+                                 sender=app.config.get('MAIL_SENDER'),
+                                 recipients=recipients,
+                                 html_body=message)
 
     return redirect(url_for('home_bp.show_settings'))
+
 
 @home_bp.route('/login')
 def login():
@@ -117,16 +107,18 @@ def is_template_locked(allowed_groups, user_groups):
     else:
         return True
 
+
 def set_template_access(tosca, user_groups, active_group):
     info = {}
     for k, v in tosca.items():
         allowed_groups = v.get("metadata").get("allowed_groups")
         if not allowed_groups:
-          app.logger.error("Null - {}".format(k))
+            app.logger.error("Null - {}".format(k))
         access_locked = is_template_locked(allowed_groups, user_groups)
-        if (access_locked and ("visibility" not in v.get("metadata") or v["metadata"]["visibility"] == "public")) or (not access_locked and (active_group in allowed_groups.split(',') or allowed_groups == "*")):
+        if (access_locked and ("visibility" not in v.get("metadata") or v["metadata"]["visibility"] == "public")) or (
+                not access_locked and (active_group in allowed_groups.split(',') or allowed_groups == "*")):
             v["metadata"]["access_locked"] = access_locked
-            info[k]=v
+            info[k] = v
     return info
 
 
@@ -135,9 +127,10 @@ def check_template_access(user_groups, active_group):
         templates_info = set_template_access(tosca.tosca_gmetadata, user_groups, active_group)
         enable_template_groups = True
     else:
-        templates_info = set_template_access(toscaInfo, user_groups, active_group)
+        templates_info = set_template_access(tosca.tosca_info, user_groups, active_group)
         enable_template_groups = False
     return templates_info, enable_template_groups
+
 
 @app.route('/')
 @home_bp.route('/')
@@ -169,12 +162,9 @@ def home():
         session['supported_usergroups'] = supported_groups
         if 'active_usergroup' not in session:
             session['active_usergroup'] = next(iter(supported_groups), None)
-        # access_token = iam_blueprint.session.token['access_token']
 
         # check database
         # if user not found, insert
-        #
-        app.logger.info(dir(User))
         user = dbhelpers.get_user(account_info_json['sub'])
         if user is None:
             email = account_info_json['email']
@@ -231,7 +221,7 @@ def callback():
     rf = 0
 
     user = dbhelpers.get_user(payload['createdBy']['subject'])
-    user_email = user.email  # email
+    user_email = user.email
 
     dep = dbhelpers.get_deployment(uuid)
 
@@ -311,10 +301,12 @@ def sendaccessrequest():
     form_data = request.form.to_dict()
 
     try:
-        utils.send_authorization_request_email(form_data['service_type'], email=form_data['email'], message=form_data['message'])
+        utils.send_authorization_request_email(form_data['service_type'], email=form_data['email'],
+                                               message=form_data['message'])
 
         flash(
-            "Your request has been sent to the support team. You will receive soon a notification email about your request. Thank you!",
+            "Your request has been sent to the support team. You will receive soon a notification email about your "
+            "request. Thank you!",
             "success")
 
     except Exception as error:
@@ -334,9 +326,9 @@ def contact():
         message = Markup(
             "Name: {}<br>Email: {}<br>Message: {}".format(form_data['name'], form_data['email'], form_data['message']))
         utils.send_email("New contact",
-                   sender=app.config.get('MAIL_SENDER'),
-                   recipients=[app.config.get('SUPPORT_EMAIL')],
-                   html_body=message)
+                         sender=app.config.get('MAIL_SENDER'),
+                         recipients=[app.config.get('SUPPORT_EMAIL')],
+                         html_body=message)
 
     except Exception as error:
         utils.logexception("sending email:".format(error))
