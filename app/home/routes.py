@@ -137,47 +137,30 @@ def check_template_access(user_groups, active_group):
 def home():
     if not iam_blueprint.session.authorized:
         return redirect(url_for('home_bp.login'))
+    if not session.get('userid'):
+        auth.update_user_info()
+    return redirect(url_for('home_bp.portfolio'))
 
-    account_info = iam_blueprint.session.get("/userinfo")
+@app.route('/portfolio')
+@home_bp.route('/portfolio')
+def portfolio():
 
-    if account_info.ok:
-        account_info_json = account_info.json()
-        user_groups = account_info_json['groups']
-        user_id = account_info_json['sub']
-
-        supported_groups = []
-        if settings.iamGroups:
-            supported_groups = list(set(settings.iamGroups) & set(user_groups))
-            if len(supported_groups) == 0:
-                app.logger.warning("The user {} does not belong to any supported user group".format(user_id))
-
-        session['userid'] = user_id
-        session['username'] = account_info_json['name']
-        session['preferred_username'] = account_info_json['preferred_username']
-        session['useremail'] = account_info_json['email']
-        session['userrole'] = 'user'
-        session['gravatar'] = utils.avatar(account_info_json['email'], 26)
-        session['organisation_name'] = account_info_json['organisation_name']
-        session['usergroups'] = user_groups
-        session['supported_usergroups'] = supported_groups
-        if 'active_usergroup' not in session:
-            session['active_usergroup'] = next(iter(supported_groups), None)
-
+    if session.get('userid'):
         # check database
         # if user not found, insert
-        user = dbhelpers.get_user(account_info_json['sub'])
+        user = dbhelpers.get_user(session['userid'])
         if user is None:
-            email = account_info_json['email']
+            email = session['useremail']
             admins = json.dumps(app.config['ADMINS'])
             role = 'admin' if email in admins else 'user'
 
-            user = User(sub=user_id,
-                        name=account_info_json['name'],
-                        username=account_info_json['preferred_username'],
-                        given_name=account_info_json['given_name'],
-                        family_name=account_info_json['family_name'],
+            user = User(sub=session['userid'],
+                        name=session['username'],
+                        username=session['preferred_username'],
+                        given_name=session['given_name'],
+                        family_name=session['family_name'],
                         email=email,
-                        organisation_name=account_info_json['organisation_name'],
+                        organisation_name=session['organisation_name'],
                         picture=utils.avatar(email, 26),
                         role=role,
                         active=1)
@@ -187,10 +170,12 @@ def home():
 
         services = dbhelpers.get_services(visibility='public')
         services.extend(dbhelpers.get_services(visibility='private', groups=[session['active_usergroup']]))
-        templates_info, enable_template_groups = check_template_access(user_groups, session['active_usergroup'])
+        templates_info, enable_template_groups = check_template_access(session['usergroups'], session['active_usergroup'])
 
         return render_template(app.config.get('PORTFOLIO_TEMPLATE'), services=services, templates_info=templates_info,
                                enable_template_groups=enable_template_groups)
+
+    return redirect(url_for('home_bp.login'))
 
 
 @home_bp.route('/set_active')

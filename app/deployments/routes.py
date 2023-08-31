@@ -150,7 +150,7 @@ def deptemplate(depid=None):
         template = orchestrator.get_template(access_token, depid)
     except Exception as e:
         flash("Error getting template: ".format(str(e)), 'danger')
-        return redirect(url_for('home_bp.home'))
+        return redirect(url_for('deployments_bp.showdeployments'))
 
     return render_template('deptemplate.html', template=template)
 
@@ -223,7 +223,7 @@ def depoutput(depid=None):
     # retrieve deployment from DB
     dep = dbhelpers.get_deployment(depid)
     if dep is None:
-        return redirect(url_for('home_bp.home'))
+        return redirect(url_for('deployments_bp.showdeployments'))
     else:
         i = json.loads(dep.inputs.strip('\"')) if dep.inputs else {}
         stinputs = json.loads(dep.stinputs.strip('\"')) if dep.stinputs else {}
@@ -299,7 +299,7 @@ def deptemplatedb(depid):
     # retrieve deployment from DB
     dep = dbhelpers.get_deployment(depid)
     if dep is None:
-        return redirect(url_for('home_bp.home'))
+        return redirect(url_for('deployments_bp.showdeployments'))
     else:
         template = dep.template
         return render_template('deptemplate.html', template=template)
