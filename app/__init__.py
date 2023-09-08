@@ -24,6 +24,7 @@ from flask_dance.consumer import OAuth2ConsumerBlueprint
 from flask_mail import Mail
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate, upgrade
+from flask_redis import FlaskRedis
 from app.lib.ToscaInfo import ToscaInfo
 from app.lib.Vault import Vault
 
@@ -93,13 +94,15 @@ db.init_app(app)
 migrate.init_app(app, db)
 alembic.init_app(app, run_mkdir=False)
 
+redis_client = FlaskRedis(app)
+
 if app.config.get("FEATURE_VAULT_INTEGRATION") == "yes":
     vaultservice.init_app(app)
 
 mail = Mail(app)
 
 # initialize ToscaInfo
-tosca: ToscaInfo = ToscaInfo(app.config.get("TOSCA_TEMPLATES_DIR"),
+tosca: ToscaInfo = ToscaInfo(redis_client, app.config.get("TOSCA_TEMPLATES_DIR"),
                              app.config.get("SETTINGS_DIR"))
 
 from app.errors.routes import errors_bp

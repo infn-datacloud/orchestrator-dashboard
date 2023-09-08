@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .. import app, iam_blueprint, tosca
+from .. import app, iam_blueprint, tosca, redis_client
 from app.lib import utils, auth, settings, dbhelpers, openstack
 from app.models.User import User
 from markupsafe import Markup
@@ -123,11 +123,12 @@ def set_template_access(tosca, user_groups, active_group):
 
 
 def check_template_access(user_groups, active_group):
-    if tosca.tosca_gmetadata:
-        templates_info = set_template_access(tosca.tosca_gmetadata, user_groups, active_group)
+    tosca_info, tosca_templates, tosca_gmetadata = tosca.get()
+    if tosca_gmetadata:
+        templates_info = set_template_access(tosca_gmetadata, user_groups, active_group)
         enable_template_groups = True
     else:
-        templates_info = set_template_access(tosca.tosca_info, user_groups, active_group)
+        templates_info = set_template_access(tosca_info, user_groups, active_group)
         enable_template_groups = False
     return templates_info, enable_template_groups
 

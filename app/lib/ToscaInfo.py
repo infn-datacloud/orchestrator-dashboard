@@ -15,43 +15,55 @@
 """
     Class to load tosca templates at application start
 """
-
+import json
 import os
 import io
 from fnmatch import fnmatch
 import yaml
+from flask import current_app
 
 
 class ToscaInfo(object):
 
-    def __init__(self, tosca_dir=None, settings_dir=None):
+    def __init__(self, redis_client, tosca_dir=None, settings_dir=None):
         """
         Initialize the flask extension
         :param tosca_dir: the dir of the tosca templates
         :param settings_dir: the dir of the params and metadata files
         """
-
+        self.redis_client = redis_client
         self.tosca_dir = tosca_dir + '/'
         self.tosca_params_dir = settings_dir + '/tosca-parameters'
         self.tosca_metadata_dir = settings_dir + '/tosca-metadata'
-        self.tosca_info = {}
-        self.tosca_gmetadata = {}
-        self.tosca_templates = []
 
-        self.tosca_templates = self._loadtoscatemplates()
-        self.tosca_info = self._extractalltoscainfo(self.tosca_templates)
+        tosca_info = {}
+        tosca_gmetadata = {}
+        tosca_templates = []
+
+        tosca_templates = self._loadtoscatemplates()
+        tosca_info = self._extractalltoscainfo(tosca_templates)
 
         if os.path.isfile(self.tosca_metadata_dir + "/metadata.yml"):
             with io.open(self.tosca_metadata_dir + "/metadata.yml") as stream:
-                self.tosca_gmetadata = yaml.full_load(stream)
+                tosca_gmetadata = yaml.full_load(stream)
+
+        redis_client.set("tosca_templates", json.dumps(tosca_templates))
+        redis_client.set("tosca_gmetadata", json.dumps(tosca_gmetadata))
+        redis_client.set("tosca_info", json.dumps(tosca_info))
+
 
     def reload(self):
-        self.tosca_templates = self._loadtoscatemplates()
-        self.tosca_info = self._extractalltoscainfo(self.tosca_templates)
+        tosca_templates = self._loadtoscatemplates()
+        tosca_info = self._extractalltoscainfo(tosca_templates)
+        tosca_gmetadata = {}
 
         if os.path.isfile(self.tosca_metadata_dir + "/metadata.yml"):
             with io.open(self.tosca_metadata_dir + "/metadata.yml") as stream:
-                self.tosca_gmetadata = yaml.full_load(stream)
+                tosca_gmetadata = yaml.full_load(stream)
+
+        self.redis_client.set("tosca_templates", json.dumps(tosca_templates))
+        self.redis_client.set("tosca_gmetadata", json.dumps(tosca_gmetadata))
+        self.redis_client.set("tosca_info", json.dumps(tosca_info))
 
     def _loadtoscatemplates(self):
         toscatemplates = []
@@ -172,6 +184,15 @@ class ToscaInfo(object):
             updatable = updatabledeployment(tosca_info['inputs'])
             tosca_info['updatable'] = updatable
         return tosca_info
+
+    def get(self):
+        serialised_value = self.redis_client.get("tosca_templates")
+        tosca_templates = json.loads(serialised_value)
+        serialised_value = self.redis_client.get("tosca_gmetadata")
+        tosca_gmetadata = json.loads(serialised_value)
+        serialised_value = self.redis_client.get("tosca_info")
+        tosca_info = json.loads(serialised_value)
+        return tosca_info, tosca_templates, tosca_gmetadata
 
 
 # Helper functions

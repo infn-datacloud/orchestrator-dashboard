@@ -506,6 +506,8 @@ def updatedep():
 def configure():
     access_token = iam_blueprint.session.token['access_token']
 
+    tosca_info, tosca_templates, tosca_gmetadata = tosca.get()
+
     selected_tosca = None
 
     if request.method == 'POST':
@@ -515,7 +517,7 @@ def configure():
         selected_tosca = request.args['selected_tosca']
 
     if 'selected_group' in request.args:
-        templates = tosca.tosca_gmetadata[request.args['selected_group']]['templates']
+        templates = tosca_gmetadata[request.args['selected_group']]['templates']
         if len(templates) == 1:
             selected_tosca = templates[0]['name']
         else:
@@ -523,7 +525,7 @@ def configure():
 
     if selected_tosca:
 
-        template = copy.deepcopy(tosca.tosca_info[selected_tosca])
+        template = copy.deepcopy(tosca_info[selected_tosca])
         # Manage eventual overrides
         for k, v in template['inputs'].items():
             if 'group_overrides' in v and session['active_usergroup'] in v['group_overrides']:
@@ -583,9 +585,11 @@ def add_sla_to_template(template, sla_id):
 @deployments_bp.route('/submit', methods=['POST'])
 @auth.authorized_with_valid_token
 def createdep():
+    tosca_info, tosca_templates, tosca_gmetadata = tosca.get()
+
     access_token = iam_blueprint.session.token['access_token']
     selected_template = request.args.get('template')
-    source_template = tosca.tosca_info[selected_template]
+    source_template = tosca_info[selected_template]
 
     app.logger.debug("Form data: " + json.dumps(request.form.to_dict()))
 
