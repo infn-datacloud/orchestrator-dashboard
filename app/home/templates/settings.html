@@ -57,9 +57,14 @@
                 {% if session['userrole'] == 'admin' %}
                 <div class="tab-pane fade show" id=dash_conf>
                     <br>
+                    <p class="text-success">Last update at: {{ tosca_settings.updated_at }}</p>
                     <form id="settingsform" action="{{ url_for('home_bp.submit_settings')}}" method="post">
                         <fieldset class="border p-2 mb-2">
                             <div class="text-info font-weight-bold"><h5>TOSCA templates</h5></div>
+                            <p class="text-success">Current settings:
+                            {% if tosca_settings.tosca_templates_url %}
+                                    {{ tosca_settings.tosca_templates_url }} (branch/tag: {{ tosca_settings.tosca_templates_tag_or_branch }})
+                                {% else %} Not Available{% endif %}</p>
                             <div class="form-row">
                                 <div class="form-group col">
                                     <label for="tosca_templates_url">Repository URL</label>
@@ -89,6 +94,10 @@
                         <fieldset class="border p-2 mb-2">
                             <div class="text-info font-weight-bold"><h5>Dashboard configuration</h5></div>
                             <p class="text-muted">the repo containing the folders "tosca-parameters" and "tosca-metadata"</p>
+                            <p class="text-success">Current settings:
+                                {% if tosca_settings.dashboard_configuration_url %}
+                                    {{ tosca_settings.dashboard_configuration_url }} (branch/tag: {{ tosca_settings.dashboard_configuration_tag_or_branch }})
+                                {% else %} Not Available{% endif %}</p>
                             <div class="form-row">
                                 <div class="form-group col">
                                     <label for="dashboard_configuration_url">Repository URL</label>
