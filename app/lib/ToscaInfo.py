@@ -20,7 +20,6 @@ import os
 import io
 from fnmatch import fnmatch
 import yaml
-from flask import current_app
 
 
 class ToscaInfo(object):
