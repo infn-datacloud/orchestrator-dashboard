@@ -15,6 +15,7 @@
 from .. import app, iam_blueprint, tosca, redis_client
 from app.lib import utils, auth, settings, dbhelpers, openstack
 from app.models.User import User
+from datetime import datetime
 from markupsafe import Markup
 from flask import Blueprint, json, render_template, request, redirect, url_for, session, make_response, flash
 import json
@@ -30,11 +31,14 @@ home_bp = Blueprint('home_bp', __name__, template_folder='templates', static_fol
 @home_bp.route('/settings')
 @auth.authorized_with_valid_token
 def show_settings():
+    dashboard_last_conf = redis_client.get('last_configuration_info')
+    last_settings = json.loads(dashboard_last_conf) if dashboard_last_conf else {}
     return render_template('settings.html',
                            iam_url=settings.iamUrl,
                            orchestrator_url=settings.orchestratorUrl,
                            orchestrator_conf=settings.orchestratorConf,
-                           vault_url=app.config.get('VAULT_URL'))
+                           vault_url=app.config.get('VAULT_URL'),
+                           tosca_settings=last_settings)
 
 
 @home_bp.route('/setsettings', methods=['POST'])
@@ -52,11 +56,18 @@ def submit_settings():
         username = request.form.get('tosca_templates_username')
         deploy_token = request.form.get('tosca_templates_token')
 
+        dashboard_configuration_info = {}
+
         if repo_url:
             app.logger.debug("Cloning TOSCA templates")
             ret, message1 = utils.download_git_repo(repo_url, settings.toscaDir, tag_or_branch,
                                                     private, username, deploy_token)
             flash(message1, "success" if ret else "danger")
+
+            if ret:
+                dashboard_configuration_info['tosca_templates_url'] = repo_url
+                dashboard_configuration_info['tosca_templates_tag_or_branch'] = tag_or_branch
+
 
         repo_url = request.form.get('dashboard_configuration_url')
         tag_or_branch = request.form.get('dashboard_configuration_tag_or_branch')
@@ -70,9 +81,16 @@ def submit_settings():
             ret, message2 = utils.download_git_repo(repo_url, settings.settingsDir, tag_or_branch,
                                                     private, username, deploy_token)
             flash(message2, "success" if ret else "danger")
+            if ret:
+                dashboard_configuration_info['dashboard_configuration_url'] = repo_url
+                dashboard_configuration_info['dashboard_configuration_tag_or_branch'] = tag_or_branch
 
         tosca.reload()
         app.logger.debug("Configuration reloaded")
+
+        now = datetime.now()
+        dashboard_configuration_info['updated_at'] = now.strftime("%d/%m/%Y %H:%M:%S")
+        redis_client.set('last_configuration_info', json.dumps(dashboard_configuration_info))
 
         if message1 or message2:
             comment = request.form.get('message')
@@ -139,7 +157,7 @@ def home():
     if not iam_blueprint.session.authorized:
         return redirect(url_for('home_bp.login'))
     if not session.get('userid'):
-        auth.update_user_info()
+        auth.set_user_info()
     return redirect(url_for('home_bp.portfolio'))
 
 @app.route('/portfolio')
