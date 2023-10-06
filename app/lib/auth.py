@@ -28,7 +28,7 @@ def validate_configuration():
         settings.orchestratorConf = configuration
 
 
-def update_user_info():
+def set_user_info():
     account_info = iam_blueprint.session.get('/userinfo')
     account_info_json = account_info.json()
     user_groups = account_info_json['groups']
@@ -54,6 +54,23 @@ def update_user_info():
     if 'active_usergroup' not in session:
         session['active_usergroup'] = next(iter(supported_groups), None)
 
+def update_user_info():
+    account_info = iam_blueprint.session.get('/userinfo')
+    account_info_json = account_info.json()
+    user_groups = account_info_json['groups']
+    user_id = account_info_json['sub']
+
+    supported_groups = []
+    if settings.iamGroups:
+        supported_groups = list(set(settings.iamGroups) & set(user_groups))
+        if len(supported_groups) == 0:
+            app.logger.warning("The user {} does not belong to any supported user group".format(user_id))
+
+    session['usergroups'] = user_groups
+    session['supported_usergroups'] = supported_groups
+    if 'active_usergroup' not in session:
+        session['active_usergroup'] = next(iter(supported_groups), None)
+
 
 def authorized_with_valid_token(f):
     @wraps(f)
@@ -65,8 +82,6 @@ def authorized_with_valid_token(f):
         if iam_blueprint.session.token['expires_in'] < 60:
             app.logger.debug("Token will expire soon...Refresh token")
             update_user_info()
-
-        validate_configuration()
 
         return f(*args, **kwargs)
 
