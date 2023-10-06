@@ -210,7 +210,7 @@ def send_async_email(app, msg):
 
 
 def has_write_permission(directory):
-    parent_directory = os.path.dirname(directory)
+    parent_directory = os.path.dirname(os.path.normpath(directory))
     try:
         test_file = os.path.join(parent_directory, '.test_file')
         with open(test_file, 'w') as f:
@@ -223,7 +223,7 @@ def has_write_permission(directory):
 
 def backup_directory(directory):
     try:
-        backup_path = f"{directory}.bak"
+        backup_path = f"{os.path.normpath(directory)}.bak"
         if os.path.exists(backup_path):
             shutil.rmtree(backup_path)
         shutil.copytree(directory, backup_path)
