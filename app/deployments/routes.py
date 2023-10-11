@@ -460,7 +460,9 @@ def updatedep():
         else:
             remove_sla_from_template(template)
 
-        inputs = {k: v for (k, v) in form_data.items() if not k.startswith("extra_opts.") and not k == '_depid'}
+        stinputs = json.loads(dep.stinputs.strip('\"')) if dep.stinputs else {}
+        inputs = {k: v for (k, v) in form_data.items() if not k.startswith("extra_opts.") and not k == '_depid' and (
+            k in stinputs and 'updatable' in stinputs[k] and stinputs[k]['updatable'] == True)}
 
         additionaldescription = form_data['additional_description']
 
