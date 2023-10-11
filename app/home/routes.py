@@ -56,7 +56,8 @@ def submit_settings():
         username = request.form.get('tosca_templates_username')
         deploy_token = request.form.get('tosca_templates_token')
 
-        dashboard_configuration_info = {}
+        serialised_value = redis_client.get("last_configuration_info")
+        dashboard_configuration_info = json.loads(serialised_value) if serialised_value else {}
 
         if repo_url:
             app.logger.debug("Cloning TOSCA templates")
@@ -65,9 +66,8 @@ def submit_settings():
             flash(message1, "success" if ret else "danger")
 
             if ret:
-                dashboard_configuration_info['tosca_templates_url'] = repo_url
-                dashboard_configuration_info['tosca_templates_tag_or_branch'] = tag_or_branch
-
+                if repo_url: dashboard_configuration_info['tosca_templates_url'] = repo_url
+                if tag_or_branch: dashboard_configuration_info['tosca_templates_tag_or_branch'] = tag_or_branch
 
         repo_url = request.form.get('dashboard_configuration_url')
         tag_or_branch = request.form.get('dashboard_configuration_tag_or_branch')
@@ -82,8 +82,8 @@ def submit_settings():
                                                     private, username, deploy_token)
             flash(message2, "success" if ret else "danger")
             if ret:
-                dashboard_configuration_info['dashboard_configuration_url'] = repo_url
-                dashboard_configuration_info['dashboard_configuration_tag_or_branch'] = tag_or_branch
+                if repo_url: dashboard_configuration_info['dashboard_configuration_url'] = repo_url
+                if tag_or_branch: dashboard_configuration_info['dashboard_configuration_tag_or_branch'] = tag_or_branch
 
         tosca.reload()
         app.logger.debug("Configuration reloaded")
