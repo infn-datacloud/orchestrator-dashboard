@@ -464,11 +464,6 @@ def updatedep():
         inputs = {k: v for (k, v) in form_data.items() if not k.startswith("extra_opts.") and not k == '_depid' and (
             k in stinputs and 'updatable' in stinputs[k] and stinputs[k]['updatable'] == True)}
 
-        additionaldescription = form_data['additional_description']
-
-        if additionaldescription is not None:
-            inputs['additional_description'] = additionaldescription
-
         app.logger.debug("Parameters: " + json.dumps(inputs))
 
         template_text = yaml.dump(template, default_flow_style=False, sort_keys=False)
@@ -490,7 +485,6 @@ def updatedep():
             # store data into database
             dep.keep_last_attempt = keep_last_attempt
             dep.feedback_required = feedback_required
-            dep.description = additionaldescription
             dep.template = template_text
             oldinputs = json.loads(dep.inputs.strip('\"')) if dep.inputs else {}
             updatedinputs = {**oldinputs, **inputs}
