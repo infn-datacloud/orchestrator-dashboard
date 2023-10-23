@@ -87,7 +87,7 @@ def inject_settings():
         s3_allowed_groups=app.config.get("S3_IAM_GROUPS") if app.config.get("S3_IAM_GROUPS") else [],
         enable_access_request=app.config.get("FEATURE_ACCESS_REQUEST") if app.config.get(
             'FEATURE_ACCESS_REQUEST') else "no",
-        access_request_tag=app.config.get("ACCESS_REQUEST_TAG")
+        not_granted_access_tag=app.config.get("NOT_GRANTED_ACCESS_TAG")
     )
 
 
