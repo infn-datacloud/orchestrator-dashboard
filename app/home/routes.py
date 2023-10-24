@@ -118,18 +118,6 @@ def login():
     return render_template(app.config.get('HOME_TEMPLATE'))
 
 
-def is_template_locked(allowed_groups, user_groups, visibility):
-    # check intersection of user groups with user membership
-    locked = True
-    if visibility == "private":
-        if (set(allowed_groups.split(',')) & set(user_groups)) != set():
-            locked = False
-    if visibility == "public":
-        if (set(allowed_groups.split(',')) & set(user_groups)) != set() or allowed_groups == '*':
-            locked = False
-    return locked        
-
-
 def set_template_access(tosca, user_groups, active_group):
     info = {}
     for k, v in tosca.items():
