@@ -121,18 +121,18 @@ def login():
 def set_template_access(tosca, user_groups, active_group):
     info = {}
     for k, v in tosca.items():
-        visibility = v.get("metadata").get("visibility").get("type")
+        visibility = v.get("metadata").get("visibility") if "visibility" in v.get("metadata") else {"type": "public"}
 
-        if visibility != "public":
-            allowed_groups = v.get("metadata").get("visibility").get("groups")
-            regex = False if "groups_regex" not in v.get("metadata").get("visibility") else v.get("metadata").get("visibility").get("groups_regex")
+        if visibility.get("type") != "public":
+            allowed_groups = visibility.get("groups")
+            regex = False if "groups_regex" not in visibility else visibility.get("groups_regex")
 
             if regex:
                 access_locked = not re.match(allowed_groups, active_group)
             else:
                 access_locked = True if active_group not in allowed_groups else False
 
-            if (visibility == "private" and not access_locked) or visibility == "protected":
+            if (visibility.get("type") == "private" and not access_locked) or visibility.get("type") == "protected":
                 v["metadata"]["access_locked"] = access_locked
                 info[k] = v         
         else:

@@ -90,9 +90,9 @@ class ToscaInfo(object):
             "description": "TOSCA Template",
             "metadata": {
                 "icon": "https://cdn4.iconfinder.com/data/icons/mosaicon-04/512/websettings-512.png",
-                        "visibility": { "type": "public", "groups": ".*", "groups_regex": True },
-                        "require_ssh_key": True,
-                        "template_type": ""
+                "visibility": { "type": "public" },
+                "require_ssh_key": True,
+                "template_type": ""
             },
             "enable_config_form": False,
             "inputs": {},
