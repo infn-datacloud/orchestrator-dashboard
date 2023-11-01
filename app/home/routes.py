@@ -85,7 +85,12 @@ def submit_settings():
                 if repo_url: dashboard_configuration_info['dashboard_configuration_url'] = repo_url
                 if tag_or_branch: dashboard_configuration_info['dashboard_configuration_tag_or_branch'] = tag_or_branch
 
-        tosca.reload()
+        try:
+            tosca.reload()
+        except Exception as error:
+            app.logger.error(f"Error reloading configuration: {error}")
+            flash(f"Error reloading configuration: { type(error).__name__ }. Please check the logs.", "danger")
+
         app.logger.debug("Configuration reloaded")
 
         now = datetime.now()
@@ -124,12 +129,13 @@ def set_template_access(tosca, user_groups, active_group):
         visibility = v.get("metadata").get("visibility") if "visibility" in v.get("metadata") else {"type": "public"}
 
         if visibility.get("type") != "public":
-            allowed_groups = visibility.get("groups")
-            regex = False if "groups_regex" not in visibility else visibility.get("groups_regex")
+            
+            regex = False if "groups_regex" not in visibility else True
 
             if regex:
-                access_locked = not re.match(allowed_groups, active_group)
+                access_locked = not re.match(visibility.get('groups_regex'), active_group)
             else:
+                allowed_groups = visibility.get("groups")
                 access_locked = True if active_group not in allowed_groups else False
 
             if (visibility.get("type") == "private" and not access_locked) or visibility.get("type") == "protected":
