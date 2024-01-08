@@ -21,7 +21,7 @@ PyMySQL
 python-swiftclient
 python-keystoneclient
 pycryptodomex
-hvac
+hvac==2.1.0
 MarkupSafe
 boto3
 python-ldap
