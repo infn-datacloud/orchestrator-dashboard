@@ -171,7 +171,7 @@ def notify_admins_and_users(message1, message2):
     recipients = get_recipients()
 
     if recipients:
-        utils.send_email.delay(
+        utils.send_email(
             "Dashboard Configuration update",
             sender=app.config.get("MAIL_SENDER"),
             recipients=recipients,
