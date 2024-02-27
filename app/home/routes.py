@@ -23,6 +23,7 @@ from app.iam import iam
 from app.extensions import tosca, redis_client
 from app.lib import utils, auth, dbhelpers, openstack
 from app.models.User import User
+from app.deployments.routes import update_deployments
 
 home_bp = Blueprint(
     "home_bp",
@@ -225,6 +226,8 @@ def home():
 @home_bp.route("/portfolio")
 def portfolio():
     """ GET STATUSES """
+    update_deployments()
+
     deps = dbhelpers.get_user_deployments(session["userid"])
     statuses = {}
     for dep in deps:

@@ -40,7 +40,7 @@
                 "authorization_required" : {"$ref": "#/$defs/authorization_required" }
             },
             "required": ["display_name", "bookmark_id", "icon", "visibility"],
-            "additionalProperties": false
+            "additionalProperties": true
         },
         "visibility": {
             "type": "object",
