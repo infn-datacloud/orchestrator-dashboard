@@ -125,17 +125,20 @@
 </div>
 
 <style>
-.btn-group-vertical > a{
-    margin-bottom:5px;
-    border-radius:5px !important;
-}
+    .btn-group-vertical > a{
+        margin-bottom:5px;
+        border-radius:5px !important;
+    }
 </style>
 
-<script>setTimeout(function(){location.reload();},30000);</script>
+<script>
+    // reload page every 30s
+    setTimeout(() => { location.reload(); },30000);
+</script>
 
 <script>
 
-$('#tableUserDeployments').dataTable( {
+$('#tableUserDeployments').dataTable({
     "responsive": true,
         "columnDefs": [
             {
@@ -146,7 +149,7 @@ $('#tableUserDeployments').dataTable( {
     "order": [[ 2, "desc" ]]
 });
 
-$(document).ready(function () {
+$(document).ready(() => {
     $(".execActionBtn").click(() => {
         set_loading(true)
     });
