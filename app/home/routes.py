@@ -12,16 +12,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import re
 import json
+import re
 from datetime import datetime
-from markupsafe import Markup
-from flask import current_app as app, Blueprint, render_template, request
-from flask import redirect, url_for, session, make_response, flash
 
+from flask import (
+    Blueprint,
+    flash,
+    make_response,
+    redirect,
+    render_template,
+    request,
+    session,
+    url_for,
+)
+from flask import current_app as app
+from markupsafe import Markup
+
+from app.extensions import redis_client, tosca
 from app.iam import iam
-from app.extensions import tosca, redis_client
-from app.lib import utils, auth, dbhelpers, openstack
+from app.lib import auth, dbhelpers, openstack, utils
 from app.models.User import User
 from app.deployments.routes import update_deployments
 
@@ -37,6 +47,10 @@ home_bp = Blueprint(
 @home_bp.route("/user")
 @auth.authorized_with_valid_token
 def show_user_profile():
+    """
+    Route for showing the user profile. Access requires a valid token.
+    Retrieves the user's SSH public key from the database and renders the user profile.
+    """
     sshkey = dbhelpers.get_ssh_pub_key(session["userid"])
 
     return render_template("user_profile.html", sshkey=sshkey)
@@ -45,6 +59,9 @@ def show_user_profile():
 @home_bp.route("/settings")
 @auth.authorized_with_valid_token
 def show_settings():
+    """
+    Route for displaying the settings page.
+    """
     dashboard_last_conf = redis_client.get("last_configuration_info")
     last_settings = json.loads(dashboard_last_conf) if dashboard_last_conf else {}
     return render_template(
@@ -60,162 +77,279 @@ def show_settings():
 @home_bp.route("/setsettings", methods=["POST"])
 @auth.authorized_with_valid_token
 def submit_settings():
+    """
+    A function to update settings.
+    It checks the user's role, then updates the current configuration
+    and handles configuration reload.
+    """
     if request.method == "POST" and session["userrole"].lower() == "admin":
-        message1 = ""
-        message2 = ""
-
-        repo_url = request.form.get("tosca_templates_url")
-        tag_or_branch = request.form.get("tosca_templates_tag_or_branch")
-
-        private = request.form.get("tosca_templates_private") == "on"
-        username = request.form.get("tosca_templates_username")
-        deploy_token = request.form.get("tosca_templates_token")
-
-        serialised_value = redis_client.get("last_configuration_info")
-        dashboard_configuration_info = (
-            json.loads(serialised_value) if serialised_value else {}
+        current_config = get_current_configuration()
+        _, tosca_update_msg = update_configuration(
+            current_config, "tosca_templates", app.settings.tosca_dir, "Cloning TOSCA templates"
         )
-
-        if repo_url:
-            app.logger.debug("Cloning TOSCA templates")
-            ret, message1 = utils.download_git_repo(
-                repo_url,
-                app.settings.tosca_dir,
-                tag_or_branch,
-                private,
-                username,
-                deploy_token,
-            )
-            flash(message1, "success" if ret else "danger")
-
-            if ret:
-                if repo_url:
-                    dashboard_configuration_info["tosca_templates_url"] = repo_url
-                if tag_or_branch:
-                    dashboard_configuration_info[
-                        "tosca_templates_tag_or_branch"
-                    ] = tag_or_branch
-
-        repo_url = request.form.get("dashboard_configuration_url")
-        tag_or_branch = request.form.get("dashboard_configuration_tag_or_branch")
-
-        private = request.form.get("dashboard_configuration_private") == "on"
-        username = request.form.get("dashboard_configuration_username")
-        deploy_token = request.form.get("dashboard_configuration_token")
-
-        if repo_url:
-            app.logger.debug("Cloning dashboard configuration")
-            ret, message2 = utils.download_git_repo(
-                repo_url,
-                app.settings.settings_dir,
-                tag_or_branch,
-                private,
-                username,
-                deploy_token,
-            )
-            flash(message2, "success" if ret else "danger")
-            if ret:
-                if repo_url:
-                    dashboard_configuration_info[
-                        "dashboard_configuration_url"
-                    ] = repo_url
-                if tag_or_branch:
-                    dashboard_configuration_info[
-                        "dashboard_configuration_tag_or_branch"
-                    ] = tag_or_branch
+        _, conf_update_msg = update_configuration(
+            current_config,
+            "dashboard_configuration",
+            app.settings.settings_dir,
+            "Cloning dashboard configuraton",
+        )
 
         try:
             tosca.reload()
         except Exception as error:
-            app.logger.error(f"Error reloading configuration: {error}")
-            flash(
-                f"Error reloading configuration: { type(error).__name__ }. Please check the logs.",
-                "danger",
-            )
+            handle_configuration_reload_error(error)
 
-        app.logger.debug("Configuration reloaded")
-
-        now = datetime.now()
-        dashboard_configuration_info["updated_at"] = now.strftime("%d/%m/%Y %H:%M:%S")
-        redis_client.set(
-            "last_configuration_info", json.dumps(dashboard_configuration_info)
-        )
-
-        if message1 or message2:
-            comment = request.form.get("message")
-            message = Markup(
-                "{} has requested the update of the dashboard configuration: "
-                "<br><br>{} <br>{} <br><br>Comment: {}".format(
-                    session["username"], message1, message2, comment
-                )
-            )
-
-            recipients = []
-            if request.form.get("notify_admins"):
-                recipients = dbhelpers.get_admins_email()
-            recipients.extend(request.form.getlist("notify_email"))
-
-            if recipients:
-                utils.send_email(
-                    "Dashboard Configuration update",
-                    sender=app.config.get("MAIL_SENDER"),
-                    recipients=recipients,
-                    html_body=message,
-                )
+        handle_configuration_reload(current_config, tosca_update_msg, conf_update_msg)
 
     return redirect(url_for("home_bp.show_settings"))
 
 
+def get_current_configuration():
+    """
+    Retrieve the current configuration from the redis client.
+
+    Returns:
+        dict: The current configuration information, deserialized from JSON,
+        or an empty dictionary if no configuration is found.
+    """
+    serialised_value = redis_client.get("last_configuration_info")
+    return json.loads(serialised_value) if serialised_value else {}
+
+
+def update_configuration(current_config, field_prefix, repo_dir, message):
+    """
+    Update the configuration with the provided field prefix, repository directory, and message.
+
+    Args:
+        current_config (dict): The current configuration dictionary.
+        field_prefix (str): The prefix for the fields to update in the configuration.
+        repo_dir (str): The directory of the repository.
+        message (str): The message to be processed.
+
+    Returns:
+        tuple: A tuple containing the result of the update (bool) and the processing message (str).
+    """
+    repo_url = request.form.get(f"{field_prefix}_url")
+    tag_or_branch = request.form.get(f"{field_prefix}_tag_or_branch")
+
+    private, username, deploy_token = get_repository_params(field_prefix)
+
+    ret, message = process_repository(
+        repo_dir, repo_url, tag_or_branch, private, username, deploy_token, message
+    )
+    if ret:
+        current_config[f"{field_prefix}_url"] = repo_url
+        current_config[f"{field_prefix}_tag_or_branch"] = tag_or_branch
+
+    return ret, message
+
+
+def process_repository(
+    repository_dir, repo_url, tag_or_branch, private, username, deploy_token, log_message
+):
+    """
+    Process the given repository by downloading it from the provided URL.
+
+    :param repository_dir: The directory in which the repository will be stored
+    :param repo_url: The URL of the repository to be downloaded
+    :param tag_or_branch: The tag or branch of the repository to be downloaded
+    :param private: Boolean indicating whether the repository is private
+    :param username: The username for authentication
+    :param deploy_token: The deployment token for authentication
+    :param log_message: The message to be logged
+
+    :return: A tuple containing a boolean indicating the success of the repository processing
+    and a message describing the result
+    """
+    ret = False
+    message = ""
+
+    if repo_url:
+        app.logger.debug(log_message)
+        ret, message = utils.download_git_repo(
+            repo_url,
+            repository_dir,
+            tag_or_branch,
+            private,
+            username,
+            deploy_token,
+        )
+        flash(message, "success" if ret else "danger")
+
+    return ret, message
+
+
+def get_repository_params(prefix):
+    """
+    This function takes a prefix as a parameter and retrieves the private flag, username,
+    and deploy token from the request form. It returns the private flag, username, and deploy token.
+    """
+    private = request.form.get(f"{prefix}_private") == "on"
+    username = request.form.get(f"{prefix}_username")
+    deploy_token = request.form.get(f"{prefix}_token")
+
+    return private, username, deploy_token
+
+
+def handle_configuration_reload_error(error):
+    """
+    Function to handle configuration reload error.
+
+    Args:
+        error: The error that occurred during configuration reload.
+
+    Returns:
+        None
+    """
+    app.logger.error(f"Error reloading configuration: {error}")
+    flash(
+        f"Error reloading configuration: { type(error).__name__ }. \
+          Please check the logs.",
+        "danger",
+    )
+
+
+def handle_configuration_reload(current_config, message1, message2):
+    """
+    Handles the reloading of the configuration.
+    Updates the current configuration with the current timestamp,
+    and notifies admins and users with the given messages.
+
+    Args:
+        current_config (dict): The current configuration settings.
+        message1 (str): The first message to be sent to admins and users.
+        message2 (str): The second message to be sent to admins and users.
+
+    Returns:
+        None
+    """
+    reload_message = "Configuration reloaded"
+    flash(reload_message, "info")
+    app.logger.debug(reload_message)
+
+    now = datetime.now()
+    current_config["updated_at"] = now.strftime("%d/%m/%Y %H:%M:%S")
+    redis_client.set("last_configuration_info", json.dumps(current_config))
+
+    notify_admins_and_users(message1, message2)
+
+
+def notify_admins_and_users(message1, message2):
+    """
+    Notify admins and users about the dashboard configuration update request.
+
+    Args:
+        message1 (str): The first message for the update request.
+        message2 (str): The second message for the update request.
+
+    Returns:
+        None
+    """
+    comment = request.form.get("message")
+    message = Markup(
+        "{} has requested the update of the dashboard configuration: \
+                     <br><br>{} <br>{} <br><br>Comment: {}".format(
+            session["username"], message1, message2, comment
+        )
+    )
+
+    recipients = get_recipients()
+
+    if recipients:
+        utils.send_email(
+            "Dashboard Configuration update",
+            sender=app.config.get("MAIL_SENDER"),
+            recipients=recipients,
+            html_body=message,
+        )
+
+
+def get_recipients():
+    """
+    Get the recipients for notifications based on the request form data.
+    Returns a list of email addresses.
+    """
+    recipients = []
+    if request.form.get("notify_admins"):
+        recipients = dbhelpers.get_admins_email()
+    recipients.extend(request.form.getlist("notify_email"))
+
+    return recipients
+
+
 @home_bp.route("/login")
 def login():
+    """
+    Route for handling login functionality.
+    """
     session.clear()
     return render_template(app.config.get("HOME_TEMPLATE"))
 
 
 def set_template_access(tosca, user_groups, active_group):
+    """
+    Set template access based on user groups and active group.
+    """
     info = {}
+
     for k, v in tosca.items():
-        visibility = (
-            v.get("metadata").get("visibility")
-            if "visibility" in v.get("metadata")
-            else {"type": "public"}
-        )
+        metadata = v.get("metadata", {})
+        visibility = metadata.get("visibility", {"type": "public"})
 
-        if visibility.get("type") != "public":
-            regex = False if "groups_regex" not in visibility else True
-
-            if regex:
-                access_locked = not re.match(
-                    visibility.get("groups_regex"), active_group
-                )
-            else:
-                allowed_groups = visibility.get("groups")
-                access_locked = True if active_group not in allowed_groups else False
-
-            if (
-                visibility.get("type") == "private" and not access_locked
-            ) or visibility.get("type") == "protected":
-                v["metadata"]["access_locked"] = access_locked
-                info[k] = v
-        else:
+        if not active_group and visibility["type"] != "private":
+            metadata["access_locked"] = True
             info[k] = v
+        elif active_group:
+            is_locked = is_access_locked(visibility, active_group)
+            if not (visibility["type"] == "private" and is_locked):
+                metadata["access_locked"] = is_locked
+                info[k] = v
 
     return info
 
 
-def check_template_access(user_groups, active_group):
-    tosca_info, tosca_templates, tosca_gmetadata = tosca.get()
-    if tosca_gmetadata:
-        templates_info = set_template_access(tosca_gmetadata, user_groups, active_group)
-        enable_template_groups = True
+def is_access_locked(visibility, active_group):
+    """
+    Check if access is locked based on visibility and active group.
+
+    :param visibility: dict, visibility settings
+    :param active_group: str, the active group
+    :return: bool, whether access is locked
+    """
+    regex = "groups_regex" in visibility
+    if regex:
+        return not re.match(visibility["groups_regex"], active_group)
     else:
-        templates_info = set_template_access(tosca_info, user_groups, active_group)
-        enable_template_groups = False
+        allowed_groups = visibility.get("groups", [])
+        return active_group not in allowed_groups
+
+
+def check_template_access(user_groups, active_group):
+    """
+    This function checks template access for a user within specific groups.
+
+    Parameters:
+    - user_groups: a list of user groups
+    - active_group: the active group
+
+    Returns:
+    - templates_info: information about the accessible templates
+    - enable_template_groups: a boolean indicating whether template groups are enabled
+    """
+    tosca_info, _, tosca_gmetadata = tosca.get()
+    templates_data = tosca_gmetadata if tosca_gmetadata else tosca_info
+    enable_template_groups = bool(tosca_gmetadata)
+
+    templates_info = set_template_access(templates_data, user_groups, active_group)
+
     return templates_info, enable_template_groups
 
 
 @home_bp.route("/")
 def home():
+    """
+    A function to handle the home route, performing authorization check and redirecting accordingly.
+    """
     if not iam.authorized:
         return redirect(url_for("home_bp.login"))
     if not session.get("userid"):
@@ -225,17 +359,26 @@ def home():
 
 @home_bp.route("/portfolio")
 def portfolio():
+    """
+    A route function for the "/portfolio" endpoint.
+    Retrieves user deployments from the database and processes their statuses.
+    If the user is logged in, it checks the database for the user, inserts the user if not found,
+    and updates the user role, retrieves public and private services, checks template access,
+    and renders the portfolio template with the retrieved data.
+    If the user is not logged in, it redirects to the login page.
+    """
+
     """ GET STATUSES """
     update_deployments()
-
+    
     deps = dbhelpers.get_user_deployments(session["userid"])
     statuses = {}
     for dep in deps:
         status = dep.status if dep.status else "UNKNOWN"
-        if status != 'DELETE_COMPLETE' and dep.remote == 1:
+        if status != "DELETE_COMPLETE" and dep.remote == 1:
             statuses[status] = 1 if status not in statuses else statuses[status] + 1
 
-    if session.get('userid'):
+    if session.get("userid"):
         # check database
         # if user not found, insert
         user = dbhelpers.get_user(session["userid"])
@@ -262,23 +405,28 @@ def portfolio():
 
         services = dbhelpers.get_services(visibility="public")
         services.extend(
-            dbhelpers.get_services(
-                visibility="private", groups=[session["active_usergroup"]]
-            )
+            dbhelpers.get_services(visibility="private", groups=[session["active_usergroup"]])
         )
         templates_info, enable_template_groups = check_template_access(
             session["usergroups"], session["active_usergroup"]
         )
 
-        return render_template(app.config.get('PORTFOLIO_TEMPLATE'), services=services, templates_info=templates_info,
-                               enable_template_groups=enable_template_groups,                             
-                               s_values=list(statuses.values()))
+        return render_template(
+            app.config.get("PORTFOLIO_TEMPLATE"),
+            services=services,
+            templates_info=templates_info,
+            enable_template_groups=enable_template_groups,
+            s_values=list(statuses.values()),
+        )
 
     return redirect(url_for("home_bp.login"))
 
 
 @home_bp.route("/set_active")
 def set_active_usergroup():
+    """
+    Route for setting the active user group.
+    """
     group = request.args["group"]
     session["active_usergroup"] = group
     flash("Project switched to {}".format(group), "info")
@@ -287,6 +435,9 @@ def set_active_usergroup():
 
 @home_bp.route("/logout")
 def logout():
+    """
+    Route for logging out the user.
+    """
     session.clear()
     iam.get("/logout")
     return redirect(url_for("home_bp.login"))
@@ -294,84 +445,19 @@ def logout():
 
 @home_bp.route("/callback", methods=["POST"])
 def callback():
+    """
+    Callback function for handling POST requests to /callback endpoint.
+    Parses the JSON payload from the request, updates the deployment,
+    and sends email notifications if feedback is required.
+    Returns a response with status code 200 and mimetype "application/json".
+    """
     payload = request.get_json()
     app.logger.info("Callback payload: " + json.dumps(payload))
 
-    status = payload["status"]
-    task = payload["task"]
-    uuid = payload["uuid"]
-    providername = (
-        payload["cloudProviderName"] if "cloudProviderName" in payload else ""
-    )
-    status_reason = payload["statusReason"] if "statusReason" in payload else ""
-    rf = 0
+    dep = update_deployment(payload)
 
-    user = dbhelpers.get_user(payload["createdBy"]["subject"])
-    user_email = user.email
-
-    dep = dbhelpers.get_deployment(uuid)
-
-    if dep is not None:
-        rf = dep.feedback_required
-        pn = dep.provider_name if dep.provider_name is not None else ""
-        if (
-            dep.status != status
-            or dep.task != task
-            or pn != providername
-            or status_reason != dep.status_reason
-        ):
-            if "endpoint" in payload["outputs"]:
-                dep.endpoint = payload["outputs"]["endpoint"]
-            dep.update_time = payload["updateTime"]
-            if "physicalId" in payload:
-                dep.physicalId = payload["physicalId"]
-            dep.status = status
-            dep.outputs = json.dumps(payload["outputs"])
-            dep.task = task
-            dep.provider_name = providername
-            dep.status_reason = status_reason
-            dbhelpers.add_object(dep)
-    else:
-        app.logger.info("Deployment with uuid:{} not found!".format(uuid))
-
-    # send email to user
-    mail_sender = app.config.get("MAIL_SENDER")
-    if mail_sender and user_email != "" and rf == 1:
-        if status == "CREATE_COMPLETE":
-            try:
-                utils.create_and_send_email(
-                    "Deployment complete", mail_sender, [user_email], uuid, status
-                )
-            except Exception as error:
-                utils.logexception("sending email:".format(error))
-
-        if status == "CREATE_FAILED":
-            try:
-                utils.create_and_send_email(
-                    "Deployment failed", mail_sender, [user_email], uuid, status
-                )
-            except Exception as error:
-                utils.logexception("sending email:".format(error))
-
-        if status == "UPDATE_COMPLETE":
-            try:
-                utils.create_and_send_email(
-                    "Deployment update complete",
-                    mail_sender,
-                    [user_email],
-                    uuid,
-                    status,
-                )
-            except Exception as error:
-                utils.logexception("sending email:".format(error))
-
-        if status == "UPDATE_FAILED":
-            try:
-                utils.create_and_send_email(
-                    "Deployment update failed", mail_sender, [user_email], uuid, status
-                )
-            except Exception as error:
-                utils.logexception("sending email:".format(error))
+    if dep and dep.feedback_required == 1:
+        send_email_notifications(payload)
 
     resp = make_response("")
     resp.status_code = 200
@@ -380,8 +466,107 @@ def callback():
     return resp
 
 
+def update_deployment(payload):
+    """
+    Updates a deployment using the provided payload.
+
+    Args:
+        payload (dict): The payload containing the information to update the deployment.
+
+    Returns:
+        dict: The updated deployment.
+    """
+    uuid = payload["uuid"]
+    dep = dbhelpers.get_deployment(uuid)
+
+    if dep is not None:
+        update_deployment_attributes(dep, payload)
+    else:
+        app.logger.info("Deployment with uuid:{} not found!".format(uuid))
+
+    return dep
+
+
+def update_deployment_attributes(dep, payload):
+    """
+    Updates deployment attributes based on the provided payload.
+
+    Args:
+        dep: The deployment object to be updated.
+        payload: The payload containing the update information.
+
+    Returns:
+        None
+    """
+    status = payload["status"]
+    task = payload["task"]
+    uuid = payload["uuid"]
+    providername = payload.get("cloudProviderName", "")
+    status_reason = payload.get("statusReason", "")
+
+    pn = dep.provider_name if dep.provider_name is not None else ""
+    if (
+        dep.status != status
+        or dep.task != task
+        or pn != providername
+        or status_reason != dep.status_reason
+    ):
+        if "endpoint" in payload["outputs"]:
+            dep.endpoint = payload["outputs"]["endpoint"]
+        dep.update_time = payload["updateTime"]
+        if "physicalId" in payload:
+            dep.physicalId = payload["physicalId"]
+        dep.status = status
+        dep.outputs = json.dumps(payload["outputs"])
+        dep.task = task
+        dep.provider_name = providername
+        dep.status_reason = status_reason
+        dbhelpers.add_object(dep)
+    else:
+        app.logger.info("Deployment with uuid:{} not found!".format(uuid))
+
+
+def send_email_notifications(payload):
+    """
+    Send email notifications to the user based on the payload provided.
+
+    Args:
+    - payload: A dictionary containing information about the notification to be sent.
+
+    Returns:
+    - None
+    """
+    user = dbhelpers.get_user(payload["createdBy"]["subject"])
+    user_email = user.email
+    uuid = payload["uuid"]
+    status = payload["status"]
+
+    mail_sender = app.config.get("MAIL_SENDER")
+
+    if mail_sender and user_email != "":
+        email_subjects = {
+            "CREATE_COMPLETE": "Deployment complete",
+            "CREATE_FAILED": "Deployment failed",
+            "UPDATE_COMPLETE": "Deployment update complete",
+            "UPDATE_FAILED": "Deployment update failed",
+        }
+        try:
+            email_subject = email_subjects.get(status, "")
+            if email_subject:
+                app.logger.debug(f"Prepare email with subject <{email_subject}> for <{user_email}>")
+                utils.create_and_send_email(email_subject, mail_sender, [user_email], uuid, status)
+        except Exception as error:
+            utils.logexception("sending email: {}".format(error))
+
+
 @home_bp.route("/getauthorization", methods=["POST"])
 def getauthorization():
+    """
+    This function handles the POST request to '/getauthorization'.
+    It parses the 'pre_tasks' from the request form, then iterates through the tasks
+    and executes the corresponding functions from the 'functions' dictionary.
+    It finally returns a rendered success message template.
+    """
     tasks = json.loads(request.form.to_dict()["pre_tasks"].replace("'", '"'))
 
     functions = {
@@ -405,6 +590,10 @@ def getauthorization():
 
 @home_bp.route("/sendaccessreq", methods=["POST"])
 def sendaccessrequest():
+    """
+    A function to handle sending an access request, which takes form data as input
+    and sends an authorization request email.
+    """
     form_data = request.form.to_dict()
 
     try:
@@ -421,7 +610,7 @@ def sendaccessrequest():
         )
 
     except Exception as error:
-        utils.logexception("sending email:".format(error))
+        utils.logexception("sending email: {}".format(error))
         flash(
             "Sorry, an error occurred while sending your request. Please retry.",
             "danger",
@@ -432,6 +621,9 @@ def sendaccessrequest():
 
 @home_bp.route("/contact", methods=["POST"])
 def contact():
+    """
+    A route for handling contact form submission via POST method.
+    """
     app.logger.debug("Form data: " + json.dumps(request.form.to_dict()))
 
     form_data = request.form.to_dict()
@@ -450,7 +642,7 @@ def contact():
         )
 
     except Exception as error:
-        utils.logexception("sending email:".format(error))
+        utils.logexception("sending email: {}".format(error))
         return Markup(
             "<div class='alert alert-danger' role='alert'>Oops, error sending message.</div>"
         )
