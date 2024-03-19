@@ -158,9 +158,8 @@ $('.confirm_action').on('show.bs.modal', (event) => {
     let title = target.data('text')
     let url = target.data('url')
 
-    let modal = $(this)
-    modal.find('.modal-body').prepend(title)
-    modal.find('#performActionForm').prop('action', url)
+    $('.modal-body').prepend(title)
+    $('#performActionForm').prop('action', url)
 })
 
 </script>
