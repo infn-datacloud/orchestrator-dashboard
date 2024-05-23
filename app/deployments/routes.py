@@ -20,6 +20,7 @@ import string
 import uuid as uuid_generator
 from urllib.parse import urlparse
 
+import openstack
 import openstack.connection
 import yaml
 from flask import (
@@ -45,11 +46,6 @@ from app.models.Deployment import Deployment
 from app.providers import sla
 from re import search
 
-
-### OPENSTACKSDK ###
-
-import openstack
-
 # Initialize and turn on debug logging
 openstack.enable_logging(debug=True)
 
@@ -65,29 +61,6 @@ class InputValidationError(Exception):
     """Exception raised for errors in the input validation process."""
 
     pass
-
-# Define your OpenStack authentication parameters
-auth_url = "https://keystone.recas.ba.infn.it/v3"
-project_id = "83be7870dbb54d4a988f89ea77e9e2b9"
-project_name = "INFN-CLOUD-TEST"
-project_domain_name = "INFN-CLOUD-TEST"
-identity_provider = "infn-cloud"
-access_token = "eyJraWQiOiJjcmExIiwiYWxnIjoiUlMyNTYifQ.eyJzdWIiOiI1M2EzYzUxOS05NDViLTRjMGQtODExNC1iYjEzYjBkM2VlZTQiLCJpc3MiOiJodHRwczpcL1wvaWFtLmNsb3VkLmluZm4uaXRcLyIsIm5hbWUiOiJFdHRvcmUgU2VycmEiLCJncm91cHMiOlsidXNlcnMiLCJlbmQtdXNlcnMtY2F0Y2hhbGwiLCJ1c2Vyc1wvczMiLCJhZG1pbnNcL2JldGEtdGVzdGVycyIsInVzZXJzXC9uYWFzIiwidXNlcnNcL2NhdGNoYWxsIiwiYWRtaW5zIiwiYWRtaW5zXC9jYXRjaGFsbCJdLCJwcmVmZXJyZWRfdXNlcm5hbWUiOiJldHNlcnJhIiwib3JnYW5pc2F0aW9uX25hbWUiOiJpbmZuLWNsb3VkIiwiZXhwIjoxNzE2NDY5ODkxLCJpYXQiOjE3MTY0NjYyOTEsImp0aSI6Ijg2MjVkMjRmLTQxMWUtNGIzYi04NzZlLWI3ZTgxY2RlYzgyMSIsImNsaWVudF9pZCI6IjIxNDRmYzMzLTIzZjUtNGEyNS1hOTNkLTZjMzc0NTBmNzMyZSIsImVtYWlsIjoiZXR0b3JlLnNlcnJhQGJhLmluZm4uaXQifQ.OwRRfMaKH7CewksLRl3Uf9WWwNlHs_4VavW5uukEHA4mTSzHS-Nb7HrB04iOfOP1lguu4kM-FmRWFLCSGmDjLf-BKoKD_ogkGmxLoCm4Rcgi7O6KrSu9sidGnrasGiKgrKUFypK98h-N_blQoRGw1o__qBs-_oE2zuFUADUR5ZoGqZPpyST-hxdiFCBFpA4dPe2GR7a0XsmPTqCUDC0eDSlYBpeXdci3aJCDcPtBvhIsnE2K1AfOBrfgpwkg5ABlxoiSTl0p6fcQl-rSMTJLam49niON8t_37KEwI9o9GBQkQUdpJIGjZzEuFtbE1tRw8omoQ9uMA_VZRYiwNXUAGA"
-
-# Create a connection using the access token
-conn = openstack.connect(
-    auth=dict(
-        auth_url=auth_url,
-        project_id=project_id,
-        project_name=project_name,
-        project_domain_name=project_domain_name,
-        protocol="openid",
-        identity_provider=identity_provider,
-        access_token=access_token
-    ),
-    identity_api_version=3,
-    auth_type="v3oidcaccesstoken"
-)
 
 
 @deployments_bp.route("/depls")
@@ -357,6 +330,60 @@ def depinfradetails(depid=None):
 
 # PORTS MANAGEMENT
 
+def get_openstack_connection(endpoint):
+    service = app.cmdb.get_service_by_endpoint(iam.token["access_token"], "https://"+ endpoint +"/v3")
+
+    prj, idp = app.cmdb.get_service_project(
+        iam.token["access_token"],
+        session["iss"],
+        service,
+        session["active_usergroup"],
+    )  
+
+    if not prj or not idp:
+        raise Exception("Unable to get EC2 credentials")
+
+    # Create a connection using the access token
+    conn = openstack.connect(
+        auth=dict(
+            auth_url=service["endpoint"],
+            project_id=prj.get("tenant_id"),
+            protocol=idp["protocol"],
+            identity_provider=idp["name"],
+            access_token=iam.token["access_token"]
+        ),
+        identity_api_version=3,
+        auth_type="v3oidcaccesstoken"
+    )
+
+    return conn
+
+def get_vm_info(depid):
+    dep = dbhelpers.get_deployment(depid)
+    vm_endpoint = ""
+    vm_id = ""
+
+    if dep is not None and dep.physicalId is not None:
+        try:
+            resources = app.orchestrator.get_resources(iam.token['access_token'], depid)
+        except Exception as e:
+            flash(str(e), "warning")
+            return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
+
+        for resource in resources:
+            if "VirtualMachineInfo" in resource["metadata"]:
+                vm_info = json.loads(resource["metadata"]["VirtualMachineInfo"])['vmProperties']
+
+                for item in vm_info:
+                    if item['class'] == 'system':
+                        vm_id = item['instance_id']
+                        vm_endpoint = item['provider.host']
+
+    return {
+        "vm_id": vm_id,
+        "vm_endpoint": vm_endpoint,
+    }
+
 def get_sec_groups(conn, server_id, public=True):
     substring = 'pub_network'
     sec_group_list = conn.list_server_security_groups(server_id)
@@ -391,39 +418,25 @@ def get_port(conn, server_id):
 @deployments_bp.route("/<depid>/security_groups")
 @auth.authorized_with_valid_token
 def security_groups(depid=None):
-    dep = dbhelpers.get_deployment(depid)
-
     sec_groups = ""
-    vm_id = ""
+    
+    vm_info = get_vm_info(depid)
+    vm_id = vm_info['vm_id']
+    vm_endpoint = vm_info['vm_endpoint']
 
-    if dep is not None and dep.physicalId is not None:
-        try:
-            resources = app.orchestrator.get_resources(access_token, depid)
-        except Exception as e:
-            flash(str(e), "warning")
-            return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
-        
-        print("==================================================")
-        print(resources)
+    conn = get_openstack_connection(vm_endpoint)
+    sec_groups = get_sec_groups(conn, vm_id)
 
-        for resource in resources:
-            if "VirtualMachineInfo" in resource["metadata"]:
-                vm_info = json.loads(resource["metadata"]["VirtualMachineInfo"])['vmProperties']
-
-                for item in vm_info:
-                    if item['class'] == 'system':
-                        vm_id = item['instance_id']
-
-        sec_groups = get_sec_groups(conn, vm_id)
-
-        if len(sec_groups) == 1:
-            return redirect(url_for("deployments_bp.manage_rules", depid=depid, sec_group_id=sec_groups[0]['id']))
+    if len(sec_groups) == 1:
+        return redirect(url_for("deployments_bp.manage_rules", depid=depid, sec_group_id=sec_groups[0]['id']))
 
     return render_template("depsecgroups.html", depid=depid, sec_groups=sec_groups)
 
 @deployments_bp.route("/<depid>/<sec_group_id>/manage_rules")
 @auth.authorized_with_valid_token
 def manage_rules(depid=None, sec_group_id=None):
+    conn = get_openstack_connection(get_vm_info(depid)['vm_endpoint'])
+
     rules = conn.list_security_groups({
         "id": sec_group_id
     })[0].security_group_rules
@@ -434,6 +447,7 @@ def manage_rules(depid=None, sec_group_id=None):
 @auth.authorized_with_valid_token
 def create_rule(depid=None, sec_group_id=None):
     try:
+        conn = get_openstack_connection(get_vm_info(depid)['vm_endpoint'])
         conn.network.create_security_group_rule(
             security_group_id=sec_group_id,
             description=request.form['input_description'],
@@ -454,6 +468,7 @@ def create_rule(depid=None, sec_group_id=None):
 @auth.authorized_with_valid_token
 def delete_rule(depid=None, sec_group_id=None, rule_id=None):
     try:
+        conn = get_openstack_connection(get_vm_info(depid)['vm_endpoint'])
         conn.delete_security_group_rule(rule_id)
         flash("Port deleted successfully!", "success")
     except Exception as e:
