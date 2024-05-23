@@ -18,6 +18,7 @@ import os
 import uuid as uuid_generator
 from urllib.parse import urlparse
 
+import openstack.connection
 import yaml
 from flask import (
     Blueprint,
@@ -40,6 +41,16 @@ from app.lib import tosca_info as tosca_helpers
 from app.lib.ldap_user import LdapUserManager
 from app.models.Deployment import Deployment
 from app.providers import sla
+from re import search
+
+
+### OPENSTACKSDK ###
+
+import openstack
+
+# Initialize and turn on debug logging
+openstack.enable_logging(debug=True)
+
 
 deployments_bp = Blueprint(
     "deployments_bp", __name__, template_folder="templates", static_folder="static"
@@ -52,6 +63,29 @@ class InputValidationError(Exception):
     """Exception raised for errors in the input validation process."""
 
     pass
+
+# Define your OpenStack authentication parameters
+auth_url = "https://keystone.recas.ba.infn.it/v3"
+project_id = "83be7870dbb54d4a988f89ea77e9e2b9"
+project_name = "INFN-CLOUD-TEST"
+project_domain_name = "INFN-CLOUD-TEST"
+identity_provider = "infn-cloud"
+access_token = "eyJraWQiOiJjcmExIiwiYWxnIjoiUlMyNTYifQ.eyJzdWIiOiI1M2EzYzUxOS05NDViLTRjMGQtODExNC1iYjEzYjBkM2VlZTQiLCJpc3MiOiJodHRwczpcL1wvaWFtLmNsb3VkLmluZm4uaXRcLyIsIm5hbWUiOiJFdHRvcmUgU2VycmEiLCJncm91cHMiOlsidXNlcnMiLCJlbmQtdXNlcnMtY2F0Y2hhbGwiLCJ1c2Vyc1wvczMiLCJhZG1pbnNcL2JldGEtdGVzdGVycyIsInVzZXJzXC9uYWFzIiwidXNlcnNcL2NhdGNoYWxsIiwiYWRtaW5zIiwiYWRtaW5zXC9jYXRjaGFsbCJdLCJwcmVmZXJyZWRfdXNlcm5hbWUiOiJldHNlcnJhIiwib3JnYW5pc2F0aW9uX25hbWUiOiJpbmZuLWNsb3VkIiwiZXhwIjoxNzE2NDY5ODkxLCJpYXQiOjE3MTY0NjYyOTEsImp0aSI6Ijg2MjVkMjRmLTQxMWUtNGIzYi04NzZlLWI3ZTgxY2RlYzgyMSIsImNsaWVudF9pZCI6IjIxNDRmYzMzLTIzZjUtNGEyNS1hOTNkLTZjMzc0NTBmNzMyZSIsImVtYWlsIjoiZXR0b3JlLnNlcnJhQGJhLmluZm4uaXQifQ.OwRRfMaKH7CewksLRl3Uf9WWwNlHs_4VavW5uukEHA4mTSzHS-Nb7HrB04iOfOP1lguu4kM-FmRWFLCSGmDjLf-BKoKD_ogkGmxLoCm4Rcgi7O6KrSu9sidGnrasGiKgrKUFypK98h-N_blQoRGw1o__qBs-_oE2zuFUADUR5ZoGqZPpyST-hxdiFCBFpA4dPe2GR7a0XsmPTqCUDC0eDSlYBpeXdci3aJCDcPtBvhIsnE2K1AfOBrfgpwkg5ABlxoiSTl0p6fcQl-rSMTJLam49niON8t_37KEwI9o9GBQkQUdpJIGjZzEuFtbE1tRw8omoQ9uMA_VZRYiwNXUAGA"
+
+# Create a connection using the access token
+conn = openstack.connect(
+    auth=dict(
+        auth_url=auth_url,
+        project_id=project_id,
+        project_name=project_name,
+        project_domain_name=project_domain_name,
+        protocol="openid",
+        identity_provider=identity_provider,
+        access_token=access_token
+    ),
+    identity_api_version=3,
+    auth_type="v3oidcaccesstoken"
+)
 
 
 @deployments_bp.route("/depls")
@@ -355,6 +389,113 @@ def depinfradetails(depid=None):
 
         return render_template("depinfradetails.html", vmsdetails=details)
 
+# PORTS MANAGEMENT
+
+def get_sec_groups(conn, server_id, public=True):
+    substring = 'pub_network'
+    sec_group_list = conn.list_server_security_groups(server_id)
+    return_sec_group_list = []
+
+    # remove duplicates
+    for sec_group in sec_group_list:
+        flag = True
+
+        for return_sec_group in return_sec_group_list:
+            if return_sec_group['id'] == sec_group['id']:
+                flag = False
+
+        if flag:
+            return_sec_group_list.append(sec_group)
+
+    if public:
+        return_sec_group_list = [
+            sec_group for sec_group in return_sec_group_list
+            if search(substring, sec_group['name'])
+        ]
+
+    return return_sec_group_list
+
+def get_port(conn, server_id):
+    sec_group = get_sec_groups(conn, server_id)
+
+    sec_group_rules = sec_group[0]['rules']
+    for item in sec_group_rules:
+        print(item)
+
+@deployments_bp.route("/<depid>/security_groups")
+@auth.authorized_with_valid_token
+def security_groups(depid=None):
+    dep = dbhelpers.get_deployment(depid)
+
+    sec_groups = ""
+    vm_id = ""
+
+    if dep is not None and dep.physicalId is not None:
+        try:
+            resources = app.orchestrator.get_resources(access_token, depid)
+        except Exception as e:
+            flash(str(e), "warning")
+            return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
+        
+        print("==================================================")
+        print(resources)
+
+        for resource in resources:
+            if "VirtualMachineInfo" in resource["metadata"]:
+                vm_info = json.loads(resource["metadata"]["VirtualMachineInfo"])['vmProperties']
+
+                for item in vm_info:
+                    if item['class'] == 'system':
+                        vm_id = item['instance_id']
+
+        sec_groups = get_sec_groups(conn, vm_id)
+
+        if len(sec_groups) == 1:
+            return redirect(url_for("deployments_bp.manage_rules", depid=depid, sec_group_id=sec_groups[0]['id']))
+
+    return render_template("depsecgroups.html", depid=depid, sec_groups=sec_groups)
+
+@deployments_bp.route("/<depid>/<sec_group_id>/manage_rules")
+@auth.authorized_with_valid_token
+def manage_rules(depid=None, sec_group_id=None):
+    rules = conn.list_security_groups({
+        "id": sec_group_id
+    })[0].security_group_rules
+
+    return render_template("depgrouprules.html", depid=depid, sec_group_id=sec_group_id, rules=rules)
+
+@deployments_bp.route("/<depid>/<sec_group_id>/create_rule", methods=['POST'])
+@auth.authorized_with_valid_token
+def create_rule(depid=None, sec_group_id=None):
+    try:
+        conn.network.create_security_group_rule(
+            security_group_id=sec_group_id,
+            description=request.form['input_description'],
+            direction=request.form['input_direction'] if request.form['input_direction'] != '' else None,
+            ethertype='IPv4',
+            port_range_min=request.form['input_port_from'] if request.form['input_port_from'] != '' else None,
+            port_range_max=request.form['input_port_to'] if request.form['input_port_to'] != '' else None,
+            protocol=request.form['input_ip_protocol'] if request.form['input_ip_protocol'] != '' else 'tcp',
+            remote_ip_prefix=request.form['input_CIDR'] if request.form['input_CIDR'] != '' else None,
+        )
+        flash("Port created successfully!", "success")
+    except Exception as e:
+        flash("Error: \n" + str(e), "danger")
+
+    return redirect(url_for("deployments_bp.manage_rules", depid=depid, sec_group_id=sec_group_id))
+
+@deployments_bp.route("/<depid>/<sec_group_id>/<rule_id>/delete_rule")
+@auth.authorized_with_valid_token
+def delete_rule(depid=None, sec_group_id=None, rule_id=None):
+    try:
+        conn.delete_security_group_rule(rule_id)
+        flash("Port deleted successfully!", "success")
+    except Exception as e:
+        flash("Error: \n" + str(e), "danger")
+
+    return redirect(url_for("deployments_bp.manage_rules", depid=depid, sec_group_id=sec_group_id))
+
+# ---
 
 @deployments_bp.route("/<depid>/actions", methods=["POST"])
 @auth.authorized_with_valid_token

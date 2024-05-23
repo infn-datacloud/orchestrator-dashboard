@@ -118,7 +118,7 @@ form {
     align-items: center;
     justify-content: center;
     border: none;
-    box-shadow: -1px 1px 2px 0px #0000003b;
+    /* box-shadow: -1px 1px 2px 0px #0000003b; */
 }
 
 .dashboard-button:not(.dashboard-button-lg) > i {
@@ -354,12 +354,8 @@ table.table-bordered.dataTable tbody td {
 
 /* FOCUS */
 
-.dashboard-button-primary:focus, .dashboard-button-primary-outline:focus, .dashboard-button-outline-no-border:focus {
+.dashboard-button-primary:focus, .dashboard-button-primary-outline:focus, .dashboard-button-outline-no-border:focus, .dashboard-button-outline-no-border:hover {
     outline: 3px solid var(--color-primary-50);
-}
-
-.dashboard-button-outline-no-border:hover {
-    box-shadow: -1px 1px 2px 0px #0000003b!important;
 }
 
 .dashboard-button-danger:focus, .dashboard-button-danger-outline:focus {
