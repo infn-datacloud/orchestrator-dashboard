@@ -24,7 +24,7 @@ pycryptodomex
 hvac==2.1.0
 MarkupSafe
 boto3
-openstack
+openstacksdk
 python-ldap
 randomcolor
 sshpubkeys
