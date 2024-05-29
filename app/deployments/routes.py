@@ -408,12 +408,6 @@ def get_sec_groups(conn, server_id, public=True):
 
     return return_sec_group_list
 
-def get_port(conn, server_id):
-    sec_group = get_sec_groups(conn, server_id)
-
-    sec_group_rules = sec_group[0]['rules']
-    for item in sec_group_rules:
-        print(item)
 
 @deployments_bp.route("/<depid>/security_groups")
 @auth.authorized_with_valid_token
@@ -439,7 +433,12 @@ def manage_rules(depid=None, sec_group_id=None):
 
     rules = conn.list_security_groups({
         "id": sec_group_id
-    })[0].security_group_rules
+    })
+
+    if len(rules) != 0:
+        rules = rules[0].security_group_rules 
+    else:
+        rules = []
 
     return render_template("depgrouprules.html", depid=depid, sec_group_id=sec_group_id, rules=rules)
 
