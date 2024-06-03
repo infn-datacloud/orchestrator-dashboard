@@ -352,6 +352,7 @@ def get_openstack_connection(endpoint):
             identity_provider=idp["name"],
             access_token=iam.token["access_token"]
         ),
+        region_name=service["region"],
         identity_api_version=3,
         auth_type="v3oidcaccesstoken"
     )
