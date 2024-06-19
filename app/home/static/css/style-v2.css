@@ -18,6 +18,8 @@
     --color-danger-50: #de233580;
     --color-danger-hover: #ed2639;
 
+    --color-warning: #ffc107;
+
     --dashboard-card-height: 250px;
     --dashboard-navbar-height: 101px;
 
@@ -165,6 +167,12 @@ form {
     background: transparent;
     color: var(--color-danger);
     border: 2px solid var(--color-danger);
+}
+
+.dashboard-button-warning {
+    border: none;
+    background: var(--color-warning);
+    color: var(--color-secondary);
 }
 
 .dashboard-button-outline-no-border {

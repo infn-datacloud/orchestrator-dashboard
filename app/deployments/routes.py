@@ -326,7 +326,20 @@ def depinfradetails(depid=None):
                 vmprop["depId"] = depid
                 details.append(vmprop)
 
-        return render_template("depinfradetails.html", vmsdetails=details)
+        template = dep.template
+        tosca_info = tosca.extracttoscainfo(yaml.full_load(io.StringIO(template)), None)
+        inputs = json.loads(dep.inputs.strip('"')) if dep.inputs else {}
+        stinputs = json.loads(dep.stinputs.strip('"')) if dep.stinputs else {}
+        tosca_info["inputs"] = {**tosca_info["inputs"], **stinputs}
+
+        for k, v in tosca_info["inputs"].items():
+            if k in inputs and "default" in tosca_info["inputs"][k]:
+                tosca_info["inputs"][k]["default"] = inputs[k]
+
+        stoutputs = json.loads(dep.stoutputs.strip('"')) if dep.stoutputs else {}
+        tosca_info["outputs"] = {**tosca_info["outputs"], **stoutputs}
+
+        return render_template("depinfradetails.html", vmsdetails=details, deployment=dep, template=tosca_info, update=True)
 
 
 # PORTS MANAGEMENT
