@@ -1162,6 +1162,9 @@ table.table-bordered.dataTable tbody td {
 .dashboard-template-title {
     font-weight: 500;
     font-size: 32px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .dashboard-template-step {
@@ -1415,6 +1418,18 @@ footer {
 
     .dashboard-loading-bar, .dashboard-loading-image > img {
         width: 200px;
+    }
+    
+    .dashboard-template-header {
+        flex-direction: column;
+    }
+    
+    .dashboard-template-header-buttons {
+        margin: 0;
+    }
+    
+    .dashboard-template-step {
+        margin: 0;
     }
 
     .footer-info {
