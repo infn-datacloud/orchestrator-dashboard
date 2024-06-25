@@ -115,7 +115,7 @@
 
 											{% if deployment.deployment_type == "CLOUD" %}
 												<a class="dropdown-item {% if deployment.physicalId is not defined %}disabled{% endif %}" href="{{ url_for('deployments_bp.depinfradetails', depid=deployment.uuid) }}">
-													<span class="fas fa-desktop mr-2 grey-text"></span>Manage VMs
+													<span class="fas fa-desktop mr-2 grey-text"></span>Manage Nodes
 												</a>
 											{% endif %}
 

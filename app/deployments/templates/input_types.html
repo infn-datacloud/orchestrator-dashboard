@@ -8,8 +8,10 @@
 {% if update == True and (value.updatable is not defined or value.updatable == False) %}
 	{% set mode = "disabled" %}
 	{% set hidden = "hidden" %}
+	{% set skip = 1 %}
 {% else %}
  	{% set mode = "" %}
+	{% set skip = 0 %}
 {% endif %}
 
 {% if value.show_separator %}
@@ -26,8 +28,10 @@
 			{% endif %}
 		</label>
 	{% endif %}
-
-	{% if value.type is defined and (update == False or value.updatable is not defined or value.updatable == True)%}
+	
+	{% if skip == 1 %}
+	<!-- skip field -->
+	{% elif value.type is defined and (update == False or value.updatable is not defined or value.updatable == True)%}
 		<!-- text type -->
 		{% if value.type == "text" %}
 			<input type="text" class="form-control" data-type="{{value.type}}" id="{{key}}" name="{{key}}" value="{{value.default}}" aria-describedby="help{{key}}" placeholder="{{value.placeholder}}" {% if value.required %}data-required=true required{%endif%} {{mode}} />
