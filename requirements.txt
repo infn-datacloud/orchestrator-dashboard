@@ -39,3 +39,4 @@ jsonschema[format]
 #pylint-flask-sqlalchemy
 #ruff
 
+zipp>=3.19.1 # not directly required, pinned by Snyk to avoid a vulnerability
