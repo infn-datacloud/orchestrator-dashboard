@@ -32,11 +32,11 @@ class Cmdb:
         data["id"] = response.json()["_id"]
         return data
 
-    def get_services(self, access_token, service_type=""):
+    def get_services(self, access_token, provider=None):
         headers = {"Authorization": "Bearer %s" % access_token}
 
-        if service_type:
-            url = self.url + "/service/filters/type/" + service_type
+        if provider:
+            url = self.url + f"/provider/id/{provider}/has_many/services"
         else:
             url = self.url + "/service/list"
 
@@ -49,8 +49,8 @@ class Cmdb:
 
         return ss
 
-    def get_service_by_endpoint(self, access_token, endpoint):
-        services = self.get_services(access_token)
+    def get_service_by_endpoint(self, access_token, endpoint, provider=None):
+        services = self.get_services(access_token, provider)
         service = next((s for s in services if s["endpoint"] == endpoint), None)
         return service
 
@@ -90,9 +90,7 @@ class Cmdb:
         # Fetch the service using auth_url if available, else use the provided service directly
         service_tmp = self.get_service_by_endpoint(access_token, service.get("auth_url", None))
 
-        s = (
-            service_tmp if service_tmp is not None else service
-        )
+        s = service_tmp if service_tmp is not None else service
 
         if not s:
             return None, None

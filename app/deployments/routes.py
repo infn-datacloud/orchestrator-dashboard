@@ -362,9 +362,9 @@ def depinfradetails(depid=None):
 
 
 # PORTS MANAGEMENT
-def get_openstack_connection(endpoint):
+def get_openstack_connection(endpoint, provider):
     service = app.cmdb.get_service_by_endpoint(
-        iam.token["access_token"], "https://" + endpoint + "/v3"
+        iam.token["access_token"], "https://" + endpoint + "/v3", provider
     )
 
     prj, idp = app.cmdb.get_service_project(
@@ -451,16 +451,22 @@ def security_groups(depid=None):
     try:
         sec_groups = ""
 
+        vm_provider = request.args.get("depProvider")
         vm_info = get_vm_info(depid)
         vm_id = vm_info["vm_id"]
         vm_endpoint = vm_info["vm_endpoint"]
 
-        conn = get_openstack_connection(vm_endpoint)
+        conn = get_openstack_connection(vm_endpoint, vm_provider)
         sec_groups = get_sec_groups(conn, vm_id)
 
         if len(sec_groups) == 1:
             return redirect(
-                url_for(MANAGE_RULES_ROUTE, depid=depid, sec_group_id=sec_groups[0]["id"])
+                url_for(
+                    MANAGE_RULES_ROUTE,
+                    depid=depid,
+                    provider=vm_provider,
+                    sec_group_id=sec_groups[0]["id"],
+                )
             )
 
         return render_template("depsecgroups.html", depid=depid, sec_groups=sec_groups)
@@ -472,7 +478,9 @@ def security_groups(depid=None):
 @deployments_bp.route("/<depid>/<sec_group_id>/manage_rules")
 @auth.authorized_with_valid_token
 def manage_rules(depid=None, sec_group_id=None):
-    conn = get_openstack_connection(get_vm_info(depid)["vm_endpoint"])
+    provider = request.args.get("provider")
+
+    conn = get_openstack_connection(get_vm_info(depid)["vm_endpoint"], provider)
 
     rules = conn.list_security_groups({"id": sec_group_id})
 
@@ -482,15 +490,16 @@ def manage_rules(depid=None, sec_group_id=None):
         rules = []
 
     return render_template(
-        "depgrouprules.html", depid=depid, sec_group_id=sec_group_id, rules=rules
+        "depgrouprules.html", depid=depid, provider=provider, sec_group_id=sec_group_id, rules=rules
     )
 
 
 @deployments_bp.route("/<depid>/<sec_group_id>/create_rule", methods=["POST"])
 @auth.authorized_with_valid_token
 def create_rule(depid=None, sec_group_id=None):
+    provider = request.args.get("provider")
     try:
-        conn = get_openstack_connection(get_vm_info(depid)["vm_endpoint"])
+        conn = get_openstack_connection(get_vm_info(depid)["vm_endpoint"], provider)
         conn.network.create_security_group_rule(
             security_group_id=sec_group_id,
             description=request.form["input_description"],
@@ -515,20 +524,26 @@ def create_rule(depid=None, sec_group_id=None):
     except Exception as e:
         flash("Error: \n" + str(e), "danger")
 
-    return redirect(url_for(MANAGE_RULES_ROUTE, depid=depid, sec_group_id=sec_group_id))
+    return redirect(
+        url_for(MANAGE_RULES_ROUTE, depid=depid, provider=provider, sec_group_id=sec_group_id)
+    )
 
 
 @deployments_bp.route("/<depid>/<sec_group_id>/<rule_id>/delete_rule")
 @auth.authorized_with_valid_token
 def delete_rule(depid=None, sec_group_id=None, rule_id=None):
+    provider = request.args.get("provider")
+
     try:
-        conn = get_openstack_connection(get_vm_info(depid)["vm_endpoint"])
+        conn = get_openstack_connection(get_vm_info(depid)["vm_endpoint"], provider)
         conn.delete_security_group_rule(rule_id)
         flash("Port deleted successfully!", "success")
     except Exception as e:
         flash("Error: \n" + str(e), "danger")
 
-    return redirect(url_for(MANAGE_RULES_ROUTE, depid=depid, sec_group_id=sec_group_id))
+    return redirect(
+        url_for(MANAGE_RULES_ROUTE, depid=depid, provider=provider, sec_group_id=sec_group_id)
+    )
 
 
 # ---
