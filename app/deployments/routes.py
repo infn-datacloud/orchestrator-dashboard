@@ -363,9 +363,7 @@ def depinfradetails(depid=None):
 
 # PORTS MANAGEMENT
 def get_openstack_connection(endpoint, provider):
-    service = app.cmdb.get_service_by_endpoint(
-        iam.token["access_token"], "https://" + endpoint + "/v3", provider
-    )
+    service = app.cmdb.get_service_by_endpoint(iam.token["access_token"], endpoint, provider, False)
 
     prj, idp = app.cmdb.get_service_project(
         iam.token["access_token"],

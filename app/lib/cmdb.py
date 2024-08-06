@@ -49,9 +49,12 @@ class Cmdb:
 
         return ss
 
-    def get_service_by_endpoint(self, access_token, endpoint, provider=None):
+    def get_service_by_endpoint(self, access_token, endpoint, provider=None, exact_match=True):
         services = self.get_services(access_token, provider)
-        service = next((s for s in services if s["endpoint"] == endpoint), None)
+        if exact_match:
+            service = next((s for s in services if s["endpoint"] == endpoint), None)
+        else:
+            service = next((s for s in services if endpoint in s["endpoint"]), None)
         return service
 
     def get_service_projects(self, access_token, service_id):
