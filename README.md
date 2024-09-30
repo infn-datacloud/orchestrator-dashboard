@@ -96,6 +96,8 @@ If you want to run the application outside the docker image provided in the repo
     - In `config.json` file, set the `FEATURE_REQUIRE_USER_SSH_PUBKEY` equals to **yes**.
     - Enable vault (see next point).
 - **If you want to enable vault feature**
+    - If you have a vault service, it must be correctly configured. It must grant the correct read, write and delete policies to users. The name of these policies must match the name of the policies set in the `vault-config.json` variables.
+    - Il vault deve supportare l'autenticazione tramite JWT token.
     - In `config.json` file, set the `FEATURE_VAULT_INTEGRATION` equals to **yes**.
     - Create a `vault-config.json` file with at least: `VAULT_URL`, `VAULT_ROLE` and `VAULT_BOUND_AUDIENCE`.
 - **Use environemnt variable instead of defining variables in `.json` files**
@@ -287,36 +289,36 @@ topology_template:
 ## Using an HTTPS Proxy 
 
 Example of configuration for nginx:
+
 ```
 server {
-      listen         80;
-      server_name    YOUR_SERVER_NAME;
-      return         301 https://$server_name$request_uri;
+    listen         80;
+    server_name    YOUR_SERVER_NAME;
+    return         301 https://$server_name$request_uri;
 }
 
 server {
-  listen        443 ssl;
-  server_name   YOUR_SERVER_NAME;
-  access_log    /var/log/nginx/proxy-paas.access.log  combined;
+    listen        443 ssl;
+    server_name   YOUR_SERVER_NAME;
+    access_log    /var/log/nginx/proxy-paas.access.log  combined;
 
-  ssl on;
-  ssl_protocols TLSv1 TLSv1.1 TLSv1.2;
-  ssl_certificate           /etc/nginx/cert.pem;
-  ssl_certificate_key       /etc/nginx/key.pem;
-  ssl_trusted_certificate   /etc/nginx/trusted_ca_cert.pem;
+    ssl on;
+    ssl_protocols TLSv1 TLSv1.1 TLSv1.2;
+    ssl_certificate           /etc/nginx/cert.pem;
+    ssl_certificate_key       /etc/nginx/key.pem;
+    ssl_trusted_certificate   /etc/nginx/trusted_ca_cert.pem;
 
-  location / {
-                # Pass the request to Gunicorn
-                proxy_pass http://127.0.0.1:5001/;
+    location / {
+        # Pass the request to Gunicorn
+        proxy_pass http://127.0.0.1:5000/;
 
-                proxy_set_header        X-Real-IP $remote_addr;
-                proxy_set_header        X-Forwarded-For $proxy_add_x_forwarded_for;
-                proxy_set_header        X-Forwarded-Proto https;
-                proxy_set_header        Host $http_host;
-                proxy_redirect          http:// https://;
-                proxy_buffering         off;
-  }
-
+        proxy_set_header        X-Real-IP $remote_addr;
+        proxy_set_header        X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header        X-Forwarded-Proto https;
+        proxy_set_header        Host $http_host;
+        proxy_redirect          http:// https://;
+        proxy_buffering         off;
+    }
 }
 ```
 
