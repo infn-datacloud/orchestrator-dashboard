@@ -1229,28 +1229,101 @@ def process_openstack_ec2credentials(key: str, inputs: dict, stinputs: dict):
         try:
             # remove from inputs array since it is not a real input to pass to the orchestrator
             del inputs[key]
-
             s3_url = value["url"]
-            service = app.cmdb.get_service_by_endpoint(iam.token["access_token"], s3_url)
-            prj, idp = app.cmdb.get_service_project(
-                iam.token["access_token"],
-                session["iss"],
-                service,
-                session["active_usergroup"],
-            )
 
-            if not prj or not idp:
-                raise Exception("Unable to get EC2 credentials")
+            # Fed-Reg
+            if app.settings.fed_reg_url is not None:
+                user_groups = fed_reg.get_user_groups(
+                    access_token=iam.token["access_token"],
+                    with_conn=True,
+                    name=session["active_usergroup"],
+                    idp_endpoint=session["iss"],
+                )
+                assert (
+                    len(user_groups) < 2
+                ), f"Found multiple user groups with name '{session['active_usergroup']}' and issuer '{session['iss']}'"
+                assert (
+                    len(user_groups) > 0
+                ), f"User group with name '{session['active_usergroup']}' and issuer '{session['iss']}' not found"
+                user_group = user_groups[0]
 
-            if prj and idp:
-                access, secret = keystone.get_or_create_ec2_creds(
-                    iam.token["access_token"],
-                    prj.get("tenant_name"),
-                    service["auth_url"].rstrip("/v3"),
-                    idp["name"],
-                    idp["protocol"],
+                # Find project, provider and region matching service url
+                found = False
+                for sla in user_group["slas"]:
+                    for project in sla["projects"]:
+                        _provider = project["provider"]
+                        for quota in filter(
+                            lambda x: not x["usage"], project["quotas"]
+                        ):
+                            service = quota["service"]
+                            region = service["region"]
+                            if (
+                                service["type"] == "object-store"
+                                and "s3" in service["name"]
+                                and service["endpoint"] == s3_url
+                            ):
+                                found = True
+                                break
+                if not found:
+                    raise Exception("Unable to get EC2 credentials")
+                
+                # Get target provider details
+                provider = fed_reg.get_provider(
+                    _provider["uid"],
+                    access_token=iam.token["access_token"],
+                    with_conn=True,
+                )
+                assert provider, f"Provider with uid '{provider['uid']}' not found"
+
+                # Retrieve the authentication details matching the current identity provider
+                identity_provider = next(
+                    filter(
+                        lambda x: x["endpoint"] == session["iss"],
+                        provider["identity_providers"],
+                    )
+                )
+                auth_method = identity_provider["relationship"]
+
+                # Retrieve the auth_url matching the target region. In older deployments,
+                # if not inferred from the provider name, the region is None.
+                region = provider["regions"][0]
+                identity_service = next(
+                    filter(lambda x: x["type"] == "identity", region["services"])
                 )
 
+                # Retrieve EC2 access and secret
+                return keystone.get_or_create_ec2_creds(
+                    access_token=iam.token["access_token"],
+                    project=project["name"],
+                    auth_url=identity_service["endpoint"].rstrip("/v3"),
+                    identity_provider=auth_method["idp_name"],
+                    protocol=auth_method["protocol"],
+                )
+            # SLAM
+            elif app.settings.orchestrator_conf("slam_url", None) is not None:
+                service = app.cmdb.get_service_by_endpoint(
+                    iam.token["access_token"], s3_url
+                )
+                prj, idp = app.cmdb.get_service_project(
+                    iam.token["access_token"],
+                    session["iss"],
+                    service,
+                    session["active_usergroup"],
+                )
+
+                if not prj or not idp:
+                    raise Exception("Unable to get EC2 credentials")
+
+                if prj and idp:
+                    access, secret = keystone.get_or_create_ec2_creds(
+                        iam.token["access_token"],
+                        prj.get("tenant_name"),
+                        service["auth_url"].rstrip("/v3"),
+                        idp["name"],
+                        idp["protocol"],
+                    )
+
+            if access is not None and secret is not None:
                 iam_base_url = app.settings.iam_url
                 iam_client_id = app.settings.iam_client_id
                 iam_client_secret = app.settings.iam_client_secret
