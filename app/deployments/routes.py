@@ -1260,10 +1260,14 @@ def process_openstack_ec2credentials(key: str, inputs: dict, stinputs: dict):
                             if (
                                 service["type"] == "object-store"
                                 and "s3" in service["name"]
-                                and service["endpoint"] == s3_url
+                                and service["endpoint"].startswith(s3_url)
                             ):
                                 found = True
                                 break
+                        if found:
+                            break
+                    if found:
+                        break
                 if not found:
                     raise Exception("Unable to get EC2 credentials")
                 
@@ -1292,7 +1296,7 @@ def process_openstack_ec2credentials(key: str, inputs: dict, stinputs: dict):
                 )
 
                 # Retrieve EC2 access and secret
-                return keystone.get_or_create_ec2_creds(
+                access,secret = keystone.get_or_create_ec2_creds(
                     access_token=iam.token["access_token"],
                     project=project["name"],
                     auth_url=identity_service["endpoint"].rstrip("/v3"),
