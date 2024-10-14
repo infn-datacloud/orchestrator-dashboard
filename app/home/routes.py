@@ -417,7 +417,7 @@ def portfolio():
             services=services,
             templates_info=templates_info,
             enable_template_groups=enable_template_groups,
-            s_values=list(statuses.values()),
+            s_values=statuses,
         )
 
     return redirect(url_for("home_bp.login"))
