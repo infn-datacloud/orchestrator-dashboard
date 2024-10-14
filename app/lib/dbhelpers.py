@@ -40,6 +40,9 @@ def get_users():
 
 
 def update_user(subject, data):
+    print('-----------------------')
+    print(subject, data)
+    print('-----------------------')
     User.query.filter_by(sub=subject).update(data)
     db.session.commit()
 
