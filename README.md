@@ -118,7 +118,7 @@ If you want to run the application outside the docker image provided in the repo
 | EXTERNAL_LINKS | Additional external links... | no |
 | SQLALCHEMY_DATABASE_URI | Complete URL to the database | yes |
 | REDIS_URL | Complete URL to the redis instance | no |
-| CALLBACK_URL | URL to return on login (**DEPRECATED** - The application works also without it) | no |
+| CALLBACK_URL | URL contacted by the orchestrator to update the dashboard  | yes |
 | ADMINS | List of admin emails. Each email in the list must be written within single quotes. | no | 
 | SUPPORT_EMAIL | Email for user support | no |
 | IAM_GROUP_MEMBERSHIP | List of user's groups to use in the application. | no |
