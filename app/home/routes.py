@@ -372,7 +372,7 @@ def portfolio():
     except Exception as e:
         flash("Error retrieving deployment list: \n" + str(e), "warning")
 
-    deps = dbhelpers.get_user_deployments(session["userid"])
+    deps = dbhelpers.get_user_deployments(session["userid"], session["active_usergroup"])
     statuses = {}
     for dep in deps:
         status = dep.status if dep.status else "UNKNOWN"

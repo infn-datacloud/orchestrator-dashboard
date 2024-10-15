@@ -65,8 +65,11 @@ def update_deployment(depuuid, data):
     db.session.commit()
 
 
-def get_user_deployments(user_sub):
-    return Deployment.query.filter_by(sub=user_sub).all()
+def get_user_deployments(user_sub, user_group = None):
+    kwargs = {"sub": user_sub}
+    if user_group is not None:
+        kwargs["user_group"] = user_group
+    return Deployment.query.filter_by(**kwargs).all()
 
 
 def get_deployment(uuid):
