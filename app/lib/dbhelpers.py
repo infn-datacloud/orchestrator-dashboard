@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import ast
 import datetime
 from typing import Any, Optional
 
@@ -137,7 +138,7 @@ def updatedeploymentsstatus(deployments, userid):
         providername = dep_json["cloudProviderName"] if "cloudProviderName" in dep_json else ""
         # Older deployments saved as provider name both the provider name and the
         # region, but in the Fed-Reg they are separate details.
-        if providername != "" and providername in json.dumps(
+        if providername != "" and providername in ast.literal_eval(
             app.config.get("PROVIDER_NAMES_TO_SPLIT", [])
         ):
             providername, region_name = providername.split("-")
