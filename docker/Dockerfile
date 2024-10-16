@@ -1,4 +1,6 @@
-FROM python:3.9.18
+ARG PYTHON_VERSION=3.9.18
+
+FROM python:${PYTHON_VERSION}
 
 ARG USERNAME=flask
 ARG USER_UID=1001
@@ -17,11 +19,10 @@ USER ${USERNAME}
 
 COPY --chown=${USERNAME}:${USERNAME} ./requirements.txt /app/requirements.txt
 RUN pip3 install --user gunicorn \
-    && pip install --user -r /app/requirements.txt
+    && pip install --user --no-cache-dir --upgrade -r /app/requirements.txt
 
 COPY --chown=${USERNAME}:${USERNAME} ./app /app/app
 COPY --chown=${USERNAME}:${USERNAME} ./config /app/config
-COPY --chown=${USERNAME}:${USERNAME} ./instance /app/instance
 COPY --chown=${USERNAME}:${USERNAME} ./migrations /app/migrations
 COPY --chown=${USERNAME}:${USERNAME} ./orchdashboard.py /app/orchdashboard.py
 COPY --chown=${USERNAME}:${USERNAME} ./docker/start.sh /home/${USERNAME}/.local/bin/start.sh
@@ -29,9 +30,9 @@ COPY --chown=${USERNAME}:${USERNAME} ./docker/start.sh /home/${USERNAME}/.local/
 WORKDIR /app/
 
 ENV PYTHONPATH=/app
-ENV TIMEOUT 60
-ENV ENABLE_HTTPS False
-ENV WORKERS 1
+ENV TIMEOUT=60
+ENV ENABLE_HTTPS=False
+ENV WORKERS=1
 
 EXPOSE 5001
 
