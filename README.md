@@ -146,6 +146,8 @@ If you want to run the application outside the docker image provided in the repo
 | LDAP_BIND_USER | | no |
 | LDAP_BIND_PASSWORD | | no |
 
+Ldap variables are mandatory to run services like Sync&Share.
+
 ### `vault-config.json` values
 
 This variables are meant to be mandatory only if `FEATURE_VAULT_INTEGRATION=yes`.
