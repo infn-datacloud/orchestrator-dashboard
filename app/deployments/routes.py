@@ -910,6 +910,7 @@ def updatedep():
         template = add_sla_to_template(template, form_data["extra_opts.selectedSLA"])
     else:
         remove_sla_from_template(template)
+    app.logger.debug(yaml.dump(template, default_flow_style=False))
 
     stinputs = json.loads(dep.stinputs.strip('"')) if dep.stinputs else {}
     inputs = {
@@ -1088,8 +1089,6 @@ def add_sla_to_template(template, sla_id):
             }
         }
     ]
-
-    app.logger.debug(yaml.dump(template, default_flow_style=False))
 
     return template
 
@@ -1630,6 +1629,7 @@ def createdep():
         template = add_sla_to_template(template, form_data["extra_opts.selectedSLA"])
     else:
         remove_sla_from_template(template)
+    app.logger.debug(yaml.dump(template, default_flow_style=False))
 
     uuidgen_deployment = str(uuid_generator.uuid1())
 
