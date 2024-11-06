@@ -36,7 +36,7 @@ def getslas():
         slas = fed_reg.retrieve_slas_from_specific_user_group(access_token=access_token)
 
     # SLAM
-    elif app.settings.orchestrator_conf("slam_url", None) is not None:
+    elif app.settings.orchestrator_conf.get("slam_url", None) is not None:
         try:
             app.logger.debug(
                 "SLAM_URL: {}".format(app.settings.orchestrator_conf["slam_url"])
