@@ -442,7 +442,7 @@ def get_openstack_connection(
             auth_type="v3oidcaccesstoken",
         )
     # SLAM
-    elif app.settings.orchestrator_conf("slam_url", None) is not None:
+    elif app.settings.orchestrator_conf.get("slam_url", None) is not None:
         service = app.cmdb.get_service_by_endpoint(
             iam.token["access_token"], endpoint, provider_name, False
         )
@@ -803,7 +803,7 @@ def depupdate(depid=None):
         )
 
     # SLAM
-    elif app.settings.orchestrator_conf("slam_url", None) is not None:
+    elif app.settings.orchestrator_conf.get("slam_url", None) is not None:
         slas = sla.get_slas(
             access_token,
             app.settings.orchestrator_conf["slam_url"],
@@ -910,6 +910,7 @@ def updatedep():
         template = add_sla_to_template(template, form_data["extra_opts.selectedSLA"])
     else:
         remove_sla_from_template(template)
+    app.logger.debug(yaml.dump(template, default_flow_style=False))
 
     stinputs = json.loads(dep.stinputs.strip('"')) if dep.stinputs else {}
     inputs = {
@@ -1029,7 +1030,7 @@ def prepare_configure_form(selected_tosca, tosca_info, steps):
             )
 
         # SLAM
-        elif app.settings.orchestrator_conf("slam_url", None) is not None:
+        elif app.settings.orchestrator_conf.get("slam_url", None) is not None:
             slas = sla.get_slas(
                 access_token,
                 app.settings.orchestrator_conf["slam_url"],
@@ -1088,8 +1089,6 @@ def add_sla_to_template(template, sla_id):
             }
         }
     ]
-
-    app.logger.debug(yaml.dump(template, default_flow_style=False))
 
     return template
 
@@ -1304,7 +1303,7 @@ def process_openstack_ec2credentials(key: str, inputs: dict, stinputs: dict):
                     protocol=auth_method["protocol"],
                 )
             # SLAM
-            elif app.settings.orchestrator_conf("slam_url", None) is not None:
+            elif app.settings.orchestrator_conf.get("slam_url", None) is not None:
                 service = app.cmdb.get_service_by_endpoint(
                     iam.token["access_token"], s3_url
                 )
@@ -1630,6 +1629,7 @@ def createdep():
         template = add_sla_to_template(template, form_data["extra_opts.selectedSLA"])
     else:
         remove_sla_from_template(template)
+    app.logger.debug(yaml.dump(template, default_flow_style=False))
 
     uuidgen_deployment = str(uuid_generator.uuid1())
 

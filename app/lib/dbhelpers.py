@@ -189,7 +189,11 @@ def updatedeploymentsstatus(deployments, userid):
                 template = ""
 
             # insert missing deployment in database
-            endpoint = dep_json["outputs"]["endpoint"] if "endpoint" in dep_json["outputs"] else ""
+            endpoint = (
+                dep_json["outputs"]["endpoint"]
+                if "endpoint" in dep_json["outputs"]
+                else ""
+            )
 
             deployment = Deployment(
                 uuid=uuid,
@@ -241,7 +245,9 @@ def updatedeploymentsstatus(deployments, userid):
     for d in dd:
         uuid = d.uuid
         if uuid not in iids:
-            time_string = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+            time_string = datetime.datetime.now(datetime.timezone.utc).strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
             d.status = "DELETE_COMPLETE"
             d.update_time = time_string
             db.session.add(d)
@@ -280,8 +286,12 @@ def cvdeployment(d):
         else "",
         sub=d.sub,
         template=d.template,
-        template_parameters=d.template_parameters if d.template_parameters is not None else "",
-        template_metadata=d.template_metadata if d.template_metadata is not None else "",
+        template_parameters=d.template_parameters
+        if d.template_parameters is not None
+        else "",
+        template_metadata=d.template_metadata
+        if d.template_metadata is not None
+        else "",
         selected_template=d.selected_template,
         inputs=json.loads(d.inputs.replace("\n", "\\n"))
         if (d.inputs is not None and d.inputs != "")

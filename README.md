@@ -19,8 +19,9 @@ The docker image uses [Gunicorn](https://gunicorn.org/) as WSGI HTTP server to s
 
 **The application requires a DB to store data and runs over HTTPS.**
 
-- Running MySQL instance with version 5.7 
+- Running MySQL instance with version 5.7 or 8
     - User with full db administration rights to auto create/manage the database
+- Running Redis instance
 - Register a client in IAM with the following properties:
     - redirect uri: `https://<DASHBOARD_HOST>:<PORT>/login/iam/authorized`
     - scopes: `openid`, `email`, `profile`, `offline_access`
@@ -117,7 +118,7 @@ If you want to run the application outside the docker image provided in the repo
 | IM_URL | IM service URL | no |
 | EXTERNAL_LINKS | Additional external links... | no |
 | SQLALCHEMY_DATABASE_URI | Complete URL to the database | yes |
-| REDIS_URL | Complete URL to the redis instance | no |
+| REDIS_URL | Complete URL to the redis instance. If not set the application tries to contact the localhost. | no |
 | CALLBACK_URL | URL contacted by the orchestrator to update the dashboard  | yes |
 | ADMINS | List of admin emails. Each email in the list must be written within single quotes. | no | 
 | SUPPORT_EMAIL | Email for user support | no |
