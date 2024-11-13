@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import requests
-from flask import session
+from flask import current_app as app, session
 
 from app.extensions import cache
 
@@ -66,7 +66,7 @@ def make_key(*args, **kwargs):
     return f"slas:{argument}"
 
 
-@cache.cached(timeout=30 * 60, make_cache_key=make_key)
+@cache.cached(timeout=app.config.get("SLAM_CACHE_TIMEOUT_MIN", 0) * 60, make_cache_key=make_key)
 def get_cached_slas(slam_url, headers, group):
     url = slam_url + "/preferences/" + group
 
