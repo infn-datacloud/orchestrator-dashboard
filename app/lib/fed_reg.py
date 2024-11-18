@@ -140,6 +140,7 @@ def retrieve_slas_from_specific_user_group(
             name=user_group_name,
             idp_endpoint=issuer,
             with_conn=True,
+            provider_status="active",
         )
         assert len(user_groups) == 1, "Invalid number of returned user groups"
 
