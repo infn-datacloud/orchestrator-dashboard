@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import requests
-from flask import current_app as app, session
+from flask import session
 
 from app.extensions import cache
 
