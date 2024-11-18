@@ -69,5 +69,4 @@ instance/
 .DS_Store
 .AppleDouble
 .LSOverride
-certs/cert.pem
-certs/privkey.pem
+certs/
