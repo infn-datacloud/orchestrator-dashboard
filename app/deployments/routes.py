@@ -18,7 +18,7 @@ import os
 import random
 import string
 import uuid as uuid_generator
-from re import search
+from re import match, search
 from urllib.parse import urlparse
 
 import openstack
@@ -205,7 +205,9 @@ def preprocess_outputs(outputs, stoutputs, inputs):
                 if not eval(value.get("condition")) and key in outputs:
                     del outputs[key]
             except InputValidationError as ex:
-                app.logger.warning("Error evaluating condition for output {}: {}".format(key, ex))
+                app.logger.warning(
+                    "Error evaluating condition for output {}: {}".format(key, ex)
+                )
 
 
 @deployments_bp.route("/<depid>/details")
@@ -219,7 +221,10 @@ def depoutput(depid=None):
     Returns:
     - rendered template with deployment details, inputs, outputs, and structured outputs
     """
-    if session["userrole"].lower() != "admin" and depid not in session["deployments_uuid_array"]:
+    if (
+        session["userrole"].lower() != "admin"
+        and depid not in session["deployments_uuid_array"]
+    ):
         flash("You are not allowed to browse this page!", "danger")
         return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
 
@@ -363,7 +368,9 @@ def depinfradetails(depid=None):
 
 # PORTS MANAGEMENT
 def get_openstack_connection(endpoint, provider):
-    service = app.cmdb.get_service_by_endpoint(iam.token["access_token"], endpoint, provider, False)
+    service = app.cmdb.get_service_by_endpoint(
+        iam.token["access_token"], endpoint, provider, False
+    )
 
     prj, idp = app.cmdb.get_service_project(
         iam.token["access_token"],
@@ -406,7 +413,9 @@ def get_vm_info(depid):
     def find_node_with_pubip(resources):
         for resource in resources:
             if "VirtualMachineInfo" in resource["metadata"]:
-                vm_info = json.loads(resource["metadata"]["VirtualMachineInfo"])["vmProperties"]
+                vm_info = json.loads(resource["metadata"]["VirtualMachineInfo"])[
+                    "vmProperties"
+                ]
                 networks = [i for i in vm_info if i.get("class") == "network"]
                 vmi = next(i for i in vm_info if i.get("class") == "system")
 
@@ -437,7 +446,9 @@ def get_sec_groups(conn, server_id, public=True):
 
     if public:
         return_sec_group_list = [
-            sec_group for sec_group in return_sec_group_list if search(substring, sec_group["name"])
+            sec_group
+            for sec_group in return_sec_group_list
+            if search(substring, sec_group["name"])
         ]
 
     return return_sec_group_list
@@ -488,7 +499,11 @@ def manage_rules(depid=None, sec_group_id=None):
         rules = []
 
     return render_template(
-        "depgrouprules.html", depid=depid, provider=provider, sec_group_id=sec_group_id, rules=rules
+        "depgrouprules.html",
+        depid=depid,
+        provider=provider,
+        sec_group_id=sec_group_id,
+        rules=rules,
     )
 
 
@@ -523,7 +538,12 @@ def create_rule(depid=None, sec_group_id=None):
         flash("Error: \n" + str(e), "danger")
 
     return redirect(
-        url_for(MANAGE_RULES_ROUTE, depid=depid, provider=provider, sec_group_id=sec_group_id)
+        url_for(
+            MANAGE_RULES_ROUTE,
+            depid=depid,
+            provider=provider,
+            sec_group_id=sec_group_id,
+        )
     )
 
 
@@ -540,7 +560,12 @@ def delete_rule(depid=None, sec_group_id=None, rule_id=None):
         flash("Error: \n" + str(e), "danger")
 
     return redirect(
-        url_for(MANAGE_RULES_ROUTE, depid=depid, provider=provider, sec_group_id=sec_group_id)
+        url_for(
+            MANAGE_RULES_ROUTE,
+            depid=depid,
+            provider=provider,
+            sec_group_id=sec_group_id,
+        )
     )
 
 
@@ -560,7 +585,9 @@ def depaction(depid):
             )
             flash("Action successfully triggered.", "success")
         except Exception as e:
-            app.logger.error("Action on deployment {} failed: {}".format(dep.uuid, str(e)))
+            app.logger.error(
+                "Action on deployment {} failed: {}".format(dep.uuid, str(e))
+            )
             flash(str(e), "warning")
 
     return redirect(url_for("deployments_bp.depinfradetails", depid=depid))
@@ -574,14 +601,18 @@ def delnode(depid):
     if dep is not None and dep.physicalId is not None:
         try:
             vm_id = request.args["vmid"]
-            app.logger.debug(f"Requested deletion of node {vm_id} on deployment {dep.uuid}")
+            app.logger.debug(
+                f"Requested deletion of node {vm_id} on deployment {dep.uuid}"
+            )
             resource = app.orchestrator.get_resource(access_token, depid, vm_id)
             resources = app.orchestrator.get_resources(access_token, depid)
 
             node = next((res for res in resources if res.get("uuid") == vm_id), None)
             node_name = node.get("toscaNodeName")
             # current count -1 --> remove one node
-            count = sum(1 for res in resources if res.get("toscaNodeName") == node_name) - 1
+            count = (
+                sum(1 for res in resources if res.get("toscaNodeName") == node_name) - 1
+            )
 
             app.logger.debug(f"Resource details: {resource}")
             app.logger.debug(f"Count = {count}")
@@ -594,7 +625,9 @@ def delnode(depid):
                 template_dict, node_name, [vm_id], count
             )
 
-            template_text = yaml.dump(new_template, default_flow_style=False, sort_keys=False)
+            template_text = yaml.dump(
+                new_template, default_flow_style=False, sort_keys=False
+            )
             app.logger.debug(f"{template_text}")
 
             app.orchestrator.update(
@@ -728,7 +761,9 @@ def addnodes(depid):
 
         template_dict = yaml.full_load(io.StringIO(template))
 
-        template_text = yaml.dump(template_dict, default_flow_style=False, sort_keys=False)
+        template_text = yaml.dump(
+            template_dict, default_flow_style=False, sort_keys=False
+        )
 
         new_inputs = extract_inputs(form_data)
 
@@ -738,7 +773,9 @@ def addnodes(depid):
         if not form_data.get("extra_opts.force_update") and all(
             old_inputs.get(k) == v for k, v in new_inputs.items()
         ):
-            message = f"Node addition Aborted for Deployment {dep.uuid}: No changes detected"
+            message = (
+                f"Node addition Aborted for Deployment {dep.uuid}: No changes detected"
+            )
             app.logger.error(message)
             flash(message, "warning")
             return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
@@ -795,7 +832,11 @@ def updatedep():
         for (k, v) in form_data.items()
         if not k.startswith("extra_opts.")
         and k != "_depid"
-        and (k in stinputs and "updatable" in stinputs[k] and stinputs[k]["updatable"] is True)
+        and (
+            k in stinputs
+            and "updatable" in stinputs[k]
+            and stinputs[k]["updatable"] is True
+        )
     }
 
     app.logger.debug("Parameters: " + json.dumps(inputs))
@@ -805,8 +846,12 @@ def updatedep():
     app.logger.debug("[Deployment Update] inputs: {}".format(json.dumps(inputs)))
     app.logger.debug("[Deployment Update] Template: {}".format(template_text))
 
-    keep_last_attempt = 1 if "extra_opts.keepLastAttempt" in form_data else dep.keep_last_attempt
-    feedback_required = 1 if "extra_opts.sendEmailFeedback" in form_data else dep.feedback_required
+    keep_last_attempt = (
+        1 if "extra_opts.keepLastAttempt" in form_data else dep.keep_last_attempt
+    )
+    feedback_required = (
+        1 if "extra_opts.sendEmailFeedback" in form_data else dep.feedback_required
+    )
     provider_timeout_mins = (
         form_data["extra_opts.providerTimeout"]
         if "extra_opts.providerTimeoutSet" in form_data
@@ -889,7 +934,10 @@ def prepare_configure_form(selected_tosca, tosca_info, steps):
         template = copy.deepcopy(tosca_info[selected_tosca])
         # Manage eventual overrides
         for k, v in list(template["inputs"].items()):
-            if "group_overrides" in v and session["active_usergroup"] in v["group_overrides"]:
+            if (
+                "group_overrides" in v
+                and session["active_usergroup"] in v["group_overrides"]
+            ):
                 overrides = v["group_overrides"][session["active_usergroup"]]
                 template["inputs"][k] = {**v, **overrides}
                 del template["inputs"][k]["group_overrides"]
@@ -905,7 +953,10 @@ def prepare_configure_form(selected_tosca, tosca_info, steps):
 
         ssh_pub_key = dbhelpers.get_ssh_pub_key(session["userid"])
 
-        if not ssh_pub_key and app.config.get("FEATURE_REQUIRE_USER_SSH_PUBKEY") == "yes":
+        if (
+            not ssh_pub_key
+            and app.config.get("FEATURE_REQUIRE_USER_SSH_PUBKEY") == "yes"
+        ):
             flash(
                 "Warning! You will not be able to deploy your service \
                     as no Public SSH key has been uploaded.",
@@ -993,7 +1044,10 @@ def process_security_groups(key: str, inputs: dict, stinputs: dict, form_data: d
     if not value or value["type"] != "map":
         return
 
-    port_types = ["tosca.datatypes.network.PortSpec", "tosca.datatypes.indigo.network.PortSpec"]
+    port_types = [
+        "tosca.datatypes.network.PortSpec",
+        "tosca.datatypes.indigo.network.PortSpec",
+    ]
     if not any(value["entry_schema"]["type"] == t for t in port_types):
         return
 
@@ -1058,7 +1112,9 @@ def process_ssh_user(key: str, inputs: dict, stinputs: dict):
                     {
                         "os_user_name": session["preferred_username"],
                         "os_user_add_to_sudoers": True,
-                        "os_user_ssh_public_key": dbhelpers.get_ssh_pub_key(session["userid"]),
+                        "os_user_ssh_public_key": dbhelpers.get_ssh_pub_key(
+                            session["userid"]
+                        ),
                     }
                 ]
             else:
@@ -1083,8 +1139,16 @@ def process_uuidgen(key: str, inputs: dict, stinputs: dict, uuidgen_deployment: 
         prefix = ""
         suffix = ""
         if "extra_specs" in value:
-            prefix = value["extra_specs"]["prefix"] if "prefix" in value["extra_specs"] else ""
-            suffix = value["extra_specs"]["suffix"] if "suffix" in value["extra_specs"] else ""
+            prefix = (
+                value["extra_specs"]["prefix"]
+                if "prefix" in value["extra_specs"]
+                else ""
+            )
+            suffix = (
+                value["extra_specs"]["suffix"]
+                if "suffix" in value["extra_specs"]
+                else ""
+            )
         inputs[key] = prefix + uuidgen_deployment + suffix
 
 
@@ -1097,7 +1161,9 @@ def process_openstack_ec2credentials(key: str, inputs: dict, stinputs: dict):
             del inputs[key]
 
             s3_url = value["url"]
-            service = app.cmdb.get_service_by_endpoint(iam.token["access_token"], s3_url)
+            service = app.cmdb.get_service_by_endpoint(
+                iam.token["access_token"], s3_url
+            )
             prj, idp = app.cmdb.get_service_project(
                 iam.token["access_token"],
                 session["iss"],
@@ -1129,7 +1195,9 @@ def process_openstack_ec2credentials(key: str, inputs: dict, stinputs: dict):
                     app.config.get("VAULT_BOUND_AUDIENCE"),
                 )
 
-                vaultclient = vaultservice.connect(jwt_token, app.config.get("VAULT_ROLE"))
+                vaultclient = vaultservice.connect(
+                    jwt_token, app.config.get("VAULT_ROLE")
+                )
 
                 secret_path = (
                     session["userid"]
@@ -1140,17 +1208,25 @@ def process_openstack_ec2credentials(key: str, inputs: dict, stinputs: dict):
                 )
 
                 vaultclient.write_secret_dict(
-                    None, secret_path, {"aws_access_key": access, "aws_secret_key": secret}
+                    None,
+                    secret_path,
+                    {"aws_access_key": access, "aws_secret_key": secret},
                 )
 
                 app.logger.debug(f"EC2 Credentials saved to Vault path {secret_path}")
 
                 test_backet_name = "".join(random.choices(string.ascii_lowercase, k=8))
                 s3.create_bucket(
-                    s3_url=s3_url, access_key=access, secret_key=secret, bucket=test_backet_name
+                    s3_url=s3_url,
+                    access_key=access,
+                    secret_key=secret,
+                    bucket=test_backet_name,
                 )
                 s3.delete_bucket(
-                    s3_url=s3_url, access_key=access, secret_key=secret, bucket=test_backet_name
+                    s3_url=s3_url,
+                    access_key=access,
+                    secret_key=secret,
+                    bucket=test_backet_name,
                 )
 
                 app.logger.debug(
@@ -1256,7 +1332,10 @@ def process_inputs(source_template, inputs, form_data, uuidgen_deployment):
     stinputs = copy.deepcopy(source_template["inputs"])
 
     for k, v in list(stinputs.items()):
-        if "group_overrides" in v and session["active_usergroup"] in v["group_overrides"]:
+        if (
+            "group_overrides" in v
+            and session["active_usergroup"] in v["group_overrides"]
+        ):
             overrides = v["group_overrides"][session["active_usergroup"]]
             stinputs[k] = {**v, **overrides}
             del stinputs[k]["group_overrides"]
@@ -1351,7 +1430,9 @@ def create_deployment(
     deployment = dbhelpers.get_deployment(uuid)
     if deployment is None:
         vphid = rs_json["physicalId"] if "physicalId" in rs_json else ""
-        providername = rs_json["cloudProviderName"] if "cloudProviderName" in rs_json else ""
+        providername = (
+            rs_json["cloudProviderName"] if "cloudProviderName" in rs_json else ""
+        )
 
         deployment = Deployment(
             uuid=uuid,
@@ -1426,11 +1507,21 @@ def createdep():
         source_template, inputs, form_data, uuidgen_deployment
     )
 
+    # If input is a bucket_name check for validity
+    for name in inputs:
+        if search("bucket_name", name):
+            errors = check_s3_bucket_name(uuidgen_deployment + "-" + inputs[name])
+
+            if errors:
+                for error in errors:
+                    flash(error, "danger")
+                return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
+
     app.logger.debug(f"Calling orchestrator with inputs: {inputs}")
 
     if doprocess:
-        storage_encryption, vault_secret_uuid, vault_secret_key = add_storage_encryption(
-            access_token, inputs
+        storage_encryption, vault_secret_uuid, vault_secret_key = (
+            add_storage_encryption(access_token, inputs)
         )
         params = {}  # is it needed??
         create_deployment(
@@ -1451,11 +1542,67 @@ def createdep():
     return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
 
 
+def check_s3_bucket_name(name):
+    """
+    Validates an S3 bucket name based on the given rules.
+
+    :param name: The bucket name to validate.
+    :return: A tuple (bool, list) where the bool indicates if the name is valid,
+             and the list contains validation error messages (if any).
+    """
+    errors = []
+
+    # Rule 1: Length between 3 and 63 characters
+    if not (3 <= len(name) <= 63):
+        errors.append("Bucket names must be between 3 and 63 characters long.")
+
+    # Rule 2: Allowed characters
+    if not match(r"^[a-z0-9.-]+$", name):
+        errors.append(
+            "Bucket names can only contain lowercase letters, numbers, dots (.), and hyphens (-)."
+        )
+
+    # Rule 3: Begin and end with a letter or number
+    if not match(r"^[a-z0-9].*[a-z0-9]$", name):
+        errors.append("Bucket names must begin and end with a letter or number.")
+
+    # Rule 4: Must not contain two adjacent periods
+    if ".." in name:
+        errors.append("Bucket names must not contain two adjacent periods.")
+
+    # Rule 5: Must not be formatted as an IP address
+    if match(r"^\d+\.\d+\.\d+\.\d+$", name):
+        errors.append(
+            "Bucket names must not be formatted as an IP address (e.g., 192.168.5.4)."
+        )
+
+    # Rule 6: Must not start with prohibited prefixes
+    prohibited_prefixes = ["xn--", "sthree-", "sthree-configurator", "amzn-s3-demo-"]
+    if any(name.startswith(prefix) for prefix in prohibited_prefixes):
+        errors.append(
+            f"Bucket names must not start with the prefixes: {', '.join(prohibited_prefixes)}."
+        )
+
+    # Rule 7: Must not end with prohibited suffixes
+    prohibited_suffixes = ["-s3alias", "--ol-s3", ".mrap", "--x-s3"]
+    if any(name.endswith(suffix) for suffix in prohibited_suffixes):
+        errors.append(
+            f"Bucket names must not end with the suffixes: {', '.join(prohibited_suffixes)}."
+        )
+
+    # Rule 8: Bucket names must be unique across AWS accounts
+    # This rule cannot be validated here; it's enforced by AWS.
+
+    return errors
+
+
 def delete_secret_from_vault(access_token, secret_path):
     vault_bound_audience = app.config.get("VAULT_BOUND_AUDIENCE")
     vault_delete_policy = app.config.get("DELETE_POLICY")
     vault_delete_token_time_duration = app.config.get("DELETE_TOKEN_TIME_DURATION")
-    vault_delete_token_renewal_time_duration = app.config.get("DELETE_TOKEN_RENEWAL_TIME_DURATION")
+    vault_delete_token_renewal_time_duration = app.config.get(
+        "DELETE_TOKEN_RENEWAL_TIME_DURATION"
+    )
     vault_role = app.config.get("VAULT_ROLE")
 
     jwt_token = auth.exchange_token_with_audience(
@@ -1484,12 +1631,17 @@ def add_storage_encryption(access_token, inputs):
     vault_wrapping_token_time_duration = app.config.get("WRAPPING_TOKEN_TIME_DURATION")
     vault_write_policy = app.config.get("WRITE_POLICY")
     vault_write_token_time_duration = app.config.get("WRITE_TOKEN_TIME_DURATION")
-    vault_write_token_renewal_time_duration = app.config.get("WRITE_TOKEN_RENEWAL_TIME_DURATION")
+    vault_write_token_renewal_time_duration = app.config.get(
+        "WRITE_TOKEN_RENEWAL_TIME_DURATION"
+    )
 
     storage_encryption = 0
     vault_secret_uuid = ""
     vault_secret_key = ""
-    if "storage_encryption" in inputs and inputs["storage_encryption"].lower() == "true":
+    if (
+        "storage_encryption" in inputs
+        and inputs["storage_encryption"].lower() == "true"
+    ):
         storage_encryption = 1
         vault_secret_key = "secret"
 

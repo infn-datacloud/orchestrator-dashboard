@@ -222,12 +222,37 @@
 					{% endfor %}
 				</select>
 			{% else %}
-			<!-- text type, hide fields with password -->
-				<input {% if key|contains_sensitive_keyword(config['SENSITIVE_KEYWORDS']) %}type="password" data-toggle="password"{% else %}type="text"{% endif %} class="form-control" id="{{key}}" name="{{key}}" value="{{value.default}}" aria-describedby="help{{key}}" {% if value.required %}data-required=true required{%endif%} {{mode}} />
+				<!-- text type, hide fields with password -->
+				<input 
+					{% if 'bucket_name' in key %} incorrect=true onfocusout="check_s3_bucket_name('{{key}}')" onkeyup="check_s3_bucket_name('{{key}}')" {% endif %}
+				 	{% if key|contains_sensitive_keyword(config['SENSITIVE_KEYWORDS']) %}type="password" data-toggle="password"{% else %}type="text"{% endif %} 
+					class="form-control" id="{{key}}" name="{{key}}" value="{{value.default}}" aria-describedby="help{{key}}" 
+					{% if value.required %}data-required=true required{%endif%} {{mode}} 
+				/>
 			{% endif %}
 		{% endif %}  <!-- end tag type existence if -->
 
-		<span id="help{{key}}" class="text-muted">{{value.description}}</span>
+		<span id="help{{key}}" class="text-muted">
+			{{value.description}}
+			{% if 'bucket_name' in key %}
+				<details>
+					<summary>
+						<span id="rule_title_{{key}}">Naming rules</span>
+						<span id="icon_correct_{{key}}" style="color: green; display: none;"><i class="fas fa-check-circle"></i></span>
+						<span id="icon_error_{{key}}" style="color: red; display: none;"><i class="fas fa-exclamation-triangle"></i></i></span>
+					</summary>
+					<ul style="font-size: .8em;">
+						<li id="rule_1_{{key}}">Bucket names must be between 1 and 27 characters long.</li>
+						<li id="rule_2_{{key}}">Bucket names can consist only of lowercase letters, numbers, dots (.), and hyphens (-).</li>
+						<li id="rule_3_{{key}}">Bucket names must begin and end with a letter or number.</li>
+						<li id="rule_4_{{key}}">Bucket names must not contain two adjacent periods.</li>
+						<li id="rule_5_{{key}}">Bucket names must not be formatted as an IP address (for example, 192.168.5.4).</li>
+						<li id="rule_6_{{key}}">Bucket names must not start with the prefix "xn--", "sthree-", "sthree-configurator", or "amzn-s3-demo-".</li>
+						<li id="rule_7_{{key}}">Bucket names must not end with the suffix "-s3alias", "--ol-s3", ".mrap" or "--x-s3".</li>
+					</ul>
+				</details>
+			{% endif %}
+		</span>
 	{% endif %}
 
 	{% if value.info_box %}
@@ -255,6 +280,90 @@ $(document).ready(() => {
       	width: '100%' // https://github.com/select2/select2/issues/4220
     });
 });
+
+function check_s3_bucket_name(elem_id) {
+	name = $('#'+ elem_id).val()
+
+	const errors = [];
+
+    // Rule 1: Bucket names must be between 3 and 63 characters long (Here 27 becouse 36 is token from UUID)
+    if (name.length <= 0 || name.length > 27) {
+        errors.push(1);
+    }
+
+    // Rule 2: Bucket names can consist only of lowercase letters, numbers, dots (.), and hyphens (-)
+    if (!/^[a-z0-9.-]+$/.test(name)) {
+        errors.push(2);
+    }
+
+    // Rule 3: Bucket names must begin and end with a letter or number
+	if (!/^[a-z0-9]$|^[a-z0-9].*[a-z0-9]$/.test(name)) {
+		errors.push(3);
+	}
+
+    // Rule 4: Bucket names must not contain two adjacent periods
+    if (name.includes("..")) {
+        errors.push(4);
+    }
+
+    // Rule 5: Bucket names must not be formatted as an IP address
+    if (/^\d{1,3}(\.\d{1,3}){3}$/.test(name)) {
+        errors.push(5);
+    }
+
+    // Rule 6: Bucket names must not start with specific prefixes
+    const forbiddenPrefixes = ["xn--", "sthree-", "sthree-configurator", "amzn-s3-demo-"];
+    if (forbiddenPrefixes.some(prefix => name.startsWith(prefix))) {
+        errors.push(6);
+    }
+
+    // Rule 7: Bucket names must not end with specific suffixes
+    const forbiddenSuffixes = ["-s3alias", "--ol-s3", ".mrap", "--x-s3"];
+    if (forbiddenSuffixes.some(suffix => name.endsWith(suffix))) {
+        errors.push(7);
+    }
+
+	// Change colors if errors
+	if(errors.length == 0) {
+		$("#"+ elem_id).css({
+			borderColor: "#ccc"
+		}).attr("incorrect", false);
+
+		$("#rule_title_"+ elem_id).css({
+			color: "green"
+		}).html("Naming rules")
+
+		$("#icon_correct_"+ elem_id).show()
+		$("#icon_error_"+ elem_id).hide()
+	} else {
+		$("#"+ elem_id).css({
+			borderColor: "red"
+		}).attr("incorrect", true);
+
+		$("#rule_title_"+ elem_id).css({
+			color: "red"
+		}).html("Naming rules ("+ errors.length +")")
+
+		$("#icon_correct_"+ elem_id).hide()
+		$("#icon_error_"+ elem_id).show()
+
+		for(let i in errors) {
+			let error_num = errors[i];
+
+			$("#rule_"+ error_num +"_"+ elem_id).css({
+				color: "red"
+			})
+		}
+	}
+
+	for(let i = 1; i <= 7; i++) {
+		if(!errors.includes(i)) {
+			$("#rule_"+ i +"_"+ elem_id).css({
+				color: "green"
+			})
+		}
+	}
+}
 
 </script>
 

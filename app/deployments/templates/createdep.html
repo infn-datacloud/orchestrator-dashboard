@@ -183,7 +183,10 @@ $(document).ready(function() {
     });
 
     $('#continue_btn').on('click', () => {
-		if($('#depSubmit')[0].checkValidity()) {
+		const formValid = $('#depSubmit')[0].checkValidity();
+		const formChecked = checkForm();
+
+		if(formValid && formChecked) {
 			$('#depSubmit').hide();
 			$('#checkSubmit').show();
 	
@@ -382,9 +385,6 @@ $(document).ready(function () {
 			$(select).parent().children('span.select2').children().children().css('cssText', 'border-color: #80808056!important'); 
 		}
 	});
-	$('#continue_btn').on("click", () => {
-		checkForm()
-	});
 });
 
 function checkForm() {
@@ -394,13 +394,30 @@ function checkForm() {
     }
 
     $('input').each(function(){
-		if ( (this.disabled == false) && this.required && (this.value == '')){
-			this.style.borderColor = 'red';
-			valid = false;
+		if (!this.disabled) {
+			// Check if 'incorrect' attribute exists
+			if (this.attributes.incorrect) {
+				// If 'incorrect' attribute is true, set border red
+				if (this.attributes.incorrect.value.toString() == 'true') {
+					this.style.borderColor = 'red';
+					valid = false;
+				}
+				// If 'incorrect' attribute is false, set border #ccc
+				else if (this.attributes.incorrect.value.toString() == 'false') {
+					this.style.borderColor = '#ccc';
+				}
+			}
+			// If 'incorrect' attribute is undefined, check other requirements
+			else {
+				if (this.required && this.value == '') {
+					this.style.borderColor = 'red';
+					valid = false;
+				} else {
+					this.style.borderColor = '#ccc';
+				}
+			}
 		}
-		else {
-			this.style.borderColor = '#ccc';
-		}
+
     });
   
     $('select').each(function(){
