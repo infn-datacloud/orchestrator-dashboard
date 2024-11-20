@@ -1542,6 +1542,94 @@ def createdep():
     return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
 
 
+@deployments_bp.route("/<depid>/retry")
+@auth.authorized_with_valid_token
+def retrydep(depid=None):
+    """
+    A function to retry a failed deployment.
+    Parameters:
+    - depid: str, the ID of the deployment
+    """
+    tosca_info, _, _ = tosca.get()
+    access_token = iam.token["access_token"]
+
+    # retrieve deployment from DB
+    dep = dbhelpers.get_deployment(depid)
+    if dep is None:
+        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
+
+    inputs = process_deployment_data(dep)[0]
+    if dep is None or dep.selected_template == "":
+        flash(
+            "The selected deployment is invalid. Try creating it from scratch.", "danger"
+        )
+        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
+    
+    # Get the max num retry for the new name
+    max_num_retry = 0
+    str_retry = " retry_"
+    tmp_name = dep.description.split(str_retry)[0]
+    deps = dbhelpers.get_user_deployments(session["userid"])
+    
+    for tmp_dep in deps:
+        if (tmp_name + str_retry in tmp_dep.description and 'DELETE' not in tmp_dep.status):
+            num_retry = int(tmp_dep.description.split(str_retry)[1])
+            
+            if num_retry > max_num_retry:
+                max_num_retry = num_retry
+                
+    additionaldescription = tmp_name + str_retry + str(max_num_retry + 1)
+
+    source_template = tosca_info[dep.selected_template]
+    form_data = inputs
+    template, template_text = load_template(dep.selected_template)
+
+    uuidgen_deployment = str(uuid_generator.uuid1())
+
+    doprocess, inputs, stinputs = process_inputs(
+        source_template, inputs, form_data, uuidgen_deployment
+    )
+
+    # If input is a bucket_name check for validity
+    for name in inputs:
+        if search("bucket_name", name):
+            errors = check_s3_bucket_name(uuidgen_deployment + "-" + inputs[name])
+
+            if errors:
+                for error in errors:
+                    flash(error, "danger")
+                return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
+
+    app.logger.debug(f"Calling orchestrator with inputs: {inputs}")
+
+    if doprocess:
+        storage_encryption, vault_secret_uuid, vault_secret_key = (
+            add_storage_encryption(access_token, inputs)
+        )
+        params = {}  # is it needed??
+        create_deployment(
+            template,
+            inputs,
+            stinputs,
+            form_data,
+            dep.selected_template,
+            source_template,
+            template_text,
+            additionaldescription,
+            params,
+            storage_encryption,
+            vault_secret_uuid,
+            vault_secret_key,
+        )
+
+        flash(
+            f"Retry action for deployment {dep.description} <{depid}> successfully triggered!",
+            "success",
+        )
+
+    return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
+
+
 def check_s3_bucket_name(name):
     """
     Validates an S3 bucket name based on the given rules.
