@@ -1,18 +1,21 @@
 CONFIGURATION_PROFILE = "default"
 
 ### IAM SETTINGS
-IAM_CLIENT_ID = "XXX-XXX-XXX-XXX-XXX"
-IAM_CLIENT_SECRET = "************"
-IAM_BASE_URL = "https://iam.example.com"
-ORCHESTRATOR_URL = "https://orchestrator.example.com"
-CALLBACK_URL = "https://dashboard.example.com/home/callback"
+IAM_CLIENT_ID = "8f319311-9aa8-4dbe-9d31-b2e0f034ad2e"
+IAM_CLIENT_SECRET = "OJZq-oTUCoNmUzdVJcMkE2lEIPRI2sR_aDvT-gwEsGT0idPsTOWIZpduo9tM0Zl2hmJbuFtccylfSEYHgh3xbA"
+IAM_BASE_URL = "https://iam.cloud.infn.it"
+ORCHESTRATOR_URL = "http://mp-recas.ba.infn.it:8080"
+CALLBACK_URL = "https://mp-recas.ba.infn.it:8443/callback"
 
 ### TOSCA-related SETTINGS
-TOSCA_TEMPLATES_DIR = "/opt/tosca-templates"
-SETTINGS_DIR = "/opt/dashboard-configuration"
+TOSCA_TEMPLATES_DIR = "/Users/michele/OneDrive/Documenti/Infn-Datacloud/tosca-templates"
+SETTINGS_DIR = "/Users/michele/OneDrive/Documenti/Infn-Datacloud/dashboard-configuration"
+
+###"SLAM_URL": "https://paas-dev.cloud.infn.it:8443",
+###"CMDB_URL": "https://paas-dev.cloud.infn.it/cmdb",
 
 ### DB SETTINGS
-SQLALCHEMY_DATABASE_URI = "mysql+pymysql://dashboard:dashboard@localhost/orchestrator_dashboard"
+SQLALCHEMY_DATABASE_URI = "mysql+pymysql://orchestrator:DEV12345678#@localhost/orchestrator_dashboard",
 SQLALCHEMY_TRACK_MODIFICATIONS = "False"
 SQLALCHEMY_VERSION_HEAD = "88bc3c2c02a6"
 
@@ -32,8 +35,8 @@ YOURLS_SITE = None
 YOURLS_API_SIGNATURE_TOKEN=None
 
 ### ADMIN SETTINGS
-SUPPORT_EMAIL = "marica.antonacci@ba.infn.it"
-ADMINS = "['marica.antonacci@ba.infn.it']"
+SUPPORT_EMAIL = "michele.perniola@ba.infn.it"
+ADMINS = "['Michele.Perniola@ba.infn.it']"
 EXTERNAL_LINKS = []
 OVERALL_TIMEOUT = 720
 PROVIDER_TIMEOUT = 720
