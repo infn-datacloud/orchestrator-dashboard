@@ -15,6 +15,7 @@
 import copy
 import io
 import os
+import re
 import random
 import string
 from typing import Optional
@@ -40,7 +41,7 @@ from werkzeug.exceptions import Forbidden
 
 from app.extensions import tosca, vaultservice
 from app.iam import iam
-from app.lib import auth, dbhelpers, fed_reg, s3, utils
+from app.lib import auth, dbhelpers, fed_reg, providers, s3, utils
 from app.lib import openstack as keystone
 from app.lib import tosca_info as tosca_helpers
 from app.lib.ldap_user import LdapUserManager
@@ -374,7 +375,7 @@ def get_openstack_connection(
     conn = None
 
     # Fed-Reg
-    if app.settings.fed_reg_url is not None:
+    if app.settings.use_fed_reg == True:
         # Find target provider
         providers = fed_reg.get_providers(
             access_token=iam.token["access_token"],
@@ -442,7 +443,7 @@ def get_openstack_connection(
             auth_type="v3oidcaccesstoken",
         )
     # SLAM
-    elif app.settings.orchestrator_conf.get("slam_url", None) is not None:
+    elif app.settings.slam_url is not None:
         service = app.cmdb.get_service_by_endpoint(
             iam.token["access_token"], endpoint, provider_name, False
         )
@@ -765,6 +766,21 @@ def depdel(depid=None):
     return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
 
 
+@deployments_bp.route("/<depid>/reset")
+@auth.authorized_with_valid_token
+def depreset(depid=None):
+    access_token = iam.token["access_token"]
+
+    dep = dbhelpers.get_deployment(depid)
+    if dep is not None and dep.status == "DELETE_IN_PROGRESS":
+        try:
+            app.orchestrator.patch(access_token, depid, "DELETE_FAILED")
+        except Exception as e:
+            flash(str(e), "danger")
+
+    return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
+
+
 @deployments_bp.route("/depupdate/<depid>")
 @auth.authorized_with_valid_token
 def depupdate(depid=None):
@@ -792,24 +808,7 @@ def depupdate(depid=None):
 
     sla_id = tosca_helpers.getslapolicy(tosca_info)
 
-    slas = []
-    # Fed-Reg
-    app.logger.debug("FED_REG_URL: {}".format(app.settings.fed_reg_url))
-    if app.settings.fed_reg_url is not None:
-        slas = fed_reg.retrieve_slas_from_specific_user_group(
-            access_token=access_token,
-            service_type="compute",
-            deployment_type=dep.deployment_type,
-        )
-
-    # SLAM
-    elif app.settings.orchestrator_conf.get("slam_url", None) is not None:
-        slas = sla.get_slas(
-            access_token,
-            app.settings.orchestrator_conf["slam_url"],
-            app.settings.orchestrator_conf["cmdb_url"],
-            dep.deployment_type,
-        )
+    slas = providers.getslasdt(access_token=access_token, deployment_type=dep.deployment_type)
 
     ssh_pub_key = dbhelpers.get_ssh_pub_key(session["userid"])
 
@@ -1009,34 +1008,65 @@ def configure_post():
 def prepare_configure_form(selected_tosca, tosca_info, steps):
     access_token = iam.token["access_token"]
     if selected_tosca:
-        template = copy.deepcopy(tosca_info[selected_tosca])
-        # Manage eventual overrides
-        for k, v in list(template["inputs"].items()):
-            if "group_overrides" in v and session["active_usergroup"] in v["group_overrides"]:
-                overrides = v["group_overrides"][session["active_usergroup"]]
-                template["inputs"][k] = {**v, **overrides}
-                del template["inputs"][k]["group_overrides"]
+        template = copy.deepcopy(tosca_info[os.path.normpath(selected_tosca)])
 
         sla_id = tosca_helpers.getslapolicy(template)
 
-        slas = []
-        # Fed-Reg
-        app.logger.debug("FED_REG_URL: {}".format(app.settings.fed_reg_url))
-        if app.settings.fed_reg_url is not None:
-            slas = fed_reg.retrieve_slas_from_specific_user_group(
-                access_token=access_token,
-                service_type="compute",
-                deployment_type=template["deployment_type"],
-            )
+        slas = providers.getslasdt(access_token=access_token, deployment_type=template["deployment_type"])
 
-        # SLAM
-        elif app.settings.orchestrator_conf.get("slam_url", None) is not None:
-            slas = sla.get_slas(
-                access_token,
-                app.settings.orchestrator_conf["slam_url"],
-                app.settings.orchestrator_conf["cmdb_url"],
-                template["deployment_type"],
-            )
+        flavors = fed_reg.retrieve_flavors_from_active_user_group(access_token=access_token)
+
+        if flavors:
+            # override template flavors with provider flavors
+            for k, v in list(template["inputs"].items()):
+                # search for flavors key
+                x = re.search("flavor", k)
+                if x is not None:
+                    k_flavors = k
+                    k_cpu = None
+                    k_mem = None
+                    # search for cpu key
+                    for ff in v["constraints"]:
+                        if k_cpu: break
+                        for fk in ff["set"].keys():
+                            x = re.search("num_cpus", fk)
+                            if x is not None:
+                                k_cpu = fk
+                                break
+                    # search for mem key
+                    for ff in v["constraints"]:
+                        if k_mem: break
+                        for fk in ff["set"].keys():
+                            x = re.search("mem_size", fk)
+                            if x is not None:
+                                k_mem = fk
+                                break
+                    # if renaming needed
+                    if k_mem or k_cpu:
+                        if not k_mem:
+                            k_mem = "mem_size"
+                        if not k_cpu:
+                            k_cpu = "num_cpus"
+                        rflavors = []
+                        for f in flavors:
+                            flavor = {
+                                        "value": f["value"],
+                                        "label": f["label"],
+                                        "set": {k_cpu: "{}".format(f["set"]["num_cpus"]), k_mem: "{} GB".format(f["set"]["mem_size"])}
+                                    }
+                            rflavors.append(flavor)
+                        template["inputs"][k_flavors]["constraints"] = rflavors
+                    else:
+                        template["inputs"][k_flavors]["constraints"] = flavors
+                    if "group_overrides" in v:
+                        del template["inputs"][k_flavors]["group_overrides"]
+        else:
+            # Manage possible overrides
+            for k, v in list(template["inputs"].items()):
+                if "group_overrides" in v and session["active_usergroup"] in v["group_overrides"]:
+                    overrides = v["group_overrides"][session["active_usergroup"]]
+                    template["inputs"][k] = {**v, **overrides}
+                    del template["inputs"][k]["group_overrides"]
 
         ssh_pub_key = dbhelpers.get_ssh_pub_key(session["userid"])
 
@@ -1231,7 +1261,7 @@ def process_openstack_ec2credentials(key: str, inputs: dict, stinputs: dict):
             s3_url = value["url"]
 
             # Fed-Reg
-            if app.settings.fed_reg_url is not None:
+            if app.settings.use_fed_reg == True:
                 user_groups = fed_reg.get_user_groups(
                     access_token=iam.token["access_token"],
                     with_conn=True,
@@ -1303,7 +1333,7 @@ def process_openstack_ec2credentials(key: str, inputs: dict, stinputs: dict):
                     protocol=auth_method["protocol"],
                 )
             # SLAM
-            elif app.settings.orchestrator_conf.get("slam_url", None) is not None:
+            elif app.settings.slam_url is not None:
                 service = app.cmdb.get_service_by_endpoint(
                     iam.token["access_token"], s3_url
                 )
@@ -1612,7 +1642,7 @@ def createdep():
     tosca_info, _, _ = tosca.get()
     access_token = iam.token["access_token"]
     # validate input
-    request_template = request.args.get("template")
+    request_template = os.path.normpath(request.args.get("template"))
     if request_template not in tosca_info.keys():
         raise ValueError("Template path invalid (not found in current configuration")
 

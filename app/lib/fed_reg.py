@@ -1,4 +1,18 @@
-import os
+# Copyright (c) Istituto Nazionale di Fisica Nucleare (INFN). 2019-2024
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+from app.lib import utils
 from typing import Any, Optional
 
 import requests
@@ -15,38 +29,34 @@ def get(
     timeout: int = 60,
     **kwargs,
 ):
-    """Execute generic get on Fed-Reg."""
-    url = os.path.join(app.settings.fed_reg_url, version, entity)
-    if uid is not None:
-        url = os.path.join(url, uid)
+    if app.settings.use_fed_reg:
+        """Execute generic get on Fed-Reg."""
+        url = utils.url_path_join(app.settings.fed_reg_url, version, entity)
+        if uid is not None:
+            url = utils.url_path_join(url, uid)
 
-    headers = {"Authorization": f"Bearer {access_token}"}
-    params = {**kwargs}
+        headers = {"Authorization": f"Bearer {access_token}"}
+        params = {**kwargs}
 
-    app.logger.debug("Request URL: {}".format(url))
-    app.logger.debug("Request params: {}".format(params))
+        app.logger.debug("Request URL: {}".format(url))
+        app.logger.debug("Request params: {}".format(params))
 
-    resp = requests.get(url, params=params, headers=headers, timeout=timeout)
-    resp.raise_for_status()
-    app.logger.debug("Retrieved user groups: {}".format(resp.json()))
+        resp = requests.get(url, params=params, headers=headers, timeout=timeout)
+        resp.raise_for_status()
+        app.logger.debug("Retrieved {}: {}".format(entity, resp.json()))
 
-    return resp.json()
+        return resp.json()
 
-
-def get_provider(uid: str, *, access_token: str, timeout: int = 60, **kwargs):
-    """Retrieve all providers details and related entities."""
-    return get(
-        access_token=access_token,
-        entity="providers",
-        timeout=timeout,
-        uid=uid,
-        **kwargs,
-    )
-
+    return None
 
 def get_projects(*, access_token: str, timeout: int = 60, **kwargs):
     """Retrieve all projects details and related entities."""
     return get(access_token=access_token, entity="projects", timeout=timeout, **kwargs)
+
+
+def get_project(*, access_token: str, uid: str, timeout: int = 60, **kwargs):
+    """Retrieve single project details and related entities."""
+    return get(access_token=access_token, entity="projects", uid=uid, timeout=timeout, **kwargs)
 
 
 def get_providers(*, access_token: str, timeout: int = 60, **kwargs):
@@ -54,11 +64,24 @@ def get_providers(*, access_token: str, timeout: int = 60, **kwargs):
     return get(access_token=access_token, entity="providers", timeout=timeout, **kwargs)
 
 
+def get_provider(*, access_token: str, uid: str, timeout: int = 60, **kwargs):
+    """Retrieve single provider details and related entities."""
+    return get(access_token=access_token, entity="providers", uid=uid, timeout=timeout, **kwargs)
+
+
 def get_user_groups(*, access_token: str, timeout: int = 60, **kwargs):
     """Retrieve all user groups details and related entities."""
-    return get(
-        access_token=access_token, entity="user_groups", timeout=timeout, **kwargs
-    )
+    return get(access_token=access_token, entity="user_groups", timeout=timeout, **kwargs)
+
+
+def get_user_group(*, access_token: str, uid: str, timeout: int = 60, **kwargs):
+    """Retrieve all user groups details and related entities."""
+    return get(access_token=access_token, entity="user_groups", uid=uid, timeout=timeout, **kwargs)
+
+
+def get_flavors(*, access_token: str, timeout: int = 60, **kwargs):
+    """Retrieve all flavors details and related entities."""
+    return get(access_token=access_token, entity="flavors", timeout=timeout, **kwargs)
 
 
 def deployment_supports_service(*, deployment_type: str, service_name: str):
@@ -119,38 +142,112 @@ def remap_slas_from_user_group(
     return [i for i in slas.values()]
 
 
-def retrieve_slas_from_specific_user_group(
+def retrieve_slas_from_active_user_group(
     *,
     access_token: str,
     service_type: Optional[str] = None,
     deployment_type: Optional[str] = None,
 ) -> list[dict[str, str]]:
-    """Retrieve the SLAs associated to the current user group."""
-    # From session retrieve current user group and issuer
-    if "active_usergroup" in session and session["active_usergroup"] is not None:
-        user_group_name = session["active_usergroup"]
-    else:
-        user_group_name = session["organisation_name"]
-    issuer = session["iss"]
 
+    slas = []
     try:
-        # Retrieve target user group and related entities
-        user_groups = get_user_groups(
-            access_token=access_token,
-            name=user_group_name,
-            idp_endpoint=issuer,
-            with_conn=True,
-            provider_status="active",
-        )
-        assert len(user_groups) == 1, "Invalid number of returned user groups"
-
-        # Retrieve linked user group services
-        return remap_slas_from_user_group(
-            user_group=user_groups[0],
-            service_type=service_type,
-            deployment_type=deployment_type,
-        )
+        active_group = retrieve_active_user_group(access_token=access_token)
+        if active_group is not None:
+            # Retrieve linked user group services
+            slas = remap_slas_from_user_group(
+                user_group=active_group,
+                service_type=service_type,
+                deployment_type=deployment_type,
+            )
 
     except Exception as e:
-        flash("Error retrieving user groups list: \n" + str(e), "warning")
-        return []
+        flash("Error retrieving user group slas: \n" + str(e), "warning")
+
+    return slas
+
+
+def retrieve_active_user_group(
+    *,
+    access_token: str,
+):
+    """Retrieve the active user group data."""
+    # From session retrieve current user group name and issuer
+    if app.settings.use_fed_reg:
+        if "active_usergroup" in session and session["active_usergroup"] is not None:
+            user_group_name = session["active_usergroup"]
+        else:
+            user_group_name = session["organisation_name"]
+        issuer = session["iss"]
+
+        try:
+            # Retrieve target user group and related entities
+            user_groups = get_user_groups(
+                access_token=access_token,
+                name=user_group_name,
+                idp_endpoint=issuer,
+                with_conn=True,
+                provider_status="active",
+            )
+            assert len(user_groups) == 1, "Invalid number of returned user groups"
+
+            # Retrieve linked user group services
+            return user_groups[0]
+
+        except Exception as e:
+            flash("Error retrieving active user group data: \n" + str(e), "warning")
+            return None
+    return None
+
+def retrieve_flavors_from_active_user_group(
+    *,
+    access_token: str,
+) -> list[dict]:
+
+    flavors = []
+
+    if app.settings.use_fed_reg:
+        temp_flavors = {}
+        idx = 1
+
+        try:
+            user_group = retrieve_active_user_group(
+                access_token=access_token
+            )
+            if user_group is not None:
+                for sla in user_group["slas"]:
+                    for project in sla["projects"]:
+                        project_flavors = get_project(
+                            access_token=access_token,
+                            with_conn=True,
+                            uid=project['uid']
+                        )["flavors"]
+                        # get useful fields and remove duplicates
+                        for flavor in project_flavors:
+                            if flavor["name"] not in flavors and flavor["is_public"] == True:
+                                ram = int(flavor["ram"] / 1024)
+                                cpu = int(flavor["vcpus"])
+                                exist = [f for f in temp_flavors.values() if (f["ram"] == ram and f["cpu"] == cpu)]
+                                if not exist:
+                                    f = {
+                                        "name": flavor["name"],
+                                        "cpu": cpu,
+                                        "ram": ram
+                                    }
+                                    temp_flavors[flavor["name"]] = f
+                    # sort flavors
+                    sorted_flavors = {k: v for k, v in sorted(temp_flavors.items(),
+                                                              key=lambda x: (x[1]['cpu'], x[1]['ram']))}
+                    # create list
+                    for f in sorted_flavors.values():
+                        flavor = {
+                                    "value": "{}".format(idx),
+                                    "label": "{}: {} VCPUs, {} GB RAM".format(f["name"], f["cpu"], f["ram"]),
+                                    "set": {"num_cpus": "{}".format(f["cpu"]), "mem_size": "{} GB".format(f["ram"])}
+                                }
+                        flavors.append(flavor)
+                        idx+=1
+
+        except Exception as e:
+            flash("Error retrieving user group flavors: \n" + str(e), "warning")
+
+    return flavors

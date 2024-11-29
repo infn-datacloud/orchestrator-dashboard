@@ -72,7 +72,7 @@ def create_app():
     orchestrator = Orchestrator(settings.orchestrator_url)
     app.orchestrator = orchestrator
 
-    cmdb = Cmdb(app.settings.orchestrator_conf["cmdb_url"])
+    cmdb = Cmdb(app.settings.cmdb_url)
     app.cmdb = cmdb
 
     app.config["MAX_CONTENT_LENGTH"] = 1024 * 100  # put in the config.py
