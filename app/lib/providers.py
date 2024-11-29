@@ -17,6 +17,7 @@ from app.providers import sla
 from app.lib import fed_reg
 
 def getslas(*, access_token: str):
+    slas = []
     try:
         # Fed-Reg
         if app.settings.use_fed_reg == True:
@@ -38,12 +39,12 @@ def getslas(*, access_token: str):
 
     except Exception as e:
         flash("Error retrieving SLAs list: \n" + str(e), "warning")
-        slas = []
 
     return slas
 
 
 def getslasdt(*, access_token: str, deployment_type: str):
+    slas = []
     try:
         # Fed-Reg
         if app.settings.use_fed_reg == True:
@@ -67,6 +68,5 @@ def getslasdt(*, access_token: str, deployment_type: str):
         app.logger.debug("SLAs: {}".format(slas))
     except Exception as e:
         flash("Error retrieving SLAs list: \n" + str(e), "warning")
-        slas = []
 
     return slas
