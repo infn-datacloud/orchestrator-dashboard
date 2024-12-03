@@ -1052,7 +1052,7 @@ def prepare_configure_form(selected_tosca, tosca_info, steps):
                             flavor = {
                                         "value": f["value"],
                                         "label": f["label"],
-                                        "set": {k_cpu: "{}".format(f["set"]["num_cpus"]), k_mem: "{} GB".format(f["set"]["mem_size"])}
+                                        "set": {k_cpu: "{}".format(f["set"]["num_cpus"]), k_mem: "{}".format(f["set"]["mem_size"])}
                                     }
                             rflavors.append(flavor)
                         template["inputs"][k_flavors]["constraints"] = rflavors
