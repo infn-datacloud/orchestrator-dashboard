@@ -223,29 +223,30 @@ def retrieve_flavors_from_active_user_group(
                         )["flavors"]
                         # get useful fields and remove duplicates
                         for flavor in project_flavors:
-                            if flavor["name"] not in flavors and flavor["is_public"] == True:
+                            if flavor["is_public"] == True:
                                 ram = int(flavor["ram"] / 1024)
                                 cpu = int(flavor["vcpus"])
-                                exist = [f for f in temp_flavors.values() if (f["ram"] == ram and f["cpu"] == cpu)]
+                                name = ",".join((str(cpu),str(ram)))
+                                exist = [f for f in temp_flavors.values() if (f["name"] == name)]
                                 if not exist:
                                     f = {
-                                        "name": flavor["name"],
+                                        "name": name,
                                         "cpu": cpu,
                                         "ram": ram
                                     }
-                                    temp_flavors[flavor["name"]] = f
-                    # sort flavors
-                    sorted_flavors = {k: v for k, v in sorted(temp_flavors.items(),
-                                                              key=lambda x: (x[1]['cpu'], x[1]['ram']))}
-                    # create list
-                    for f in sorted_flavors.values():
-                        flavor = {
-                                    "value": "{}".format(idx),
-                                    "label": "{}: {} VCPUs, {} GB RAM".format(f["name"], f["cpu"], f["ram"]),
-                                    "set": {"num_cpus": "{}".format(f["cpu"]), "mem_size": "{} GB".format(f["ram"])}
-                                }
-                        flavors.append(flavor)
-                        idx+=1
+                                    temp_flavors[name] = f
+                # sort flavors
+                sorted_flavors = {k: v for k, v in sorted(temp_flavors.items(),
+                                                          key=lambda x: (x[1]['cpu'], x[1]['ram']))}
+                # create list
+                for f in sorted_flavors.values():
+                    flavor = {
+                                "value": "{}".format(idx),
+                                "label": "{} VCPUs, {} GB RAM".format(f["cpu"], f["ram"]),
+                                "set": {"num_cpus": "{}".format(f["cpu"]), "mem_size": "{} GB".format(f["ram"])}
+                            }
+                    flavors.append(flavor)
+                    idx+=1
 
         except Exception as e:
             flash("Error retrieving user group flavors: \n" + str(e), "warning")
