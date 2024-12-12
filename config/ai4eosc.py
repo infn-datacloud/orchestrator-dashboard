@@ -1,6 +1,6 @@
 #### LOOK AND FEEL SETTINGS
 WELCOME_MESSAGE = "Welcome to the AI4EOSC Dashboard!"
-NAVBAR_BRAND_TEXT = "AI4EOSC Dashboard"
+NAVBAR_BRAND_TEXT = "Dashboard"
 IAM_BASE_URL = "https://aai.cloud.ai4eosc.eu"
 NAVBAR_BRAND_ICON = "/static/home/images/ai4eosc/ai4eosc_logo.png"
 FAVICON_PATH = "/static/home/images/ai4eosc/favicon_io"
