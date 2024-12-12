@@ -335,7 +335,7 @@ def check_template_access(user_groups, active_group):
     - templates_info: information about the accessible templates
     - enable_template_groups: a boolean indicating whether template groups are enabled
     """
-    tosca_info, _, tosca_gmetadata = tosca.get()
+    tosca_info, _, tosca_gmetadata, _ = tosca.get()
     templates_data = tosca_gmetadata if tosca_gmetadata else tosca_info
     enable_template_groups = bool(tosca_gmetadata)
 

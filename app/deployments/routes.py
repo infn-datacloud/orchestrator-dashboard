@@ -51,7 +51,6 @@ from app.providers import sla
 # Initialize and turn on debug logging
 openstack.enable_logging(debug=True)
 
-
 deployments_bp = Blueprint(
     "deployments_bp", __name__, template_folder="templates", static_folder="static"
 )
@@ -916,8 +915,8 @@ def updatedep():
         k: v
         for (k, v) in form_data.items()
         if not k.startswith("extra_opts.")
-        and k != "_depid"
-        and (k in stinputs and "updatable" in stinputs[k] and stinputs[k]["updatable"] is True)
+           and k != "_depid"
+           and (k in stinputs and "updatable" in stinputs[k] and stinputs[k]["updatable"] is True)
     }
 
     app.logger.debug("Parameters: " + json.dumps(inputs))
@@ -965,7 +964,7 @@ def updatedep():
 @auth.authorized_with_valid_token
 def configure():
     steps = {"current": 1, "total": 2}
-    tosca_info, _, tosca_gmetadata = tosca.get()
+    tosca_info, _, tosca_gmetadata, _ = tosca.get()
 
     selected_tosca = None
 
@@ -989,7 +988,7 @@ def configure_post():
     check_data = 0
     steps = {"current": 1, "total": 2}
 
-    tosca_info, _, _ = tosca.get()
+    tosca_info, _, _, _ = tosca.get()
 
     selected_tosca = None
 
@@ -1005,6 +1004,102 @@ def configure_post():
     return prepare_configure_form(selected_tosca, tosca_info, steps)
 
 
+def patch_template(template):
+    access_token = iam.token["access_token"]
+    flavors = fed_reg.retrieve_flavors_from_active_user_group(access_token=access_token)
+    if flavors:
+        # override template flavors with provider flavors
+        for k, v in list(template["inputs"].items()):
+            # search for flavors key and rename if needed
+            x = re.search("flavor", k)
+            if x is not None and "constraints" in v:
+                k_flavors = k
+                k_cpu = None
+                k_mem = None
+                k_disk = None
+                k_gpus = None
+                k_gpu_model = None
+                # search for cpu key
+                for ff in v["constraints"]:
+                    if k_cpu: break
+                    for fk in ff["set"].keys():
+                        x = re.search("num_cpus", fk)
+                        if x is not None:
+                            k_cpu = fk
+                            break
+                # search for mem key
+                for ff in v["constraints"]:
+                    if k_mem: break
+                    for fk in ff["set"].keys():
+                        x = re.search("mem_size", fk)
+                        if x is not None:
+                            k_mem = fk
+                            break
+                # search for disk key
+                for ff in v["constraints"]:
+                    if k_disk: break
+                    for fk in ff["set"].keys():
+                        x = re.search("disk_size", fk)
+                        if x is not None:
+                            k_disk = fk
+                            break
+                # search for gpu key
+                for ff in v["constraints"]:
+                    if k_gpus: break
+                    for fk in ff["set"].keys():
+                        x = re.search("num_gpus", fk)
+                        if x is not None:
+                            k_gpus = fk
+                            break
+                # search for gpu model key
+                for ff in v["constraints"]:
+                    if k_gpu_model: break
+                    for fk in ff["set"].keys():
+                        x = re.search("gpu_model", fk)
+                        if x is not None:
+                            k_gpu_model = fk
+                            break
+                # if renaming needed
+                if k_mem or k_cpu or k_disk or k_gpus or k_gpu_model:
+                    if not k_mem:
+                        k_mem = "mem_size"
+                    if not k_cpu:
+                        k_cpu = "num_cpus"
+                    if not k_disk:
+                        k_disk = "disk_size"
+                    if not k_gpus:
+                        k_gpus = "num_gpus"
+                    if not k_gpu_model:
+                        k_gpu_model = "gpu_model"
+                    rflavors = []
+                    for f in flavors:
+                        flavor = {
+                            "value": f["value"],
+                            "label": f["label"],
+                            "set": {k_cpu: "{}".format(f["set"]["num_cpus"]),
+                                    k_mem: "{}".format(f["set"]["mem_size"]),
+                                    k_disk: "{}".format(f["set"]["disk_size"]),
+                                    k_gpus: "{}".format(f["set"]["num_gpus"]),
+                                    k_gpu_model: "{}".format(f["set"]["gpu_model"])
+                                    }
+                        }
+                        rflavors.append(flavor)
+                    template["inputs"][k_flavors]["constraints"] = rflavors
+                else:
+                    template["inputs"][k_flavors]["constraints"] = flavors
+                if "group_overrides" in v:
+                    del template["inputs"][k_flavors]["group_overrides"]
+    else:
+        # Manage possible overrides
+        for k, v in list(template["inputs"].items()):
+            if "group_overrides" in v and session["active_usergroup"] in v["group_overrides"]:
+                overrides = v["group_overrides"][session["active_usergroup"]]
+                template["inputs"][k] = {**v, **overrides}
+                del template["inputs"][k]["group_overrides"]
+
+    return template
+
+
 def prepare_configure_form(selected_tosca, tosca_info, steps):
     access_token = iam.token["access_token"]
     if selected_tosca:
@@ -1014,59 +1109,7 @@ def prepare_configure_form(selected_tosca, tosca_info, steps):
 
         slas = providers.getslasdt(access_token=access_token, deployment_type=template["deployment_type"])
 
-        flavors = fed_reg.retrieve_flavors_from_active_user_group(access_token=access_token)
-
-        if flavors:
-            # override template flavors with provider flavors
-            for k, v in list(template["inputs"].items()):
-                # search for flavors key
-                x = re.search("flavor", k)
-                if x is not None:
-                    k_flavors = k
-                    k_cpu = None
-                    k_mem = None
-                    # search for cpu key
-                    for ff in v["constraints"]:
-                        if k_cpu: break
-                        for fk in ff["set"].keys():
-                            x = re.search("num_cpus", fk)
-                            if x is not None:
-                                k_cpu = fk
-                                break
-                    # search for mem key
-                    for ff in v["constraints"]:
-                        if k_mem: break
-                        for fk in ff["set"].keys():
-                            x = re.search("mem_size", fk)
-                            if x is not None:
-                                k_mem = fk
-                                break
-                    # if renaming needed
-                    if k_mem or k_cpu:
-                        if not k_mem:
-                            k_mem = "mem_size"
-                        if not k_cpu:
-                            k_cpu = "num_cpus"
-                        rflavors = []
-                        for f in flavors:
-                            flavor = {
-                                        "value": f["value"],
-                                        "label": f["label"],
-                                        "set": {k_cpu: "{}".format(f["set"]["num_cpus"]), k_mem: "{}".format(f["set"]["mem_size"])}
-                                    }
-                            rflavors.append(flavor)
-                        template["inputs"][k_flavors]["constraints"] = rflavors
-                    else:
-                        template["inputs"][k_flavors]["constraints"] = flavors
-                    if "group_overrides" in v:
-                        del template["inputs"][k_flavors]["group_overrides"]
-        else:
-            # Manage possible overrides
-            for k, v in list(template["inputs"].items()):
-                if "group_overrides" in v and session["active_usergroup"] in v["group_overrides"]:
-                    overrides = v["group_overrides"][session["active_usergroup"]]
-                    template["inputs"][k] = {**v, **overrides}
-                    del template["inputs"][k]["group_overrides"]
+        template = patch_template(template)
 
         ssh_pub_key = dbhelpers.get_ssh_pub_key(session["userid"])
 
@@ -1091,35 +1134,61 @@ def prepare_configure_form(selected_tosca, tosca_info, steps):
             sla_id=sla_id,
             update=False,
         )
+    else:
+        flash("Error getting template (not found)".format(), "danger")
+        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
 
 
 def remove_sla_from_template(template):
-    if "policies" in template["topology_template"]:
-        for policy in template["topology_template"]["policies"]:
-            for k, v in policy.items():
-                if "type" in v and (
-                    v["type"] == "tosca.policies.indigo.SlaPlacement"
-                    or v["type"] == "tosca.policies.Placement"
-                ):
-                    template["topology_template"]["policies"].remove(policy)
-                    break
-        if len(template["topology_template"]["policies"]) == 0:
-            del template["topology_template"]["policies"]
+    if "topology_template" in template:
+        if "policies" in template["topology_template"]:
+            for policy in template["topology_template"]["policies"]:
+                for k, v in policy.items():
+                    if "type" in v and (
+                        v["type"] == "tosca.policies.indigo.SlaPlacement"
+                        or v["type"] == "tosca.policies.Placement"
+                    ):
+                        template["topology_template"]["policies"].remove(policy)
+                        break
+            if len(template["topology_template"]["policies"]) == 0:
+                del template["topology_template"]["policies"]
+    else:
+        if "policies" in template:
+            for policy in template["policies"]:
+                for k, v in policy.items():
+                    if "type" in v and (
+                        v["type"] == "tosca.policies.indigo.SlaPlacement"
+                        or v["type"] == "tosca.policies.Placement"
+                    ):
+                        template["policies"].remove(policy)
+                        break
+            if len(template["policies"]) == 0:
+                del template["policies"]
+    return template
 
 
 def add_sla_to_template(template, sla_id):
     # Add or replace the placement policy
 
     tosca_sla_placement_type = "tosca.policies.indigo.SlaPlacement"
-    template["topology_template"]["policies"] = [
-        {
-            "deploy_on_specific_site": {
-                "type": tosca_sla_placement_type,
-                "properties": {"sla_id": sla_id},
+    if "topology_template" in template:
+        template["topology_template"]["policies"] = [
+            {
+                "deploy_on_specific_site": {
+                    "type": tosca_sla_placement_type,
+                    "properties": {"sla_id": sla_id},
+                }
             }
-        }
-    ]
-
+        ]
+    else:
+        template["policies"] = [
+            {
+                "deploy_on_specific_site": {
+                    "type": tosca_sla_placement_type,
+                    "properties": {"sla_id": sla_id},
+                }
+            }
+        ]
     return template
 
 
@@ -1299,7 +1368,7 @@ def process_openstack_ec2credentials(key: str, inputs: dict, stinputs: dict):
                         break
                 if not found:
                     raise Exception("Unable to get EC2 credentials")
-                
+
                 # Get target provider details
                 provider = fed_reg.get_provider(
                     _provider["uid"],
@@ -1325,7 +1394,7 @@ def process_openstack_ec2credentials(key: str, inputs: dict, stinputs: dict):
                 )
 
                 # Retrieve EC2 access and secret
-                access,secret = keystone.get_or_create_ec2_creds(
+                access, secret = keystone.get_or_create_ec2_creds(
                     access_token=iam.token["access_token"],
                     project=project["name"],
                     auth_url=identity_service["endpoint"].rstrip("/v3"),
@@ -1639,15 +1708,16 @@ def create_deployment(
 @deployments_bp.route("/submit", methods=["POST"])
 @auth.authorized_with_valid_token
 def createdep():
-    tosca_info, _, _ = tosca.get()
+    tosca_info, _, _, tosca_text = tosca.get()
     access_token = iam.token["access_token"]
     # validate input
-    request_template = os.path.normpath(request.args.get("template"))
+    request_template = os.path.normpath(request.args.get("selectedTemplate"))
     if request_template not in tosca_info.keys():
         raise ValueError("Template path invalid (not found in current configuration")
 
     selected_template = request_template
-    source_template = tosca_info[selected_template]
+    source_template = patch_template(copy.deepcopy(tosca_info[selected_template]))
+
     form_data = request.form.to_dict()
     additionaldescription = form_data["additional_description"]
 
@@ -1659,6 +1729,7 @@ def createdep():
         template = add_sla_to_template(template, form_data["extra_opts.selectedSLA"])
     else:
         remove_sla_from_template(template)
+
     app.logger.debug(yaml.dump(template, default_flow_style=False))
 
     uuidgen_deployment = str(uuid_generator.uuid1())

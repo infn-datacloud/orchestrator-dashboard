@@ -57,8 +57,8 @@
 				</span>
             </div>
             {% endif %}
-
-            <form id="depSubmit" action="{{ url_for('deployments_bp.createdep', template=selectedTemplate) }}" method="post" autocomplete="off" enctype="multipart/form-data">
+ 
+			<form id="depSubmit" action="{{ url_for('deployments_bp.createdep', selectedTemplate=selectedTemplate) }}" method="post" autocomplete="off" enctype="multipart/form-data">
 				<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 				<div class="form-group">
 					<label for="additional_description">Deployment description</label>

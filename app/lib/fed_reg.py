@@ -226,24 +226,41 @@ def retrieve_flavors_from_active_user_group(
                             if flavor["is_public"] == True:
                                 ram = int(flavor["ram"] / 1024)
                                 cpu = int(flavor["vcpus"])
-                                name = ",".join((str(cpu),str(ram)))
-                                exist = [f for f in temp_flavors.values() if (f["name"] == name)]
-                                if not exist:
+                                disk = int (flavor["disk"])
+                                gpus = int(flavor["gpus"])
+                                gpu_model = flavor["gpu_model"]
+                                name = ",".join((str(cpu),str(ram),str(gpus),str(disk)))
+                                if not name in temp_flavors:
                                     f = {
                                         "name": name,
                                         "cpu": cpu,
-                                        "ram": ram
+                                        "ram": ram,
+                                        "disk": disk,
+                                        "gpus": gpus,
+                                        "gpu_model": gpu_model,
+                                        "enable_gpu": True if gpus > 0 else False
                                     }
                                     temp_flavors[name] = f
                 # sort flavors
                 sorted_flavors = {k: v for k, v in sorted(temp_flavors.items(),
-                                                          key=lambda x: (x[1]['cpu'], x[1]['ram']))}
+                                            key=lambda x: (x[1]['cpu'], x[1]['ram'], x[1]['gpus'], x[1]['disk']))}
                 # create list
                 for f in sorted_flavors.values():
                     flavor = {
                                 "value": "{}".format(idx),
-                                "label": "{} VCPUs, {} GB RAM".format(f["cpu"], f["ram"]),
-                                "set": {"num_cpus": "{}".format(f["cpu"]), "mem_size": "{} GB".format(f["ram"])}
+                                "label": make_flavor_label(
+                                    cpu = f["cpu"],
+                                    ram = f["ram"],
+                                    disk = f["disk"],
+                                    gpus = f["gpus"]
+                                ),
+                                "set": {"num_cpus": "{}".format(f["cpu"]),
+                                        "mem_size": "{} GB".format(f["ram"]),
+                                        "disk_size": "{} GB".format(f["disk"]),
+                                        "num_gpus": "{}".format(f["gpus"]),
+                                        "gpu_model": "{}".format(f["gpu_model"]),
+                                        "enable_gpu": "{}".format(f["enable_gpu"])
+                                        }
                             }
                     flavors.append(flavor)
                     idx+=1
@@ -252,3 +269,18 @@ def retrieve_flavors_from_active_user_group(
             flash("Error retrieving user group flavors: \n" + str(e), "warning")
 
     return flavors
+
+def make_flavor_label(
+        *,
+        cpu: int,
+        ram: int,
+        disk: int,
+        gpus: int
+):
+    if gpus > 0 and disk > 0:
+        return "{} VCPUs, {} GB RAM, {} GB DISK, {} GPUS".format(cpu, ram, disk, gpus)
+    if gpus > 0:
+        return "{} VCPUs, {} GB RAM, {} GPUs".format(cpu, ram, gpus)
+    if disk > 0:
+        return "{} VCPUs, {} GB RAM, {} GB DISK".format(cpu, ram, disk)
+    return "{} VCPUs, {} GB RAM".format(cpu, ram)
