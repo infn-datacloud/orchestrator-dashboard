@@ -198,16 +198,19 @@ def retrieve_active_user_group(
             return None
     return None
 
-def retrieve_flavors_from_active_user_group(
+
+def retrieve_slas_data_from_active_user_group(
     *,
     access_token: str,
-) -> list[dict]:
-
+):
     flavors = []
+    images = []
 
     if app.settings.use_fed_reg:
         temp_flavors = {}
-        idx = 1
+        temp_images = {}
+        idx_flv = 1
+        idx_fli = 1
 
         try:
             user_group = retrieve_active_user_group(
@@ -216,11 +219,13 @@ def retrieve_flavors_from_active_user_group(
             if user_group is not None:
                 for sla in user_group["slas"]:
                     for project in sla["projects"]:
-                        project_flavors = get_project(
+                        project_data = get_project(
                             access_token=access_token,
                             with_conn=True,
                             uid=project['uid']
-                        )["flavors"]
+                        )
+
+                        project_flavors = project_data["flavors"]
                         # get useful fields and remove duplicates
                         for flavor in project_flavors:
                             if flavor["is_public"] == True:
@@ -241,13 +246,38 @@ def retrieve_flavors_from_active_user_group(
                                         "enable_gpu": True if gpus > 0 else False
                                     }
                                     temp_flavors[name] = f
+
+                        project_images = project_data["images"]
+                        # get useful fields and remove duplicates
+                        for image in project_images:
+                            if image["is_public"] == True:
+                                os_distro = image["os_distro"]
+                                os_version = image["os_version"]
+                                name = ",".join((str(os_distro),str(os_version)))
+                                #prefer shortest name
+#                                if name not in temp_images:
+                                if name in temp_images and (len(image["name"]) < len(temp_images[name]["name"])) \
+                                        or (name not in temp_images):
+                                    i = {
+                                        "name": image["name"],
+                                        "os_distro": os_distro,
+                                        "os_version": os_version
+                                    }
+                                    temp_images[name] = i
+
+
                 # sort flavors
                 sorted_flavors = {k: v for k, v in sorted(temp_flavors.items(),
                                             key=lambda x: (x[1]['cpu'], x[1]['ram'], x[1]['gpus'], x[1]['disk']))}
-                # create list
+                # sort images
+                sorted_images = {k: v for k, v in sorted(temp_images.items(),
+                                            key=lambda x: ((x[1]['os_distro'] is None, x[1]['os_distro'])  ,
+                                                           (x[1]['os_version'] is None, x[1]['os_version'])))}
+
+                # create flavor list
                 for f in sorted_flavors.values():
                     flavor = {
-                                "value": "{}".format(idx),
+                                "value": "{}".format(idx_flv),
                                 "label": make_flavor_label(
                                     cpu = f["cpu"],
                                     ram = f["ram"],
@@ -263,12 +293,24 @@ def retrieve_flavors_from_active_user_group(
                                         }
                             }
                     flavors.append(flavor)
-                    idx+=1
+                    idx_flv+=1
+
+                # create image list
+                for i in sorted_images.values():
+                    image = {
+                                "value": "{}".format(idx_fli),
+                                "label": i["name"],
+                                "set": {"os_distribution": "{}".format(i["os_distro"]),
+                                        "os_version": "{}".format(i["os_version"])
+                                        }
+                    }
+                    images.append(image)
+                    idx_fli+=1
 
         except Exception as e:
-            flash("Error retrieving user group flavors: \n" + str(e), "warning")
+            flash("Error retrieving user group data: \n" + str(e), "warning")
 
-    return flavors
+    return flavors, images
 
 def make_flavor_label(
         *,

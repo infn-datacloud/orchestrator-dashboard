@@ -1006,7 +1006,10 @@ def configure_post():
 
 def patch_template(template):
     access_token = iam.token["access_token"]
-    flavors = fed_reg.retrieve_flavors_from_active_user_group(access_token=access_token)
+    flavors, images = fed_reg.retrieve_slas_data_from_active_user_group(access_token=access_token)
+    user_group = session["active_usergroup"]
+
+    # patch flavors
     if flavors:
         # override template flavors with provider flavors
         for k, v in list(template["inputs"].items()):
@@ -1092,8 +1095,29 @@ def patch_template(template):
     else:
         # Manage possible overrides
         for k, v in list(template["inputs"].items()):
-            if "group_overrides" in v and session["active_usergroup"] in v["group_overrides"]:
-                overrides = v["group_overrides"][session["active_usergroup"]]
+            x = re.search("flavor", k)
+            if x is not None and "group_overrides" in v and user_group in v["group_overrides"]:
+                overrides = v["group_overrides"][user_group]
+                template["inputs"][k] = {**v, **overrides}
+                del template["inputs"][k]["group_overrides"]
+
+    #patch images
+    if images:
+        # override template flavors with provider flavors
+        for k, v in list(template["inputs"].items()):
+            # search for flavors key and rename if needed
+            x = re.search("operating_system", k)
+            if x is not None and "constraints" in v:
+                k_images = k
+                template["inputs"][k_images]["constraints"] = images
+                if "group_overrides" in v:
+                    del template["inputs"][k_images]["group_overrides"]
+    else:
+        # Manage possible overrides
+        for k, v in list(template["inputs"].items()):
+            x = re.search("operating_system", k)
+            if x is not None and "group_overrides" in v and user_group in v["group_overrides"]:
+                overrides = v["group_overrides"][user_group]
                 template["inputs"][k] = {**v, **overrides}
                 del template["inputs"][k]["group_overrides"]
 
