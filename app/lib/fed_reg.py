@@ -228,42 +228,42 @@ def retrieve_slas_data_from_active_user_group(
                         project_flavors = project_data["flavors"]
                         # get useful fields and remove duplicates
                         for flavor in project_flavors:
-                            if flavor["is_public"] == True:
-                                ram = int(flavor["ram"] / 1024)
-                                cpu = int(flavor["vcpus"])
-                                disk = int (flavor["disk"])
-                                gpus = int(flavor["gpus"])
-                                gpu_model = flavor["gpu_model"]
-                                name = ",".join((str(cpu),str(ram),str(gpus),str(disk)))
-                                if not name in temp_flavors:
-                                    f = {
-                                        "name": name,
-                                        "cpu": cpu,
-                                        "ram": ram,
-                                        "disk": disk,
-                                        "gpus": gpus,
-                                        "gpu_model": gpu_model,
-                                        "enable_gpu": True if gpus > 0 else False
-                                    }
-                                    temp_flavors[name] = f
+                            #if flavor["is_public"] == True:
+                            ram = int(flavor["ram"] / 1024)
+                            cpu = int(flavor["vcpus"])
+                            disk = int (flavor["disk"])
+                            gpus = int(flavor["gpus"])
+                            gpu_model = flavor["gpu_model"]
+                            name = ",".join((str(cpu),str(ram),str(gpus),str(disk)))
+                            if not name in temp_flavors:
+                                f = {
+                                    "name": name,
+                                    "cpu": cpu,
+                                    "ram": ram,
+                                    "disk": disk,
+                                    "gpus": gpus,
+                                    "gpu_model": gpu_model,
+                                    "enable_gpu": True if gpus > 0 else False
+                                }
+                                temp_flavors[name] = f
 
                         project_images = project_data["images"]
                         # get useful fields and remove duplicates
                         for image in project_images:
-                            if image["is_public"] == True:
-                                os_distro = image["os_distro"]
-                                os_version = image["os_version"]
-                                name = ",".join((str(os_distro),str(os_version)))
-                                #prefer shortest name
+                            #if image["is_public"] == True:
+                            os_distro = image["os_distro"]
+                            os_version = image["os_version"]
+                            name = ",".join((str(os_distro),str(os_version)))
+                            #prefer shortest name
 #                                if name not in temp_images:
-                                if name in temp_images and (len(image["name"]) < len(temp_images[name]["name"])) \
-                                        or (name not in temp_images):
-                                    i = {
-                                        "name": image["name"],
-                                        "os_distro": os_distro,
-                                        "os_version": os_version
-                                    }
-                                    temp_images[name] = i
+                            if name in temp_images and (len(image["name"]) < len(temp_images[name]["name"])) \
+                                    or (name not in temp_images):
+                                i = {
+                                    "name": image["name"],
+                                    "os_distro": os_distro,
+                                    "os_version": os_version
+                                }
+                                temp_images[name] = i
 
 
                 # sort flavors

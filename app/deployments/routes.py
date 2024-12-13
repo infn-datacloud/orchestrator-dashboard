@@ -1008,14 +1008,14 @@ def patch_template(template):
     access_token = iam.token["access_token"]
     flavors, images = fed_reg.retrieve_slas_data_from_active_user_group(access_token=access_token)
     user_group = session["active_usergroup"]
-
+    pattern = r'^(?=.*flavor)(?!.*partition).*'
     # patch flavors
     if flavors:
         # override template flavors with provider flavors
         for k, v in list(template["inputs"].items()):
             # search for flavors key and rename if needed
-            x = re.search("flavor", k)
-            if x is not None and "constraints" in v:
+            x = bool(re.match(pattern, k))
+            if x is True and "constraints" in v:
                 k_flavors = k
                 k_cpu = None
                 k_mem = None
@@ -1095,8 +1095,8 @@ def patch_template(template):
     else:
         # Manage possible overrides
         for k, v in list(template["inputs"].items()):
-            x = re.search("flavor", k)
-            if x is not None and "group_overrides" in v and user_group in v["group_overrides"]:
+            x = bool(re.match(pattern, k))
+            if x is True and "group_overrides" in v and user_group in v["group_overrides"]:
                 overrides = v["group_overrides"][user_group]
                 template["inputs"][k] = {**v, **overrides}
                 del template["inputs"][k]["group_overrides"]

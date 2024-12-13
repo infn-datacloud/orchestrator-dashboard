@@ -179,6 +179,7 @@ class ToscaInfo:
             if "inputs" in template["topology_template"]:
                 tosca_inputs = template["topology_template"]["inputs"]
                 tosca_info["inputs"] = tosca_inputs
+
             if "outputs" in template["topology_template"]:
                 tosca_outputs = template["topology_template"]["outputs"]
                 tosca_info["outputs"] = tosca_outputs

@@ -302,7 +302,7 @@ def set_template_access(tosca, user_groups, active_group):
             is_locked = is_access_locked(visibility, active_group)
             if not (visibility["type"] == "private" and is_locked):
                 metadata["access_locked"] = is_locked
-                info[k] = v
+            info[k] = v
 
     return info
 
