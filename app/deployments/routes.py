@@ -1481,7 +1481,6 @@ def create_deployment(
 @auth.authorized_with_valid_token
 def createdep():
     tosca_info, _, _ = tosca.get()
-    access_token = iam.token["access_token"]
     # validate input
     request_template = request.args.get("template")
     if request_template not in tosca_info.keys():
@@ -1500,6 +1499,120 @@ def createdep():
         template = add_sla_to_template(template, form_data["extra_opts.selectedSLA"])
     else:
         remove_sla_from_template(template)
+
+    create_dep_method(
+        source_template,
+        selected_template,
+        additionaldescription,
+        inputs,
+        form_data,
+        template,
+        template_text,
+    )
+
+    return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
+
+
+@deployments_bp.route("/<depid>/retry")
+@auth.authorized_with_valid_token
+def retrydep(depid=None):
+    """
+    A function to retry a failed deployment.
+    Parameters:
+    - depid: str, the ID of the deployment
+    """
+    tosca_info, _, _ = tosca.get()
+    access_token = iam.token["access_token"]
+
+    # retrieve deployment from DB
+    dep = dbhelpers.get_deployment(depid)
+
+    if dep is None or dep.selected_template == "":
+        flash(
+            "The selected deployment is invalid. Try creating it from scratch.",
+            "danger",
+        )
+        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
+
+    inputs = process_deployment_data(dep)[0]
+
+    # Get the max num retry for the new name
+    max_num_retry = 0
+    str_retry = " retry_"
+    tmp_name = dep.description.split(str_retry)[0]
+
+    group = None
+    if "active_usergroup" in session and session["active_usergroup"] is not None:
+        group = session["active_usergroup"]
+
+    deployments = []
+    try:
+        deployments = app.orchestrator.get_deployments(
+            access_token, created_by="me", user_group=group
+        )
+    except Exception as e:
+        flash("Error retrieving deployment list: \n" + str(e), "warning")
+
+    if deployments:
+        result = dbhelpers.updatedeploymentsstatus(deployments, session["userid"])
+        deployments = result["deployments"]
+        app.logger.debug("Deployments: " + str(deployments))
+
+        deployments_uuid_array = result["iids"]
+        session["deployments_uuid_array"] = deployments_uuid_array
+
+        for tmp_dep in deployments:
+            if (
+                tmp_name + str_retry in tmp_dep.description
+                and "DELETE_COMPLETE" not in tmp_dep.status
+            ):
+                num_retry = int(tmp_dep.description.split(str_retry)[1])
+
+                if num_retry > max_num_retry:
+                    max_num_retry = num_retry
+
+    additionaldescription = tmp_name + str_retry + str(max_num_retry + 1)
+
+    source_template = tosca_info.get(dep.selected_template, None)
+    if source_template is None:
+        flash(
+            "The selected deployment is invalid. Try creating it from scratch.",
+            "danger",
+        )
+        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
+
+    form_data = inputs
+
+    template, template_text = load_template(dep.selected_template)
+
+    create_dep_method(
+        source_template,
+        dep.selected_template,
+        additionaldescription,
+        inputs,
+        form_data,
+        template,
+        template_text,
+    )
+
+    flash(
+        f"Retry action for deployment {dep.description} <{depid}> successfully triggered!",
+        "success",
+    )
+
+    return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
+
+
+def create_dep_method(
+    source_template,
+    selected_template,
+    additionaldescription,
+    inputs,
+    form_data,
+    template,
+    template_text,
+):
+    access_token = iam.token["access_token"]
 
     uuidgen_deployment = str(uuid_generator.uuid1())
 
@@ -1538,125 +1651,6 @@ def createdep():
             vault_secret_uuid,
             vault_secret_key,
         )
-
-    return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
-
-
-@deployments_bp.route("/<depid>/retry")
-@auth.authorized_with_valid_token
-def retrydep(depid=None):
-    """
-    A function to retry a failed deployment.
-    Parameters:
-    - depid: str, the ID of the deployment
-    """
-    tosca_info, _, _ = tosca.get()
-    access_token = iam.token["access_token"]
-
-    # retrieve deployment from DB
-    dep = dbhelpers.get_deployment(depid)
-    
-    if dep is None or dep.selected_template == "":
-        flash(
-            "The selected deployment is invalid. Try creating it from scratch.",
-            "danger",
-        )
-        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
-
-    inputs = process_deployment_data(dep)[0]
-    
-    # Get the max num retry for the new name
-    max_num_retry = 0
-    str_retry = " retry_"
-    tmp_name = dep.description.split(str_retry)[0]
-    
-    group = None
-    if "active_usergroup" in session and session["active_usergroup"] is not None:
-        group = session["active_usergroup"]
-    
-    deployments = []
-    try:
-        deployments = app.orchestrator.get_deployments(
-            access_token, created_by="me", user_group=group
-        )
-    except Exception as e:
-        flash("Error retrieving deployment list: \n" + str(e), "warning")
-
-    if deployments:
-        result = dbhelpers.updatedeploymentsstatus(deployments, session["userid"])
-        deployments = result["deployments"]
-        app.logger.debug("Deployments: " + str(deployments))
-
-        deployments_uuid_array = result["iids"]
-        session["deployments_uuid_array"] = deployments_uuid_array
-    
-        for tmp_dep in deployments:
-            if (
-                tmp_name + str_retry in tmp_dep.description
-                and "DELETE_COMPLETE" not in tmp_dep.status
-            ):
-                num_retry = int(tmp_dep.description.split(str_retry)[1])
-                
-                if num_retry > max_num_retry:
-                    max_num_retry = num_retry
-                
-    additionaldescription = tmp_name + str_retry + str(max_num_retry + 1)
-
-    source_template = tosca_info.get(dep.selected_template, None)
-    if source_template is None:
-        flash(
-            "The selected deployment is invalid. Try creating it from scratch.",
-            "danger",
-        )
-        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
-
-    form_data = inputs
-    template, template_text = load_template(dep.selected_template)
-
-    uuidgen_deployment = str(uuid_generator.uuid1())
-
-    doprocess, inputs, stinputs = process_inputs(
-        source_template, inputs, form_data, uuidgen_deployment
-    )
-
-    # If input is a bucket_name check for validity
-    for name in inputs:
-        if search("bucket_name", name):
-            errors = check_s3_bucket_name(uuidgen_deployment + "-" + inputs[name])
-
-            if errors:
-                for error in errors:
-                    flash(error, "danger")
-                return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
-
-    app.logger.debug(f"Calling orchestrator with inputs: {inputs}")
-
-    if doprocess:
-        storage_encryption, vault_secret_uuid, vault_secret_key = (
-            add_storage_encryption(access_token, inputs)
-        )
-        params = {}  # is it needed??
-        create_deployment(
-            template,
-            inputs,
-            stinputs,
-            form_data,
-            dep.selected_template,
-            source_template,
-            template_text,
-            additionaldescription,
-            params,
-            storage_encryption,
-            vault_secret_uuid,
-            vault_secret_key,
-        )
-
-        flash(
-            f"Retry action for deployment {dep.description} <{depid}> successfully triggered!",
-            "success",
-        )
-
-    return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
 
 
 def check_s3_bucket_name(name):
