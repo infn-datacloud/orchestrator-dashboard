@@ -1555,32 +1555,61 @@ def retrydep(depid=None):
 
     # retrieve deployment from DB
     dep = dbhelpers.get_deployment(depid)
-    if dep is None:
+    
+    if dep is None or dep.selected_template == "":
+        flash(
+            "The selected deployment is invalid. Try creating it from scratch.",
+            "danger",
+        )
         return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
 
     inputs = process_deployment_data(dep)[0]
-    if dep is None or dep.selected_template == "":
-        flash(
-            "The selected deployment is invalid. Try creating it from scratch.", "danger"
-        )
-        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
     
     # Get the max num retry for the new name
     max_num_retry = 0
     str_retry = " retry_"
     tmp_name = dep.description.split(str_retry)[0]
-    deps = dbhelpers.get_user_deployments(session["userid"])
     
-    for tmp_dep in deps:
-        if (tmp_name + str_retry in tmp_dep.description and 'DELETE' not in tmp_dep.status):
-            num_retry = int(tmp_dep.description.split(str_retry)[1])
-            
-            if num_retry > max_num_retry:
-                max_num_retry = num_retry
+    group = None
+    if "active_usergroup" in session and session["active_usergroup"] is not None:
+        group = session["active_usergroup"]
+    
+    deployments = []
+    try:
+        deployments = app.orchestrator.get_deployments(
+            access_token, created_by="me", user_group=group
+        )
+    except Exception as e:
+        flash("Error retrieving deployment list: \n" + str(e), "warning")
+
+    if deployments:
+        result = dbhelpers.updatedeploymentsstatus(deployments, session["userid"])
+        deployments = result["deployments"]
+        app.logger.debug("Deployments: " + str(deployments))
+
+        deployments_uuid_array = result["iids"]
+        session["deployments_uuid_array"] = deployments_uuid_array
+    
+        for tmp_dep in deployments:
+            if (
+                tmp_name + str_retry in tmp_dep.description
+                and "DELETE_COMPLETE" not in tmp_dep.status
+            ):
+                num_retry = int(tmp_dep.description.split(str_retry)[1])
+                
+                if num_retry > max_num_retry:
+                    max_num_retry = num_retry
                 
     additionaldescription = tmp_name + str_retry + str(max_num_retry + 1)
 
-    source_template = tosca_info[dep.selected_template]
+    source_template = tosca_info.get(dep.selected_template, None)
+    if source_template is None:
+        flash(
+            "The selected deployment is invalid. Try creating it from scratch.",
+            "danger",
+        )
+        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
+
     form_data = inputs
     template, template_text = load_template(dep.selected_template)
 
