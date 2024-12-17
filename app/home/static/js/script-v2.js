@@ -317,22 +317,27 @@ function alert_message(type = 'success', message = 'Success!', icon = '', time =
 */
 
 function add_max_length_counter() {
-    let inputGroup = $("[maxlength]").parent()
+    let inputGroup = $("[maxlength]").parent();
 
-    for(let i = 0; i < inputGroup.length; i++) {
-        let label = $($(inputGroup[i]).children()[0]);
-        let input = $($(inputGroup[i]).children()[1]);
+    for (const element of inputGroup) {
+        let label = $($(element).children()[0]);
+        let input = $($(element).children()[1]);
+
         let maxlength = input.attr('maxlength');
         let chars = input.val().length;
         let text = label.text();
-        
-        label.text(text +' ('+ chars +'/'+ maxlength +')');
 
-        input.on('keyup', () => {
+        label.text(text + ' (' + chars + '/' + maxlength + ')');
+
+        input.on('input change summernote.change', (e, content) => {
             chars = input.val().length;
-        
-            label.text(text +' ('+ chars +'/'+ maxlength +')');
-        })
+
+            if (e.type == 'summernote') {
+                chars = $('<div>').html(content).text().length
+            }
+
+            label.text(text + ' (' + chars + '/' + maxlength + ')');
+        });
     }
 }
 
