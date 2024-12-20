@@ -314,7 +314,7 @@ def set_template_access(tosca, user_groups, active_group):
         #    metadata["access_locked"] = True
         #    info[k] = v
         #elif active_group:
-        #    is_locked = is_template_owned(visibility, active_group)
+        #    is_locked = not is_template_owned(visibility, active_group)
         #    if not (visibility["type"] == "private" and is_locked):
         #        metadata["access_locked"] = is_locked
         #        info[k] = v
