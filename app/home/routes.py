@@ -295,19 +295,34 @@ def set_template_access(tosca, user_groups, active_group):
         metadata = v.get("metadata", {})
         visibility = metadata.get("visibility", {"type": "public"})
 
-        if not active_group and visibility["type"] != "private":
-            metadata["access_locked"] = True
-            info[k] = v
-        elif active_group:
-            is_locked = is_access_locked(visibility, active_group)
-            if not (visibility["type"] == "private" and is_locked):
-                metadata["access_locked"] = is_locked
-            info[k] = v
+        if not active_group:
+            if visibility["type"] != "private":
+                if visibility["type"] == "protected":
+                    metadata["access_locked"] = True
+                info[k] = v
+        else:
+            is_owned = is_template_owned(visibility, active_group)
+            if is_owned:
+                info[k] = v
+            else:
+                if visibility["type"] != "private":
+                    if visibility["type"] == "protected":
+                        metadata["access_locked"] = True
+                    info[k] = v
+
+        #if not active_group and visibility["type"] != "private":
+        #    metadata["access_locked"] = True
+        #    info[k] = v
+        #elif active_group:
+        #    is_locked = is_template_owned(visibility, active_group)
+        #    if not (visibility["type"] == "private" and is_locked):
+        #        metadata["access_locked"] = is_locked
+        #        info[k] = v
 
     return info
 
 
-def is_access_locked(visibility, active_group):
+def is_template_owned(visibility, active_group):
     """
     Check if access is locked based on visibility and active group.
 
@@ -317,10 +332,10 @@ def is_access_locked(visibility, active_group):
     """
     regex = "groups_regex" in visibility
     if regex:
-        return not re.match(visibility["groups_regex"], active_group)
+        return re.match(visibility["groups_regex"], active_group)
     else:
         allowed_groups = visibility.get("groups", [])
-        return active_group not in allowed_groups
+        return active_group in allowed_groups
 
 
 def check_template_access(user_groups, active_group):
