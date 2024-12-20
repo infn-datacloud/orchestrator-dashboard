@@ -14,7 +14,7 @@
 
 from app.lib import utils
 from typing import Any, Optional
-
+from datetime import datetime
 import requests
 
 from flask import current_app as app, flash, session
@@ -202,6 +202,7 @@ def retrieve_active_user_group(
 def retrieve_slas_data_from_active_user_group(
     *,
     access_token: str,
+    provider_name: str
 ):
     flavors = []
     images = []
@@ -219,51 +220,57 @@ def retrieve_slas_data_from_active_user_group(
             if user_group is not None:
                 for sla in user_group["slas"]:
                     for project in sla["projects"]:
-                        project_data = get_project(
-                            access_token=access_token,
-                            with_conn=True,
-                            uid=project['uid']
-                        )
+                        if not provider_name or project["provider"]["name"] == provider_name:
+                            project_data = get_project(
+                                access_token=access_token,
+                                with_conn=True,
+                                uid=project['uid']
+                            )
 
-                        project_flavors = project_data["flavors"]
-                        # get useful fields and remove duplicates
-                        for flavor in project_flavors:
-                            #if flavor["is_public"] == True:
-                            ram = int(flavor["ram"] / 1024)
-                            cpu = int(flavor["vcpus"])
-                            disk = int (flavor["disk"])
-                            gpus = int(flavor["gpus"])
-                            gpu_model = flavor["gpu_model"]
-                            name = ",".join((str(cpu),str(ram),str(gpus),str(disk)))
-                            if not name in temp_flavors:
-                                f = {
-                                    "name": name,
-                                    "cpu": cpu,
-                                    "ram": ram,
-                                    "disk": disk,
-                                    "gpus": gpus,
-                                    "gpu_model": gpu_model,
-                                    "enable_gpu": True if gpus > 0 else False
-                                }
-                                temp_flavors[name] = f
+                            # Handle flavor list
+                            project_flavors = project_data["flavors"]
+                            # get useful fields and remove duplicates
+                            for flavor in project_flavors:
+                                #if flavor["is_public"] == True:
+                                ram = int(flavor["ram"] / 1024)
+                                cpu = int(flavor["vcpus"])
+                                disk = int (flavor["disk"])
+                                gpus = int(flavor["gpus"])
+                                gpu_model = flavor["gpu_model"]
+                                name = ",".join((str(cpu),str(ram),str(gpus),str(disk)))
+                                if not name in temp_flavors:
+                                    f = {
+                                        "name": name,
+                                        "cpu": cpu,
+                                        "ram": ram,
+                                        "disk": disk,
+                                        "gpus": gpus,
+                                        "gpu_model": gpu_model,
+                                        "enable_gpu": True if gpus > 0 else False
+                                    }
+                                    temp_flavors[name] = f
 
-                        project_images = project_data["images"]
-                        # get useful fields and remove duplicates
-                        for image in project_images:
-                            #if image["is_public"] == True:
-                            os_distro = image["os_distro"]
-                            os_version = image["os_version"]
-                            name = ",".join((str(os_distro),str(os_version)))
-                            #prefer shortest name
-#                                if name not in temp_images:
-                            if name in temp_images and (len(image["name"]) < len(temp_images[name]["name"])) \
-                                    or (name not in temp_images):
-                                i = {
-                                    "name": image["name"],
-                                    "os_distro": os_distro,
-                                    "os_version": os_version
-                                }
-                                temp_images[name] = i
+                            # Handle image list
+                            project_images = project_data["images"]
+                            # get useful fields and remove duplicates
+                            for image in project_images:
+                                #if image["is_public"] == True:
+                                os_distro =  image["os_distro"]
+                                os_version = image["os_version"]
+                                description = image["description"]
+                                created_at = datetime.strptime(image["created_at"], '%Y-%m-%dT%H:%M:%S%z')
+                                name = ",".join((str(os_distro),str(os_version),str(description)))
+                                if name not in temp_images or \
+                                        created_at > datetime.strptime(temp_images[name]["created_at"], '%Y-%m-%dT%H:%M:%S%z'):
+                                    i = {
+                                        "name": image["name"],
+                                        "description": description,
+                                        "os_distro": os_distro,
+                                        "os_version": os_version,
+                                        "gpu_driver": image["gpu_driver"],
+                                        "created_at": image["created_at"]
+                                    }
+                                    temp_images[name] = i
 
 
                 # sort flavors
@@ -299,7 +306,10 @@ def retrieve_slas_data_from_active_user_group(
                 for i in sorted_images.values():
                     image = {
                                 "value": "{}".format(idx_fli),
-                                "label": i["name"],
+                                "label": make_image_label(distro = i["os_distro"],
+                                                          version = i["os_version"],
+                                                          description = i["description"],
+                                                          name = i["name"]),
                                 "set": {"os_distribution": "{}".format(i["os_distro"]),
                                         "os_version": "{}".format(i["os_version"])
                                         }
@@ -311,6 +321,23 @@ def retrieve_slas_data_from_active_user_group(
             flash("Error retrieving user group data: \n" + str(e), "warning")
 
     return flavors, images
+
+
+def make_image_label(
+        *,
+        distro: str,
+        version: str,
+        description: str,
+        name: str
+):
+    if description and version and distro:
+        return "{} {} ( {} )".format(distro,version,description)
+    if version and distro:
+        return "{} {}".format(distro,version)
+    if name:
+        return name
+    return "no label"
+
 
 def make_flavor_label(
         *,

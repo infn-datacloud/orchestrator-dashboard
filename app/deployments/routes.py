@@ -1004,9 +1004,9 @@ def configure_post():
     return prepare_configure_form(selected_tosca, tosca_info, steps)
 
 
-def patch_template(template):
+def patch_template(template, provider_name):
     access_token = iam.token["access_token"]
-    flavors, images = fed_reg.retrieve_slas_data_from_active_user_group(access_token=access_token)
+    flavors, images = fed_reg.retrieve_slas_data_from_active_user_group(access_token=access_token, provider_name = provider_name)
     user_group = session["active_usergroup"]
     pattern = r'^(?=.*flavor)(?!.*partition).*'
     # patch flavors
@@ -1133,7 +1133,7 @@ def prepare_configure_form(selected_tosca, tosca_info, steps):
 
         slas = providers.getslasdt(access_token=access_token, deployment_type=template["deployment_type"])
 
-        template = patch_template(template)
+        template = patch_template(template,None)
 
         ssh_pub_key = dbhelpers.get_ssh_pub_key(session["userid"])
 
@@ -1740,7 +1740,7 @@ def createdep():
         raise ValueError("Template path invalid (not found in current configuration")
 
     selected_template = request_template
-    source_template = patch_template(copy.deepcopy(tosca_info[selected_template]))
+    source_template = patch_template(copy.deepcopy(tosca_info[selected_template]), None)
 
     form_data = request.form.to_dict()
     additionaldescription = form_data["additional_description"]

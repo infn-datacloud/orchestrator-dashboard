@@ -12,11 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import Any, Optional
 from flask import current_app as app, flash
 from app.providers import sla
 from app.lib import fed_reg
 
-def getslas(*, access_token: str):
+def getslas(
+        *,
+        access_token: str
+):
     slas = []
     try:
         # Fed-Reg
@@ -43,7 +47,12 @@ def getslas(*, access_token: str):
     return slas
 
 
-def getslasdt(*, access_token: str, deployment_type: str):
+def getslasdt(
+        *,
+        access_token: str,
+        service_type: Optional[str] = "compute",
+        deployment_type: str
+):
     slas = []
     try:
         # Fed-Reg
@@ -51,7 +60,7 @@ def getslasdt(*, access_token: str, deployment_type: str):
             app.logger.debug("FED_REG_URL: {}".format(app.settings.fed_reg_url))
             slas = fed_reg.retrieve_slas_from_active_user_group(
                 access_token=access_token,
-                service_type="compute",
+                service_type=service_type,
                 deployment_type=deployment_type,
             )
         # SLAM
