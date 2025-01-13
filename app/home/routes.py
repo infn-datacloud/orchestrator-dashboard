@@ -295,29 +295,29 @@ def set_template_access(tosca, user_groups, active_group):
         metadata = v.get("metadata", {})
         visibility = metadata.get("visibility", {"type": "public"})
 
-        if not active_group:
-            if visibility["type"] != "private":
-                if visibility["type"] == "protected":
-                    metadata["access_locked"] = True
-                info[k] = v
-        else:
-            is_owned = is_template_owned(visibility, active_group)
-            if is_owned:
-                info[k] = v
-            else:
-                if visibility["type"] != "private":
-                    if visibility["type"] == "protected":
-                        metadata["access_locked"] = True
-                    info[k] = v
-
-        #if not active_group and visibility["type"] != "private":
-        #    metadata["access_locked"] = True
-        #    info[k] = v
-        #elif active_group:
-        #    is_locked = not is_template_owned(visibility, active_group)
-        #    if not (visibility["type"] == "private" and is_locked):
-        #        metadata["access_locked"] = is_locked
+        #if not active_group:
+        #    if visibility["type"] != "private":
+        #        if visibility["type"] == "protected":
+        #            metadata["access_locked"] = True
         #        info[k] = v
+        #else:
+        #    is_owned = is_template_owned(visibility, active_group)
+        #    if is_owned:
+        #        info[k] = v
+        #    else:
+        #        if visibility["type"] != "private":
+        #            if visibility["type"] == "protected":
+        #                metadata["access_locked"] = True
+        #            info[k] = v
+
+        if not active_group and visibility["type"] != "private":
+            metadata["access_locked"] = True
+            info[k] = v
+        elif active_group:
+            is_locked = not is_template_owned(visibility, active_group)
+            if not (visibility["type"] == "private" and is_locked):
+                metadata["access_locked"] = is_locked
+                info[k] = v
 
     return info
 
