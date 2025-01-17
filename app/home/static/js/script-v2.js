@@ -320,23 +320,23 @@ function add_max_length_counter() {
     let inputGroup = $("[maxlength]").parent();
 
     for (const element of inputGroup) {
-        let label = $($(element).children()[0]);
-        let input = $($(element).children()[1]);
+        const label = $($(element).children()[0]);
+        const input = $($(element).children()[1]);
 
-        let maxlength = input.attr('maxlength');
+        const maxLength = input.attr('maxlength');
+        const text = label.text();
         let chars = input.val().length;
-        let text = label.text();
 
-        label.text(text + ' (' + chars + '/' + maxlength + ')');
+        label.text(`${text} (${chars}/${maxLength})`)
 
         input.on('input change summernote.change', (e, content) => {
             chars = input.val().length;
 
-            if (e.type == 'summernote') {
+            if (e.type === 'summernote') {
                 chars = $('<div>').html(content).text().length
             }
 
-            label.text(text + ' (' + chars + '/' + maxlength + ')');
+            label.text(`${text} (${chars}/${maxLength})`)
         });
     }
 }

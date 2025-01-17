@@ -16,9 +16,9 @@ import copy
 import io
 import os
 import random
+import re
 import string
 import uuid as uuid_generator
-from re import match, search
 from urllib.parse import urlparse
 
 import openstack
@@ -205,9 +205,7 @@ def preprocess_outputs(outputs, stoutputs, inputs):
                 if not eval(value.get("condition")) and key in outputs:
                     del outputs[key]
             except InputValidationError as ex:
-                app.logger.warning(
-                    "Error evaluating condition for output {}: {}".format(key, ex)
-                )
+                app.logger.warning(f"Error evaluating condition for output {key}: {ex}")
 
 
 @deployments_bp.route("/<depid>/details")
@@ -413,15 +411,16 @@ def get_vm_info(depid):
     def find_node_with_pubip(resources):
         for resource in resources:
             if "VirtualMachineInfo" in resource["metadata"]:
-                vm_info = json.loads(resource["metadata"]["VirtualMachineInfo"])[
-                    "vmProperties"
-                ]
-                networks = [i for i in vm_info if i.get("class") == "network"]
-                vmi = next(i for i in vm_info if i.get("class") == "system")
+                if "vmProperties" in resource["metadata"]["VirtualMachineInfo"]:
+                    vm_info = json.loads(resource["metadata"]["VirtualMachineInfo"])[
+                        "vmProperties"
+                    ]
+                    networks = [i for i in vm_info if i.get("class") == "network"]
+                    vmi = next(i for i in vm_info if i.get("class") == "system")
 
-                for network in networks:
-                    if network.get("id") == "pub_network":
-                        return vmi.get("instance_id"), vmi.get("provider.host")
+                    for network in networks:
+                        if network.get("id") == "pub_network":
+                            return vmi.get("instance_id"), vmi.get("provider.host")
         return "", ""
 
     vm_id, vm_endpoint = find_node_with_pubip(resources)
@@ -429,29 +428,22 @@ def get_vm_info(depid):
 
 
 def get_sec_groups(conn, server_id, public=True):
-    substring = "pub_network"
-    sec_group_list = conn.list_server_security_groups(server_id)
-    return_sec_group_list = []
+    # Fetch the security groups associated with the server
+    all_security_groups = conn.list_server_security_groups(server_id)
 
-    # remove duplicates
-    for sec_group in sec_group_list:
-        flag = True
+    # Remove duplicates using a dictionary
+    unique_security_groups = {
+        group["id"]: group for group in all_security_groups
+    }.values()
 
-        for return_sec_group in return_sec_group_list:
-            if return_sec_group["id"] == sec_group["id"]:
-                flag = False
-
-        if flag:
-            return_sec_group_list.append(sec_group)
-
+    # Filter for public groups if required
     if public:
-        return_sec_group_list = [
-            sec_group
-            for sec_group in return_sec_group_list
-            if search(substring, sec_group["name"])
-        ]
+        public_network_key = "pub_network"
+        unique_security_groups = filter(
+            lambda group: public_network_key in group["name"], unique_security_groups
+        )
 
-    return return_sec_group_list
+    return list(unique_security_groups)
 
 
 @deployments_bp.route("/<depid>/security_groups")
@@ -585,9 +577,7 @@ def depaction(depid):
             )
             flash("Action successfully triggered.", "success")
         except Exception as e:
-            app.logger.error(
-                "Action on deployment {} failed: {}".format(dep.uuid, str(e))
-            )
+            app.logger.error(f"Action on deployment {dep.uuid} failed: {str(e)}")
             flash(str(e), "warning")
 
     return redirect(url_for("deployments_bp.depinfradetails", depid=depid))
@@ -610,9 +600,8 @@ def delnode(depid):
             node = next((res for res in resources if res.get("uuid") == vm_id), None)
             node_name = node.get("toscaNodeName")
             # current count -1 --> remove one node
-            count = (
-                sum(1 for res in resources if res.get("toscaNodeName") == node_name) - 1
-            )
+            filtered = list(filter(lambda res: res.get("toscaNodeName") == node_name))
+            count = len(filtered) - 1
 
             app.logger.debug(f"Resource details: {resource}")
             app.logger.debug(f"Count = {count}")
@@ -827,31 +816,30 @@ def updatedep():
         remove_sla_from_template(template)
 
     stinputs = json.loads(dep.stinputs.strip('"')) if dep.stinputs else {}
-    inputs = {
-        k: v
-        for (k, v) in form_data.items()
-        if not k.startswith("extra_opts.")
-        and k != "_depid"
-        and (
-            k in stinputs
-            and "updatable" in stinputs[k]
-            and stinputs[k]["updatable"] is True
-        )
-    }
+    
+    inputs = {}
+    for k, v in form_data.items():
+        # Skip keys starting with "extra_opts." or equal to "_depid"
+        if k.startswith("extra_opts.") or k == "_depid":
+            continue
+
+        # Ensure the key exists in `stinputs` and is updatable
+        if k not in stinputs or not stinputs[k].get("updatable"):
+            continue
+
+        # Add to the result if all conditions are met
+        inputs[k] = v
 
     app.logger.debug("Parameters: " + json.dumps(inputs))
 
     template_text = yaml.dump(template, default_flow_style=False, sort_keys=False)
 
-    app.logger.debug("[Deployment Update] inputs: {}".format(json.dumps(inputs)))
-    app.logger.debug("[Deployment Update] Template: {}".format(template_text))
+    app.logger.debug(f"[Deployment Update] inputs: {json.dumps(inputs)}")
+    app.logger.debug(f"[Deployment Update] Template: {template_text}")
 
-    keep_last_attempt = (
-        1 if "extra_opts.keepLastAttempt" in form_data else dep.keep_last_attempt
-    )
-    feedback_required = (
-        1 if "extra_opts.sendEmailFeedback" in form_data else dep.feedback_required
-    )
+    keep_last_attempt = 1 if "extra_opts.keepLastAttempt" in form_data else dep.keep_last_attempt
+    feedback_required = 1 if "extra_opts.sendEmailFeedback" in form_data else dep.feedback_required
+    
     provider_timeout_mins = (
         form_data["extra_opts.providerTimeout"]
         if "extra_opts.providerTimeoutSet" in form_data
@@ -1522,7 +1510,11 @@ def retrydep(depid=None):
     - depid: str, the ID of the deployment
     """
     tosca_info, _, _ = tosca.get()
-    access_token = iam.token["access_token"]
+    
+    try:
+        access_token = iam.token["access_token"]
+    except Exception as e:
+        flash("Access token not provided: \n" + str(e), "danger")
 
     # retrieve deployment from DB
     dep = dbhelpers.get_deployment(depid)
@@ -1534,12 +1526,18 @@ def retrydep(depid=None):
         )
         return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
 
-    inputs = process_deployment_data(dep)[0]
+    inputs = process_deployment_data(dep)
+    
+    if len(inputs) > 0:
+        inputs = inputs[0]
 
     # Get the max num retry for the new name
     max_num_retry = 0
     str_retry = " retry_"
-    tmp_name = dep.description.split(str_retry)[0]
+    tmp_name = ""
+    
+    if len(dep.description.split(str_retry)) > 0:
+        tmp_name = dep.description.split(str_retry)[0]
 
     group = None
     if "active_usergroup" in session and session["active_usergroup"] is not None:
@@ -1551,7 +1549,7 @@ def retrydep(depid=None):
             access_token, created_by="me", user_group=group
         )
     except Exception as e:
-        flash("Error retrieving deployment list: \n" + str(e), "warning")
+        flash("Error retrieving deployment list: \n" + str(e), "danger")
 
     if deployments:
         result = dbhelpers.updatedeploymentsstatus(deployments, session["userid"])
@@ -1566,12 +1564,16 @@ def retrydep(depid=None):
                 tmp_name + str_retry in tmp_dep.description
                 and "DELETE_COMPLETE" not in tmp_dep.status
             ):
-                num_retry = int(tmp_dep.description.split(str_retry)[1])
+                num_retry = 0
+                split_desc = tmp_dep.description.split(str_retry)
+                
+                if len(split_desc) > 1:
+                    num_retry = int(split_desc[1])
 
                 if num_retry > max_num_retry:
                     max_num_retry = num_retry
 
-    additionaldescription = tmp_name + str_retry + str(max_num_retry + 1)
+    additionaldescription = f"{tmp_name}{str_retry}{max_num_retry + 1}"
 
     source_template = tosca_info.get(dep.selected_template, None)
     if source_template is None:
@@ -1622,10 +1624,10 @@ def create_dep_method(
 
     # If input is a bucket_name check for validity
     for name in inputs:
-        if search("bucket_name", name):
+        if "bucket_name" in name:
             errors = check_s3_bucket_name(uuidgen_deployment + "-" + inputs[name])
 
-            if errors:
+            if len(errors) > 0:
                 for error in errors:
                     flash(error, "danger")
                 return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
@@ -1668,13 +1670,13 @@ def check_s3_bucket_name(name):
         errors.append("Bucket names must be between 3 and 63 characters long.")
 
     # Rule 2: Allowed characters
-    if not match(r"^[a-z0-9.-]+$", name):
+    if not re.match(r"^[a-z0-9.-]+$", name):
         errors.append(
             "Bucket names can only contain lowercase letters, numbers, dots (.), and hyphens (-)."
         )
 
     # Rule 3: Begin and end with a letter or number
-    if not match(r"^[a-z0-9].*[a-z0-9]$", name):
+    if not re.match(r"^[a-z0-9].*[a-z0-9]$", name):
         errors.append("Bucket names must begin and end with a letter or number.")
 
     # Rule 4: Must not contain two adjacent periods
@@ -1682,7 +1684,7 @@ def check_s3_bucket_name(name):
         errors.append("Bucket names must not contain two adjacent periods.")
 
     # Rule 5: Must not be formatted as an IP address
-    if match(r"^\d+\.\d+\.\d+\.\d+$", name):
+    if re.match(r"^\d+\.\d+\.\d+\.\d+$", name):
         errors.append(
             "Bucket names must not be formatted as an IP address (e.g., 192.168.5.4)."
         )
