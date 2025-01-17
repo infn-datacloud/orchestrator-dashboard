@@ -1,4 +1,4 @@
-FROM python:3.9.18
+FROM python:3.14.0a4
 
 ARG USERNAME=flask
 ARG USER_UID=1001
