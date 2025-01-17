@@ -29,8 +29,8 @@ def get(
     timeout: int = 60,
     **kwargs,
 ):
+    """Execute generic get on Fed-Reg."""
     if app.settings.use_fed_reg:
-        """Execute generic get on Fed-Reg."""
         url = utils.url_path_join(app.settings.fed_reg_url, version, entity)
         if uid is not None:
             url = utils.url_path_join(url, uid)

@@ -15,7 +15,7 @@ SETTINGS_DIR = "/Users/michele/OneDrive/Documenti/Infn-Datacloud/dashboard-confi
 ###"CMDB_URL": "https://paas-dev.cloud.infn.it/cmdb",
 
 ### DB SETTINGS
-SQLALCHEMY_DATABASE_URI = "mysql+pymysql://orchestrator:DEV12345678#@localhost/orchestrator_dashboard",
+SQLALCHEMY_DATABASE_URI = "mysql+pymysql://dashboard:dashboard@localhost/orchestrator_dashboard"
 SQLALCHEMY_TRACK_MODIFICATIONS = "False"
 SQLALCHEMY_VERSION_HEAD = "88bc3c2c02a6"
 

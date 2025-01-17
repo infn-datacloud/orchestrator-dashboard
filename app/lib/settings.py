@@ -59,7 +59,7 @@ class Settings:
         self.fed_reg_url = app.config.get("FED_REG_URL", None)
         self.use_fed_reg = True if self.fed_reg_url is not None else False
 
-        if self.use_fed_reg == True:
+        if not self.use_fed_reg:
             temp_slam_url = app.config.get("SLAM_URL", None)
             if temp_slam_url is not None:
                 if not temp_slam_url.endswith("/rest/slam"):
@@ -70,6 +70,8 @@ class Settings:
             self.slam_url = None
             self.cmdb_url = None
 
+        self.fed_reg_url = app.config.get("FED_REG_URL", None)
+        
         self.orchestrator_url = app.config["ORCHESTRATOR_URL"]
 
         self.orchestrator_conf = {

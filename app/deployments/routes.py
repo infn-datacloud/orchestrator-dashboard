@@ -374,7 +374,7 @@ def get_openstack_connection(
     conn = None
 
     # Fed-Reg
-    if app.settings.use_fed_reg == True:
+    if app.settings.use_fed_reg:
         # Find target provider
         providers = fed_reg.get_providers(
             access_token=iam.token["access_token"],
@@ -761,6 +761,20 @@ def depdel(depid=None):
         app.orchestrator.delete(access_token, depid)
     except Exception as e:
         flash(str(e), "danger")
+
+    return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
+
+@deployments_bp.route("/<depid>/reset")
+@auth.authorized_with_valid_token
+def depreset(depid=None):
+    access_token = iam.token["access_token"]
+
+    dep = dbhelpers.get_deployment(depid)
+    if dep is not None and dep.status == "DELETE_IN_PROGRESS":
+        try:
+            app.orchestrator.patch(access_token, depid, "DELETE_FAILED")
+        except Exception as e:
+            flash(str(e), "danger")
 
     return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
 
@@ -1358,7 +1372,7 @@ def process_openstack_ec2credentials(key: str, inputs: dict, stinputs: dict):
             s3_url = value["url"]
 
             # Fed-Reg
-            if app.settings.use_fed_reg == True:
+            if app.settings.use_fed_reg:
                 user_groups = fed_reg.get_user_groups(
                     access_token=iam.token["access_token"],
                     with_conn=True,
@@ -1757,6 +1771,7 @@ def createdep():
         template = add_sla_to_template(template, form_data["extra_opts.selectedSLA"])
     else:
         remove_sla_from_template(template)
+    app.logger.debug(yaml.dump(template, default_flow_style=False))
 
     app.logger.debug(yaml.dump(template, default_flow_style=False))
 

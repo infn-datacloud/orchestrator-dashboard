@@ -139,7 +139,7 @@ def updatedeploymentsstatus(deployments, userid):
         # Older deployments saved as provider name both the provider name and the
         # region, but in the Fed-Reg they are separate details.
         providers = app.config.get("PROVIDER_NAMES_TO_SPLIT", None)
-        if providername != ""and  providers and providername in ast.literal_eval(
+        if providername != "" and providers and providername in ast.literal_eval(
             providers
         ):
             providername, region_name = providername.split("-")
