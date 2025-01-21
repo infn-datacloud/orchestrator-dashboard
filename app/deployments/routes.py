@@ -496,27 +496,160 @@ def manage_rules(depid=None, sec_group_id=None):
 @auth.authorized_with_valid_token
 def create_rule(depid=None, sec_group_id=None):
     provider = request.args.get("provider")
+
+    # Custom rule templates
+    RULE_TEMPLATES = {
+        "dns": {
+            "description": "DNS traffic",
+            "direction": "ingress",
+            "ethertype": "IPv4",
+            "protocol": "udp",
+            "port_range_min": 53,
+            "port_range_max": 53,
+        },
+        "http": {
+            "description": "HTTP traffic",
+            "direction": "ingress",
+            "ethertype": "IPv4",
+            "protocol": "tcp",
+            "port_range_min": 80,
+            "port_range_max": 80,
+        },
+        "https": {
+            "description": "HTTPS traffic",
+            "direction": "ingress",
+            "ethertype": "IPv4",
+            "protocol": "tcp",
+            "port_range_min": 443,
+            "port_range_max": 443,
+        },
+        "imap": {
+            "description": "IMAP traffic",
+            "direction": "ingress",
+            "ethertype": "IPv4",
+            "protocol": "tcp",
+            "port_range_min": 143,
+            "port_range_max": 143,
+        },
+        "imaps": {
+            "description": "IMAPS traffic",
+            "direction": "ingress",
+            "ethertype": "IPv4",
+            "protocol": "tcp",
+            "port_range_min": 993,
+            "port_range_max": 993,
+        },
+        "ldap": {
+            "description": "LDAP traffic",
+            "direction": "ingress",
+            "ethertype": "IPv4",
+            "protocol": "tcp",
+            "port_range_min": 389,
+            "port_range_max": 389,
+        },
+        "ms_sql": {
+            "description": "MS SQL traffic",
+            "direction": "ingress",
+            "ethertype": "IPv4",
+            "protocol": "tcp",
+            "port_range_min": 1433,
+            "port_range_max": 1433,
+        },
+        "mysql": {
+            "description": "MySQL traffic",
+            "direction": "ingress",
+            "ethertype": "IPv4",
+            "protocol": "tcp",
+            "port_range_min": 3306,
+            "port_range_max": 3306,
+        },
+        "pop3": {
+            "description": "POP3 traffic",
+            "direction": "ingress",
+            "ethertype": "IPv4",
+            "protocol": "tcp",
+            "port_range_min": 110,
+            "port_range_max": 110,
+        },
+        "pop3s": {
+            "description": "POP3S traffic",
+            "direction": "ingress",
+            "ethertype": "IPv4",
+            "protocol": "tcp",
+            "port_range_min": 995,
+            "port_range_max": 995,
+        },
+        "rdp": {
+            "description": "RDP traffic",
+            "direction": "ingress",
+            "ethertype": "IPv4",
+            "protocol": "tcp",
+            "port_range_min": 3389,
+            "port_range_max": 3389,
+        },
+        "smtp": {
+            "description": "SMTP traffic",
+            "direction": "ingress",
+            "ethertype": "IPv4",
+            "protocol": "tcp",
+            "port_range_min": 25,
+            "port_range_max": 25,
+        },
+        "smtps": {
+            "description": "SMTPS traffic",
+            "direction": "ingress",
+            "ethertype": "IPv4",
+            "protocol": "tcp",
+            "port_range_min": 465,
+            "port_range_max": 465,
+        },
+        "ssh": {
+            "description": "SSH traffic",
+            "direction": "ingress",
+            "ethertype": "IPv4",
+            "protocol": "tcp",
+            "port_range_min": 22,
+            "port_range_max": 22,
+        },
+    }
+
+    rule_template = RULE_TEMPLATES.get(request.form["input_rule"])
+
     try:
         conn = get_openstack_connection(get_vm_info(depid)["vm_endpoint"], provider)
+
+        if rule_template:
+            if request.form["input_description"] != "":
+                rule_template["description"] = request.form["input_description"]
+
+            if request.form["input_CIDR"] != "":
+                rule_template["remote_ip_prefix"] = request.form["input_CIDR"]
+            else:
+                rule_template["remote_ip_prefix"] = "0.0.0.0/0"
+                
+        else:
+            rule_template = {
+                "direction": request.form["input_direction"],
+                "ethertype": "IPv4",
+                "description": request.form["input_description"]
+                if request.form["input_description"] != ""
+                else None,
+                "port_range_min": request.form["input_port_from"]
+                if request.form["input_port_from"] != ""
+                else None,
+                "port_range_max": request.form["input_port_to"]
+                if request.form["input_port_to"] != ""
+                else None,
+                "protocol": request.form["input_ip_protocol"]
+                if request.form["input_ip_protocol"] != ""
+                else "tcp",
+                "remote_ip_prefix": request.form["input_CIDR"]
+                if request.form["input_CIDR"] != ""
+                else "0.0.0.0/0",
+            }
+
         conn.network.create_security_group_rule(
-            security_group_id=sec_group_id,
-            description=request.form["input_description"],
-            direction=request.form["input_direction"]
-            if request.form["input_direction"] != ""
-            else None,
-            ethertype="IPv4",
-            port_range_min=request.form["input_port_from"]
-            if request.form["input_port_from"] != ""
-            else None,
-            port_range_max=request.form["input_port_to"]
-            if request.form["input_port_to"] != ""
-            else None,
-            protocol=request.form["input_ip_protocol"]
-            if request.form["input_ip_protocol"] != ""
-            else "tcp",
-            remote_ip_prefix=request.form["input_CIDR"]
-            if request.form["input_CIDR"] != ""
-            else None,
+            security_group_id=sec_group_id, **rule_template
         )
         flash("Port created successfully!", "success")
     except Exception as e:
