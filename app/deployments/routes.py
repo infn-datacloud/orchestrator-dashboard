@@ -503,7 +503,7 @@ def create_rule(depid=None, sec_group_id=None):
             "description": "DNS traffic",
             "direction": "ingress",
             "ethertype": "IPv4",
-            "protocol": "udp",
+            "protocol": "tcp",
             "port_range_min": 53,
             "port_range_max": 53,
         },
