@@ -742,8 +742,8 @@ def create_rule(depid=None, sec_group_id=None):
             else "0.0.0.0/0",
         }
 
-    try:
-        conn = get_openstack_connection(get_vm_info(depid)["vm_endpoint"], provider)
+    try:        
+        conn = get_openstack_connection(endpoint=get_vm_info(depid)["vm_endpoint"], provider_name=provider)
 
         conn.network.create_security_group_rule(
             security_group_id=sec_group_id, **rule_template
