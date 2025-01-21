@@ -614,39 +614,39 @@ def create_rule(depid=None, sec_group_id=None):
     }
 
     rule_template = RULE_TEMPLATES.get(request.form["input_rule"])
+    
+    if rule_template:
+        if request.form["input_description"] != "":
+            rule_template["description"] = request.form["input_description"]
+
+        if request.form["input_CIDR"] != "":
+            rule_template["remote_ip_prefix"] = request.form["input_CIDR"]
+        else:
+            rule_template["remote_ip_prefix"] = "0.0.0.0/0"
+            
+    else:
+        rule_template = {
+            "direction": request.form["input_direction"],
+            "ethertype": "IPv4",
+            "description": request.form["input_description"]
+            if request.form["input_description"] != ""
+            else None,
+            "port_range_min": request.form["input_port_from"]
+            if request.form["input_port_from"] != ""
+            else None,
+            "port_range_max": request.form["input_port_to"]
+            if request.form["input_port_to"] != ""
+            else None,
+            "protocol": request.form["input_ip_protocol"]
+            if request.form["input_ip_protocol"] != ""
+            else "tcp",
+            "remote_ip_prefix": request.form["input_CIDR"]
+            if request.form["input_CIDR"] != ""
+            else "0.0.0.0/0",
+        }
 
     try:
         conn = get_openstack_connection(get_vm_info(depid)["vm_endpoint"], provider)
-
-        if rule_template:
-            if request.form["input_description"] != "":
-                rule_template["description"] = request.form["input_description"]
-
-            if request.form["input_CIDR"] != "":
-                rule_template["remote_ip_prefix"] = request.form["input_CIDR"]
-            else:
-                rule_template["remote_ip_prefix"] = "0.0.0.0/0"
-                
-        else:
-            rule_template = {
-                "direction": request.form["input_direction"],
-                "ethertype": "IPv4",
-                "description": request.form["input_description"]
-                if request.form["input_description"] != ""
-                else None,
-                "port_range_min": request.form["input_port_from"]
-                if request.form["input_port_from"] != ""
-                else None,
-                "port_range_max": request.form["input_port_to"]
-                if request.form["input_port_to"] != ""
-                else None,
-                "protocol": request.form["input_ip_protocol"]
-                if request.form["input_ip_protocol"] != ""
-                else "tcp",
-                "remote_ip_prefix": request.form["input_CIDR"]
-                if request.form["input_CIDR"] != ""
-                else "0.0.0.0/0",
-            }
 
         conn.network.create_security_group_rule(
             security_group_id=sec_group_id, **rule_template
