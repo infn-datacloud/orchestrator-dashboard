@@ -11,6 +11,7 @@
     5 = endpoint
     6 = provider name
     7 = physical id (infrastructure id)
+	8 = region_name
 
     value must be comma separated (i.e.  "4, 6, 7")
 
@@ -54,6 +55,7 @@
 							<th>Endpoint</th>
 							<th>Deployed at</th>
 							<th>Physical Id</th>
+							<th>Region</th>
 							<th style="width: 1%; white-space: nowrap;">Actions</th>
 						</tr>
 					</thead>
@@ -84,6 +86,7 @@
 								<td>{{deployment.endpoint}}</td>
 								<td>{{deployment.provider_name}}</td>
 								<td>{{deployment.physicalId}}</td>
+								<td>{{deployment.region_name if deployment.region_name != None else ''}}</td>
 								<td>
 									<div class="btn-group">
 										<!-- DETAILS -->
@@ -134,9 +137,15 @@
 												<a class="dropdown-item" href="{{ url_for('deployments_bp.lockdeployment', depid=deployment.uuid) }}">
 													<span class="fas fa-lock mr-2"></span>Lock
 												</a>
-												<a class="dropdown-item" style="color: red;" href="#delete_confirm_{{deployment.uuid}}" data-toggle="modal" data-backdrop="static" data-keyboard="false" data-target="#delete_confirm_{{deployment.uuid}}">
-													<span class="fas fa-trash-alt mr-2"></span>Delete
-												</a>
+                                                {% if deployment.status == 'DELETE_IN_PROGRESS' %}
+                                                    <a class="dropdown-item" href="{{ url_for('deployments_bp.depreset', depid=deployment.uuid) }}">
+                                                        <span class="fas fa-undo-alt mr-2"></span>Reset Status
+                                                    </a>
+                                                {% else %}
+                                                    <a class="dropdown-item" style="color: red;" href="#delete_confirm_{{deployment.uuid}}" data-toggle="modal" data-backdrop="static" data-keyboard="false" data-target="#delete_confirm_{{deployment.uuid}}">
+                                                        <span class="fas fa-trash-alt mr-2"></span>Delete
+                                                    </a>
+                                                {% endif %}
 											{% else %}
 												<a class="dropdown-item" href="{{ url_for('deployments_bp.unlockdeployment', depid=deployment.uuid) }}">
 													<span class="fas fa-lock-open mr-2"></span>Unlock
