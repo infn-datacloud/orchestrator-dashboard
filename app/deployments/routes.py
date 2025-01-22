@@ -592,8 +592,6 @@ def manage_rules(depid=None, sec_group_id=None):
 @deployments_bp.route("/<depid>/<sec_group_id>/create_rule", methods=["POST"])
 @auth.authorized_with_valid_token
 def create_rule(depid=None, sec_group_id=None):
-    provider = request.args.get("provider")
-
     # Custom rule templates
     RULE_TEMPLATES = {
         "dns": {
@@ -710,8 +708,10 @@ def create_rule(depid=None, sec_group_id=None):
         },
     }
 
+    provider = request.args.get("provider")
+    vm_info = get_vm_info(depid)
     rule_template = RULE_TEMPLATES.get(request.form["input_rule"])
-    
+
     if rule_template:
         if request.form["input_description"] != "":
             rule_template["description"] = request.form["input_description"]
@@ -720,7 +720,7 @@ def create_rule(depid=None, sec_group_id=None):
             rule_template["remote_ip_prefix"] = request.form["input_CIDR"]
         else:
             rule_template["remote_ip_prefix"] = "0.0.0.0/0"
-            
+
     else:
         rule_template = {
             "direction": request.form["input_direction"],
@@ -743,7 +743,12 @@ def create_rule(depid=None, sec_group_id=None):
         }
 
     try:        
-        conn = get_openstack_connection(endpoint=get_vm_info(depid)["vm_endpoint"], provider_name=provider)
+        conn = get_openstack_connection(
+            endpoint=vm_info["vm_endpoint"],
+            provider_name=provider,
+            provider_type=vm_info["vm_provider_type"],
+            region_name=vm_info["vm_region"],
+        )
 
         conn.network.create_security_group_rule(
             security_group_id=sec_group_id, **rule_template
@@ -753,7 +758,12 @@ def create_rule(depid=None, sec_group_id=None):
         flash("Error: \n" + str(e), "danger")
 
     return redirect(
-        url_for(MANAGE_RULES_ROUTE, depid=depid, provider=provider, sec_group_id=sec_group_id)
+        url_for(
+            MANAGE_RULES_ROUTE,
+            depid=depid,
+            provider=provider,
+            sec_group_id=sec_group_id,
+        )
     )
 
 
