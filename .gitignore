@@ -62,12 +62,14 @@ instance/
 .pyre/
 
 # VSCode
-.vscode
-.devcontainer
+.vscode/**
+!.vscode/launch.json
 
 # macOS
 .DS_Store
 .AppleDouble
 .LSOverride
-certs/cert.pem
-certs/privkey.pem
+
+# certificates
+certs/**
+trusted_certs/**

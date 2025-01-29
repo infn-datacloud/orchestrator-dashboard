@@ -2,46 +2,48 @@ version: '3.4'
 
 services:
   orchestratordashboard:
-    image: indigopaas/orchestrator-dashboard
+    image: giosava94/orchestrator-dashboard
     ports:
-      - 5001:5001
+      - 5000:5001
     volumes:
-      - "./instance/certs:/certs"  
-      - "./instance/trusted_certs:/trusted_certs"
-      - "./instance/config.json:/app/instance/config.json"  
-      - "./instance/vault-config.json:/app/instance/vault-config.json"
-        #- "./instance/s3-config.json:/app/instance/s3-config.json"        
-      - "./instance/uploads:/opt/uploads"
-      - "./instance/settings:/opt/settings"
+      - "../certs:/certs"
+      - "../trusted_certs:/trusted_certs"
+      - "../instance/:/app/instance/"
     networks:
       - dev-network
+    environment:
+      ENABLE_HTTPS: True
+      FLASK_TOSCA_TEMPLATES_DIR: /app/instance/tosca-templates
+      FLASK_SETTINGS_DIR: /app/instance/dashboard-configuration
+      FLASK_UPLOAD_FOLDER: /app/instance/uploads
+      FLASK_SQLALCHEMY_DATABASE_URI: mysql+pymysql://dashboard:${MYSQL_PASSWORD:-changeit}@db:3306/orchestrator_dashboard
+      FLASK_REDIS_URL: redis://:${REDIS_PASSWORD:-changeit}@redis:6379
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_started    
 
-
   db:
     image: mysql:5.7
     container_name: db
     restart: always
     ports:
-      - 3307:3306
+      - 3306:3306
     volumes:
       - db-data:/var/lib/mysql
     environment:
-      MYSQL_ROOT_PASSWORD: $MYSQL_ROOT_PASSWORD
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-changeit}
       MYSQL_DATABASE: orchestrator_dashboard
       MYSQL_USER: dashboard
-      MYSQL_PASSWORD: $MYSQL_PASSWORD
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-changeit}
     networks:
       - dev-network
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p$MYSQL_ROOT_PASSWORD", "--silent"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${MYSQL_ROOT_PASSWORD:-changeit}", "--silent"]
       interval: 5s
       timeout: 5s
-      retries: 10        
+      retries: 50        
 
   redis:
     image: redis:latest
@@ -51,7 +53,7 @@ services:
       - "6379:6379"
     volumes:
       - redis-data:/data
-    command: redis-server --requirepass $REDIS_PASSWORD
+    command: redis-server --requirepass ${REDIS_PASSWORD:-changeit}
     networks:
       - dev-network
 
