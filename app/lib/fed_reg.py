@@ -232,7 +232,12 @@ def retrieve_slas_data_from_active_user_group(
                             # get useful fields and remove duplicates
                             for flavor in project_flavors:
                                 #if flavor["is_public"] == True:
-                                ram = int(flavor["ram"] / 1024)
+                                ram_d = float(flavor["ram"])
+                                if ram_d % 1024.0 != 0:
+                                    ram_f = "{:.1f}"
+                                else:
+                                    ram_f = "{:.0f}"
+                                ram = ram_d / 1024.0
                                 cpu = int(flavor["vcpus"])
                                 disk = int (flavor["disk"])
                                 gpus = int(flavor["gpus"])
@@ -258,8 +263,8 @@ def retrieve_slas_data_from_active_user_group(
                                 os_distro =  image["os_distro"]
                                 os_version = image["os_version"]
                                 description = image["description"]
-                                created_at = datetime.strptime(image["created_at"], '%Y-%m-%dT%H:%M:%S%z')
                                 name = ",".join((str(os_distro),str(os_version),str(description)))
+                                created_at = datetime.strptime(image["created_at"], '%Y-%m-%dT%H:%M:%S%z')
                                 if name not in temp_images or \
                                         created_at > datetime.strptime(temp_images[name]["created_at"], '%Y-%m-%dT%H:%M:%S%z'):
                                     i = {
@@ -271,7 +276,6 @@ def retrieve_slas_data_from_active_user_group(
                                         "created_at": image["created_at"]
                                     }
                                     temp_images[name] = i
-
 
                 # sort flavors
                 sorted_flavors = {k: v for k, v in sorted(temp_flavors.items(),
@@ -289,10 +293,11 @@ def retrieve_slas_data_from_active_user_group(
                                     cpu = f["cpu"],
                                     ram = f["ram"],
                                     disk = f["disk"],
-                                    gpus = f["gpus"]
+                                    gpus = f["gpus"],
+                                    ram_f = ram_f
                                 ),
                                 "set": {"num_cpus": "{}".format(f["cpu"]),
-                                        "mem_size": "{} GB".format(f["ram"]),
+                                        "mem_size": (ram_f + " GB").format(f["ram"]),
                                         "disk_size": "{} GB".format(f["disk"]),
                                         "num_gpus": "{}".format(f["gpus"]),
                                         "gpu_model": "{}".format(f["gpu_model"]),
@@ -342,14 +347,15 @@ def make_image_label(
 def make_flavor_label(
         *,
         cpu: int,
-        ram: int,
+        ram: float,
         disk: int,
-        gpus: int
+        gpus: int,
+        ram_f: str
 ):
     if gpus > 0 and disk > 0:
-        return "{} VCPUs, {} GB RAM, {} GB DISK, {} GPUS".format(cpu, ram, disk, gpus)
+        return ("{} VCPUs, " + ram_f + " GB RAM, {} GB DISK, {} GPUS").format(cpu, ram, disk, gpus)
     if gpus > 0:
-        return "{} VCPUs, {} GB RAM, {} GPUs".format(cpu, ram, gpus)
+        return ("{} VCPUs, " + ram_f + " GB RAM, {} GPUs").format(cpu, ram, gpus)
     if disk > 0:
-        return "{} VCPUs, {} GB RAM, {} GB DISK".format(cpu, ram, disk)
-    return "{} VCPUs, {} GB RAM".format(cpu, ram)
+        return ("{} VCPUs, " + ram_f + " GB RAM, {} GB DISK").format(cpu, ram, disk)
+    return ("{} VCPUs, " + ram_f + " GB RAM").format(cpu, ram)

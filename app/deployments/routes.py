@@ -931,21 +931,6 @@ def depreset(depid=None):
     return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
 
 
-@deployments_bp.route("/<depid>/reset")
-@auth.authorized_with_valid_token
-def depreset(depid=None):
-    access_token = iam.token["access_token"]
-
-    dep = dbhelpers.get_deployment(depid)
-    if dep is not None and dep.status == "DELETE_IN_PROGRESS":
-        try:
-            app.orchestrator.patch(access_token, depid, "DELETE_FAILED")
-        except Exception as e:
-            flash(str(e), "danger")
-
-    return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
-
-
 @deployments_bp.route("/depupdate/<depid>")
 @auth.authorized_with_valid_token
 def depupdate(depid=None):
