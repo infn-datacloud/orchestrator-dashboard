@@ -15,6 +15,7 @@
 import copy
 import io
 import os
+import re
 import random
 import re
 import string
@@ -40,7 +41,7 @@ from werkzeug.exceptions import Forbidden
 
 from app.extensions import tosca, vaultservice
 from app.iam import iam
-from app.lib import auth, dbhelpers, fed_reg, s3, utils
+from app.lib import auth, dbhelpers, fed_reg, providers, s3, utils
 from app.lib import openstack as keystone
 from app.lib import tosca_info as tosca_helpers
 from app.lib.ldap_user import LdapUserManager
@@ -49,7 +50,6 @@ from app.providers import sla
 
 # Initialize and turn on debug logging
 openstack.enable_logging(debug=True)
-
 
 deployments_bp = Blueprint(
     "deployments_bp", __name__, template_folder="templates", static_folder="static"
@@ -377,7 +377,7 @@ def get_openstack_connection(
     conn = None
 
     # Fed-Reg
-    if app.settings.fed_reg_url is not None:
+    if app.settings.use_fed_reg:
         # Find target provider
         providers = fed_reg.get_providers(
             access_token=iam.token["access_token"],
@@ -445,7 +445,7 @@ def get_openstack_connection(
             auth_type="v3oidcaccesstoken",
         )
     # SLAM
-    elif app.settings.orchestrator_conf.get("slam_url", None) is not None:
+    elif app.settings.slam_url is not None:
         service = app.cmdb.get_service_by_endpoint(
             iam.token["access_token"], endpoint, provider_name, False
         )
@@ -958,24 +958,7 @@ def depupdate(depid=None):
 
     sla_id = tosca_helpers.getslapolicy(tosca_info)
 
-    slas = []
-    # Fed-Reg
-    app.logger.debug("FED_REG_URL: {}".format(app.settings.fed_reg_url))
-    if app.settings.fed_reg_url is not None:
-        slas = fed_reg.retrieve_slas_from_specific_user_group(
-            access_token=access_token,
-            service_type="compute",
-            deployment_type=dep.deployment_type,
-        )
-
-    # SLAM
-    elif app.settings.orchestrator_conf.get("slam_url", None) is not None:
-        slas = sla.get_slas(
-            access_token,
-            app.settings.orchestrator_conf["slam_url"],
-            app.settings.orchestrator_conf["cmdb_url"],
-            dep.deployment_type,
-        )
+    slas = providers.getslasdt(access_token=access_token, deployment_type=dep.deployment_type)
 
     ssh_pub_key = dbhelpers.get_ssh_pub_key(session["userid"])
 
@@ -1083,19 +1066,13 @@ def updatedep():
     app.logger.debug(yaml.dump(template, default_flow_style=False))
 
     stinputs = json.loads(dep.stinputs.strip('"')) if dep.stinputs else {}
-    
-    inputs = {}
-    for k, v in form_data.items():
-        # Skip keys starting with "extra_opts." or equal to "_depid"
-        if k.startswith("extra_opts.") or k == "_depid":
-            continue
-
-        # Ensure the key exists in `stinputs` and is updatable
-        if k not in stinputs or not stinputs[k].get("updatable"):
-            continue
-
-        # Add to the result if all conditions are met
-        inputs[k] = v
+    inputs = {
+        k: v
+        for (k, v) in form_data.items()
+        if not k.startswith("extra_opts.")
+           and k != "_depid"
+           and (k in stinputs and "updatable" in stinputs[k] and stinputs[k]["updatable"] is True)
+    }
 
     app.logger.debug("Parameters: " + json.dumps(inputs))
 
@@ -1143,7 +1120,7 @@ def updatedep():
 @auth.authorized_with_valid_token
 def configure():
     steps = {"current": 1, "total": 2}
-    tosca_info, _, tosca_gmetadata = tosca.get()
+    tosca_info, _, tosca_gmetadata, _ = tosca.get()
 
     selected_tosca = None
 
@@ -1167,7 +1144,7 @@ def configure_post():
     check_data = 0
     steps = {"current": 1, "total": 2}
 
-    tosca_info, _, _ = tosca.get()
+    tosca_info, _, _, _ = tosca.get()
 
     selected_tosca = None
 
@@ -1183,40 +1160,140 @@ def configure_post():
     return prepare_configure_form(selected_tosca, tosca_info, steps)
 
 
+def patch_template(
+        *,
+        template: dict,
+        provider_name: Optional[str] = None
+):
+    access_token = iam.token["access_token"]
+    flavors, images = fed_reg.retrieve_slas_data_from_active_user_group(access_token=access_token, provider_name = provider_name)
+    user_group = session["active_usergroup"]
+    pattern = r'^(?=.*flavor)(?!.*partition).*'
+    # patch flavors
+    if flavors:
+        # override template flavors with provider flavors
+        for k, v in list(template["inputs"].items()):
+            # search for flavors key and rename if needed
+            x = bool(re.match(pattern, k))
+            if x is True and "constraints" in v:
+                k_flavors = k
+                k_cpu = None
+                k_mem = None
+                k_disk = None
+                k_gpus = None
+                k_gpu_model = None
+                # search for cpu key
+                for ff in v["constraints"]:
+                    if k_cpu: break
+                    for fk in ff["set"].keys():
+                        x = re.search("num_cpus", fk)
+                        if x is not None:
+                            k_cpu = fk
+                            break
+                # search for mem key
+                for ff in v["constraints"]:
+                    if k_mem: break
+                    for fk in ff["set"].keys():
+                        x = re.search("mem_size", fk)
+                        if x is not None:
+                            k_mem = fk
+                            break
+                # search for disk key
+                for ff in v["constraints"]:
+                    if k_disk: break
+                    for fk in ff["set"].keys():
+                        x = re.search("disk_size", fk)
+                        if x is not None:
+                            k_disk = fk
+                            break
+                # search for gpu key
+                for ff in v["constraints"]:
+                    if k_gpus: break
+                    for fk in ff["set"].keys():
+                        x = re.search("num_gpus", fk)
+                        if x is not None:
+                            k_gpus = fk
+                            break
+                # search for gpu model key
+                for ff in v["constraints"]:
+                    if k_gpu_model: break
+                    for fk in ff["set"].keys():
+                        x = re.search("gpu_model", fk)
+                        if x is not None:
+                            k_gpu_model = fk
+                            break
+                # if renaming needed
+                if k_mem or k_cpu or k_disk or k_gpus or k_gpu_model:
+                    if not k_mem:
+                        k_mem = "mem_size"
+                    if not k_cpu:
+                        k_cpu = "num_cpus"
+                    if not k_disk:
+                        k_disk = "disk_size"
+                    if not k_gpus:
+                        k_gpus = "num_gpus"
+                    if not k_gpu_model:
+                        k_gpu_model = "gpu_model"
+                    rflavors = []
+                    for f in flavors:
+                        flavor = {
+                            "value": f["value"],
+                            "label": f["label"],
+                            "set": {k_cpu: "{}".format(f["set"]["num_cpus"]),
+                                    k_mem: "{}".format(f["set"]["mem_size"]),
+                                    k_disk: "{}".format(f["set"]["disk_size"]),
+                                    k_gpus: "{}".format(f["set"]["num_gpus"]),
+                                    k_gpu_model: "{}".format(f["set"]["gpu_model"])
+                                    }
+                        }
+                        rflavors.append(flavor)
+                    template["inputs"][k_flavors]["constraints"] = rflavors
+                else:
+                    template["inputs"][k_flavors]["constraints"] = flavors
+                if "group_overrides" in v:
+                    del template["inputs"][k_flavors]["group_overrides"]
+    else:
+        # Manage possible overrides
+        for k, v in list(template["inputs"].items()):
+            x = bool(re.match(pattern, k))
+            if x and "group_overrides" in v and user_group in v["group_overrides"]:
+                overrides = v["group_overrides"][user_group]
+                template["inputs"][k] = {**v, **overrides}
+                del template["inputs"][k]["group_overrides"]
+
+    #patch images
+    if images:
+        # override template flavors with provider flavors
+        for k, v in list(template["inputs"].items()):
+            # search for flavors key and rename if needed
+            x = re.search("operating_system", k)
+            if x is not None and "constraints" in v:
+                k_images = k
+                template["inputs"][k_images]["constraints"] = images
+                if "group_overrides" in v:
+                    del template["inputs"][k_images]["group_overrides"]
+    else:
+        # Manage possible overrides
+        for k, v in list(template["inputs"].items()):
+            x = re.search("operating_system", k)
+            if x is not None and "group_overrides" in v and user_group in v["group_overrides"]:
+                overrides = v["group_overrides"][user_group]
+                template["inputs"][k] = {**v, **overrides}
+                del template["inputs"][k]["group_overrides"]
+
+    return template
+
+
 def prepare_configure_form(selected_tosca, tosca_info, steps):
     access_token = iam.token["access_token"]
     if selected_tosca:
         template = copy.deepcopy(tosca_info[os.path.normpath(selected_tosca)])
-        # Manage eventual overrides
-        for k, v in list(template["inputs"].items()):
-            if (
-                "group_overrides" in v
-                and session["active_usergroup"] in v["group_overrides"]
-            ):
-                overrides = v["group_overrides"][session["active_usergroup"]]
-                template["inputs"][k] = {**v, **overrides}
-                del template["inputs"][k]["group_overrides"]
 
         sla_id = tosca_helpers.getslapolicy(template)
 
-        slas = []
-        # Fed-Reg
-        app.logger.debug("FED_REG_URL: {}".format(app.settings.fed_reg_url))
-        if app.settings.fed_reg_url is not None:
-            slas = fed_reg.retrieve_slas_from_specific_user_group(
-                access_token=access_token,
-                service_type="compute",
-                deployment_type=template["deployment_type"],
-            )
+        slas = providers.getslasdt(access_token=access_token, deployment_type=template["deployment_type"])
 
-        # SLAM
-        elif app.settings.orchestrator_conf.get("slam_url", None) is not None:
-            slas = sla.get_slas(
-                access_token,
-                app.settings.orchestrator_conf["slam_url"],
-                app.settings.orchestrator_conf["cmdb_url"],
-                template["deployment_type"],
-            )
+        template = patch_template(template =  template)
 
         ssh_pub_key = dbhelpers.get_ssh_pub_key(session["userid"])
 
@@ -1244,20 +1321,37 @@ def prepare_configure_form(selected_tosca, tosca_info, steps):
             sla_id=sla_id,
             update=False,
         )
+    else:
+        flash("Error getting template (not found)".format(), "danger")
+        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
 
 
 def remove_sla_from_template(template):
-    if "policies" in template["topology_template"]:
-        for policy in template["topology_template"]["policies"]:
-            for k, v in policy.items():
-                if "type" in v and (
-                    v["type"] == "tosca.policies.indigo.SlaPlacement"
-                    or v["type"] == "tosca.policies.Placement"
-                ):
-                    template["topology_template"]["policies"].remove(policy)
-                    break
-        if len(template["topology_template"]["policies"]) == 0:
-            del template["topology_template"]["policies"]
+    if "topology_template" in template:
+        if "policies" in template["topology_template"]:
+            for policy in template["topology_template"]["policies"]:
+                for k, v in policy.items():
+                    if "type" in v and (
+                        v["type"] == "tosca.policies.indigo.SlaPlacement"
+                        or v["type"] == "tosca.policies.Placement"
+                    ):
+                        template["topology_template"]["policies"].remove(policy)
+                        break
+            if len(template["topology_template"]["policies"]) == 0:
+                del template["topology_template"]["policies"]
+    else:
+        if "policies" in template:
+            for policy in template["policies"]:
+                for k, v in policy.items():
+                    if "type" in v and (
+                        v["type"] == "tosca.policies.indigo.SlaPlacement"
+                        or v["type"] == "tosca.policies.Placement"
+                    ):
+                        template["policies"].remove(policy)
+                        break
+            if len(template["policies"]) == 0:
+                del template["policies"]
+    return template
 
 
 def add_sla_to_template(template, sla):
@@ -1273,15 +1367,24 @@ def add_sla_to_template(template, sla):
         sla_region = sla_split[1]
 
     tosca_sla_placement_type = "tosca.policies.indigo.SlaPlacement"
-    template["topology_template"]["policies"] = [
-        {
-            "deploy_on_specific_site": {
-                "type": tosca_sla_placement_type,
-                "properties": {"sla_id": sla_id, "region": sla_region},
+    if "topology_template" in template:
+        template["topology_template"]["policies"] = [
+            {
+                "deploy_on_specific_site": {
+                    "type": tosca_sla_placement_type,
+                    "properties": {"sla_id": sla_id, "region": sla_region},
+                }
             }
-        }
-    ]
-
+        ]
+    else:
+        template["policies"] = [
+            {
+                "deploy_on_specific_site": {
+                    "type": tosca_sla_placement_type,
+                    "properties": {"sla_id": sla_id, "region": sla_region},
+                }
+            }
+        ]
     return template
 
 
@@ -1436,7 +1539,7 @@ def process_openstack_ec2credentials(key: str, inputs: dict, stinputs: dict):
             s3_url = value["url"]
 
             # Fed-Reg
-            if app.settings.fed_reg_url is not None:
+            if app.settings.use_fed_reg:
                 user_groups = fed_reg.get_user_groups(
                     access_token=iam.token["access_token"],
                     with_conn=True,
@@ -1474,7 +1577,7 @@ def process_openstack_ec2credentials(key: str, inputs: dict, stinputs: dict):
                         break
                 if not found:
                     raise Exception("Unable to get EC2 credentials")
-                
+
                 # Get target provider details
                 provider = fed_reg.get_provider(
                     _provider["uid"],
@@ -1500,7 +1603,7 @@ def process_openstack_ec2credentials(key: str, inputs: dict, stinputs: dict):
                 )
 
                 # Retrieve EC2 access and secret
-                access,secret = keystone.get_or_create_ec2_creds(
+                access, secret = keystone.get_or_create_ec2_creds(
                     access_token=iam.token["access_token"],
                     project=project["name"],
                     auth_url=identity_service["endpoint"].rstrip("/v3"),
@@ -1508,7 +1611,7 @@ def process_openstack_ec2credentials(key: str, inputs: dict, stinputs: dict):
                     protocol=auth_method["protocol"],
                 )
             # SLAM
-            elif app.settings.orchestrator_conf.get("slam_url", None) is not None:
+            elif app.settings.slam_url is not None:
                 service = app.cmdb.get_service_by_endpoint(
                     iam.token["access_token"], s3_url
                 )
@@ -1829,14 +1932,16 @@ def create_deployment(
 @deployments_bp.route("/submit", methods=["POST"])
 @auth.authorized_with_valid_token
 def createdep():
-    tosca_info, _, _ = tosca.get()
+    tosca_info, _, _, tosca_text = tosca.get()
+    access_token = iam.token["access_token"]
     # validate input
-    request_template = os.path.normpath(request.args.get("template"))
+    request_template = os.path.normpath(request.args.get("selectedTemplate"))
     if request_template not in tosca_info.keys():
         raise ValueError("Template path invalid (not found in current configuration")
 
     selected_template = request_template
-    source_template = tosca_info[selected_template]
+    source_template = patch_template(template = copy.deepcopy(tosca_info[selected_template]))
+
     form_data = request.form.to_dict()
     additionaldescription = form_data["additional_description"]
 
@@ -1977,6 +2082,7 @@ def create_dep_method(
     template_text,
 ):
     access_token = iam.token["access_token"]
+
 
     uuidgen_deployment = str(uuid_generator.uuid1())
 
