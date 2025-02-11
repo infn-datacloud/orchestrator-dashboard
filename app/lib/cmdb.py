@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import requests
-
+from app.lib import utils
 
 class Cmdb:
     def __init__(self, cmdb_url, timeout=60):
@@ -24,7 +24,7 @@ class Cmdb:
     def get_service(self, access_token, service_id):
         headers = {"Authorization": "Bearer %s" % access_token}
 
-        url = self.url + "/service/id/" + service_id
+        url = utils.url_path_join(self.url, "/service/id/", service_id)
         response = requests.get(url, headers=headers, timeout=self.timeout)
         response.raise_for_status()
 
@@ -36,9 +36,9 @@ class Cmdb:
         headers = {"Authorization": "Bearer %s" % access_token}
 
         if provider:
-            url = self.url + f"/provider/id/{provider}/has_many/services"
+            url = utils.url_path_join(self.url, f"/provider/id/{provider}/has_many/services")
         else:
-            url = self.url + "/service/list"
+            url = utils.url_path_join(self.url, "/service/list")
 
         response = requests.get(url, headers=headers, timeout=self.timeout)
         response.raise_for_status()
@@ -60,7 +60,7 @@ class Cmdb:
     def get_service_projects(self, access_token, service_id):
         headers = {"Authorization": "Bearer %s" % access_token}
 
-        url = self.url + "/service/id/" + service_id + "/has_many/tenants"
+        url = utils.url_path_join(self.url, "/service/id/", service_id, "/has_many/tenants")
         response = requests.get(url, headers=headers, timeout=self.timeout)
         response.raise_for_status()
         projects = response.json()["rows"]

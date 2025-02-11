@@ -47,24 +47,27 @@ class ToscaInfo:
 
         tosca_info = {}
         tosca_gmetadata = {}
+        tosca_text = {}
         tosca_templates = []
 
         tosca_templates = self._loadtoscatemplates()
-        tosca_info = self._extractalltoscainfo(tosca_templates)
+        tosca_info, tosca_text = self._extractalltoscainfo(tosca_templates)
         tosca_gmetadata = self._loadmetadata()
 
         redis_client.set("tosca_templates", json.dumps(tosca_templates))
         redis_client.set("tosca_gmetadata", json.dumps(tosca_gmetadata))
         redis_client.set("tosca_info", json.dumps(tosca_info))
+        redis_client.set("tosca_text", json.dumps(tosca_text))
 
     def reload(self):
         tosca_templates = self._loadtoscatemplates()
-        tosca_info = self._extractalltoscainfo(tosca_templates)
+        tosca_info, tosca_text = self._extractalltoscainfo(tosca_templates)
         tosca_gmetadata = self._loadmetadata()
 
         self.redis_client.set("tosca_templates", json.dumps(tosca_templates))
         self.redis_client.set("tosca_gmetadata", json.dumps(tosca_gmetadata))
         self.redis_client.set("tosca_info", json.dumps(tosca_info))
+        self.redis_client.set("tosca_text", json.dumps(tosca_text))
 
     def _loadmetadata(self):
         if os.path.isfile(self.tosca_metadata_dir + "/metadata.yml"):
@@ -95,13 +98,18 @@ class ToscaInfo:
 
     def _extractalltoscainfo(self, tosca_templates):
         tosca_info = {}
+        tosca_text = {}
         for tosca in tosca_templates:
-            with io.open(self.tosca_dir + tosca) as stream:
+            with io.open(
+                    os.path.join(self.tosca_dir, tosca), encoding="utf-8"
+            ) as stream:
                 template = yaml.full_load(stream)
                 tosca_info[tosca] = self.extracttoscainfo(template, tosca)
+                stream.seek(0)
+                tosca_text[tosca] = stream.read()
                 # info = self.extracttoscainfo(template, tosca)
                 # tosca_info[info.get('id')] = info
-        return tosca_info
+        return tosca_info, tosca_text
 
     def extracttoscainfo(self, template, tosca):
         tosca_info = {
@@ -171,6 +179,7 @@ class ToscaInfo:
             if "inputs" in template["topology_template"]:
                 tosca_inputs = template["topology_template"]["inputs"]
                 tosca_info["inputs"] = tosca_inputs
+
             if "outputs" in template["topology_template"]:
                 tosca_outputs = template["topology_template"]["outputs"]
                 tosca_info["outputs"] = tosca_outputs
@@ -237,7 +246,9 @@ class ToscaInfo:
         tosca_gmetadata = json.loads(serialised_value)
         serialised_value = self.redis_client.get("tosca_info")
         tosca_info = json.loads(serialised_value)
-        return tosca_info, tosca_templates, tosca_gmetadata
+        serialised_value = self.redis_client.get("tosca_text")
+        tosca_text = json.loads(serialised_value)
+        return tosca_info, tosca_templates, tosca_gmetadata, tosca_text
 
 
 # Helper functions

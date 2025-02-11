@@ -1,6 +1,20 @@
-import os
-from typing import Any, Optional
+# Copyright (c) Istituto Nazionale di Fisica Nucleare (INFN). 2019-2024
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
+from app.lib import utils
+from typing import Any, Optional
+from datetime import datetime
 import requests
 
 from flask import current_app as app, flash, session
@@ -16,37 +30,33 @@ def get(
     **kwargs,
 ):
     """Execute generic get on Fed-Reg."""
-    url = os.path.join(app.settings.fed_reg_url, version, entity)
-    if uid is not None:
-        url = os.path.join(url, uid)
+    if app.settings.use_fed_reg:
+        url = utils.url_path_join(app.settings.fed_reg_url, version, entity)
+        if uid is not None:
+            url = utils.url_path_join(url, uid)
 
-    headers = {"Authorization": f"Bearer {access_token}"}
-    params = {**kwargs}
+        headers = {"Authorization": f"Bearer {access_token}"}
+        params = {**kwargs}
 
-    app.logger.debug("Request URL: {}".format(url))
-    app.logger.debug("Request params: {}".format(params))
+        app.logger.debug("Request URL: {}".format(url))
+        app.logger.debug("Request params: {}".format(params))
 
-    resp = requests.get(url, params=params, headers=headers, timeout=timeout)
-    resp.raise_for_status()
-    app.logger.debug("Retrieved user groups: {}".format(resp.json()))
+        resp = requests.get(url, params=params, headers=headers, timeout=timeout)
+        resp.raise_for_status()
+        app.logger.debug("Retrieved {}: {}".format(entity, resp.json()))
 
-    return resp.json()
+        return resp.json()
 
-
-def get_provider(uid: str, *, access_token: str, timeout: int = 60, **kwargs):
-    """Retrieve all providers details and related entities."""
-    return get(
-        access_token=access_token,
-        entity="providers",
-        timeout=timeout,
-        uid=uid,
-        **kwargs,
-    )
-
+    return None
 
 def get_projects(*, access_token: str, timeout: int = 60, **kwargs):
     """Retrieve all projects details and related entities."""
     return get(access_token=access_token, entity="projects", timeout=timeout, **kwargs)
+
+
+def get_project(*, access_token: str, uid: str, timeout: int = 60, **kwargs):
+    """Retrieve single project details and related entities."""
+    return get(access_token=access_token, entity="projects", uid=uid, timeout=timeout, **kwargs)
 
 
 def get_providers(*, access_token: str, timeout: int = 60, **kwargs):
@@ -54,11 +64,24 @@ def get_providers(*, access_token: str, timeout: int = 60, **kwargs):
     return get(access_token=access_token, entity="providers", timeout=timeout, **kwargs)
 
 
+def get_provider(*, access_token: str, uid: str, timeout: int = 60, **kwargs):
+    """Retrieve single provider details and related entities."""
+    return get(access_token=access_token, entity="providers", uid=uid, timeout=timeout, **kwargs)
+
+
 def get_user_groups(*, access_token: str, timeout: int = 60, **kwargs):
     """Retrieve all user groups details and related entities."""
-    return get(
-        access_token=access_token, entity="user_groups", timeout=timeout, **kwargs
-    )
+    return get(access_token=access_token, entity="user_groups", timeout=timeout, **kwargs)
+
+
+def get_user_group(*, access_token: str, uid: str, timeout: int = 60, **kwargs):
+    """Retrieve all user groups details and related entities."""
+    return get(access_token=access_token, entity="user_groups", uid=uid, timeout=timeout, **kwargs)
+
+
+def get_flavors(*, access_token: str, timeout: int = 60, **kwargs):
+    """Retrieve all flavors details and related entities."""
+    return get(access_token=access_token, entity="flavors", timeout=timeout, **kwargs)
 
 
 def deployment_supports_service(*, deployment_type: str, service_name: str):
@@ -119,38 +142,220 @@ def remap_slas_from_user_group(
     return [i for i in slas.values()]
 
 
-def retrieve_slas_from_specific_user_group(
+def retrieve_slas_from_active_user_group(
     *,
     access_token: str,
     service_type: Optional[str] = None,
     deployment_type: Optional[str] = None,
 ) -> list[dict[str, str]]:
-    """Retrieve the SLAs associated to the current user group."""
-    # From session retrieve current user group and issuer
-    if "active_usergroup" in session and session["active_usergroup"] is not None:
-        user_group_name = session["active_usergroup"]
-    else:
-        user_group_name = session["organisation_name"]
-    issuer = session["iss"]
 
+    slas = []
     try:
-        # Retrieve target user group and related entities
-        user_groups = get_user_groups(
-            access_token=access_token,
-            name=user_group_name,
-            idp_endpoint=issuer,
-            with_conn=True,
-            provider_status="active",
-        )
-        assert len(user_groups) == 1, "Invalid number of returned user groups"
-
-        # Retrieve linked user group services
-        return remap_slas_from_user_group(
-            user_group=user_groups[0],
-            service_type=service_type,
-            deployment_type=deployment_type,
-        )
+        active_group = retrieve_active_user_group(access_token=access_token)
+        if active_group is not None:
+            # Retrieve linked user group services
+            slas = remap_slas_from_user_group(
+                user_group=active_group,
+                service_type=service_type,
+                deployment_type=deployment_type,
+            )
 
     except Exception as e:
-        flash("Error retrieving user groups list: \n" + str(e), "warning")
-        return []
+        flash("Error retrieving user group slas: \n" + str(e), "warning")
+
+    return slas
+
+
+def retrieve_active_user_group(
+    *,
+    access_token: str,
+):
+    """Retrieve the active user group data."""
+    # From session retrieve current user group name and issuer
+    if app.settings.use_fed_reg:
+        if "active_usergroup" in session and session["active_usergroup"] is not None:
+            user_group_name = session["active_usergroup"]
+        else:
+            user_group_name = session["organisation_name"]
+        issuer = session["iss"]
+
+        try:
+            # Retrieve target user group and related entities
+            user_groups = get_user_groups(
+                access_token=access_token,
+                name=user_group_name,
+                idp_endpoint=issuer,
+                with_conn=True,
+                provider_status="active",
+            )
+            assert len(user_groups) == 1, "Invalid number of returned user groups"
+
+            # Retrieve linked user group services
+            return user_groups[0]
+
+        except Exception as e:
+            flash("Error retrieving active user group data: \n" + str(e), "warning")
+            return None
+    return None
+
+
+def retrieve_slas_data_from_active_user_group(
+    *,
+    access_token: str,
+    provider_name: str
+):
+    flavors = []
+    images = []
+
+    if app.settings.use_fed_reg:
+        temp_flavors = {}
+        temp_images = {}
+        idx_flv = 1
+        idx_fli = 1
+
+        try:
+            user_group = retrieve_active_user_group(
+                access_token=access_token
+            )
+            if user_group is not None:
+                for sla in user_group["slas"]:
+                    for project in sla["projects"]:
+                        if not provider_name or project["provider"]["name"] == provider_name:
+                            project_data = get_project(
+                                access_token=access_token,
+                                with_conn=True,
+                                uid=project['uid']
+                            )
+
+                            # Handle flavor list
+                            project_flavors = project_data["flavors"]
+                            # get useful fields and remove duplicates
+                            for flavor in project_flavors:
+                                #if flavor["is_public"] == True:
+                                ram_d = float(flavor["ram"])
+                                if ram_d % 1024.0 != 0:
+                                    ram_f = "{:.1f}"
+                                else:
+                                    ram_f = "{:.0f}"
+                                ram = ram_d / 1024.0
+                                cpu = int(flavor["vcpus"])
+                                disk = int (flavor["disk"])
+                                gpus = int(flavor["gpus"])
+                                gpu_model = flavor["gpu_model"]
+                                name = ",".join((str(cpu),str(ram),str(gpus),str(disk)))
+                                if not name in temp_flavors:
+                                    f = {
+                                        "name": name,
+                                        "cpu": cpu,
+                                        "ram": ram,
+                                        "disk": disk,
+                                        "gpus": gpus,
+                                        "gpu_model": gpu_model,
+                                        "enable_gpu": True if gpus > 0 else False
+                                    }
+                                    temp_flavors[name] = f
+
+                            # Handle image list
+                            project_images = project_data["images"]
+                            # get useful fields and remove duplicates
+                            for image in project_images:
+                                #if image["is_public"] == True:
+                                os_distro =  image["os_distro"]
+                                os_version = image["os_version"]
+                                description = image["description"]
+                                name = ",".join((str(os_distro),str(os_version),str(description)))
+                                created_at = datetime.strptime(image["created_at"], '%Y-%m-%dT%H:%M:%S%z')
+                                if name not in temp_images or \
+                                        created_at > datetime.strptime(temp_images[name]["created_at"], '%Y-%m-%dT%H:%M:%S%z'):
+                                    i = {
+                                        "name": image["name"],
+                                        "description": description,
+                                        "os_distro": os_distro,
+                                        "os_version": os_version,
+                                        "gpu_driver": image["gpu_driver"],
+                                        "created_at": image["created_at"]
+                                    }
+                                    temp_images[name] = i
+
+                # sort flavors
+                sorted_flavors = {k: v for k, v in sorted(temp_flavors.items(),
+                                            key=lambda x: (x[1]['cpu'], x[1]['ram'], x[1]['gpus'], x[1]['disk']))}
+                # sort images
+                sorted_images = {k: v for k, v in sorted(temp_images.items(),
+                                            key=lambda x: ((x[1]['os_distro'] is None, x[1]['os_distro'])  ,
+                                                           (x[1]['os_version'] is None, x[1]['os_version'])))}
+
+                # create flavor list
+                for f in sorted_flavors.values():
+                    flavor = {
+                                "value": "{}".format(idx_flv),
+                                "label": make_flavor_label(
+                                    cpu = f["cpu"],
+                                    ram = f["ram"],
+                                    disk = f["disk"],
+                                    gpus = f["gpus"],
+                                    ram_f = ram_f
+                                ),
+                                "set": {"num_cpus": "{}".format(f["cpu"]),
+                                        "mem_size": (ram_f + " GB").format(f["ram"]),
+                                        "disk_size": "{} GB".format(f["disk"]),
+                                        "num_gpus": "{}".format(f["gpus"]),
+                                        "gpu_model": "{}".format(f["gpu_model"]),
+                                        "enable_gpu": "{}".format(f["enable_gpu"])
+                                        }
+                            }
+                    flavors.append(flavor)
+                    idx_flv+=1
+
+                # create image list
+                for i in sorted_images.values():
+                    image = {
+                                "value": "{}".format(idx_fli),
+                                "label": make_image_label(distro = i["os_distro"],
+                                                          version = i["os_version"],
+                                                          description = i["description"],
+                                                          name = i["name"]),
+                                "set": {"os_distribution": "{}".format(i["os_distro"]),
+                                        "os_version": "{}".format(i["os_version"])
+                                        }
+                    }
+                    images.append(image)
+                    idx_fli+=1
+
+        except Exception as e:
+            flash("Error retrieving user group data: \n" + str(e), "warning")
+
+    return flavors, images
+
+
+def make_image_label(
+        *,
+        distro: str,
+        version: str,
+        description: str,
+        name: str
+):
+    if description and version and distro:
+        return "{} {} ( {} )".format(distro,version,description)
+    if version and distro:
+        return "{} {}".format(distro,version)
+    if name:
+        return name
+    return "no label"
+
+
+def make_flavor_label(
+        *,
+        cpu: int,
+        ram: float,
+        disk: int,
+        gpus: int,
+        ram_f: str
+):
+    if gpus > 0 and disk > 0:
+        return ("{} VCPUs, " + ram_f + " GB RAM, {} GB DISK, {} GPUS").format(cpu, ram, disk, gpus)
+    if gpus > 0:
+        return ("{} VCPUs, " + ram_f + " GB RAM, {} GPUs").format(cpu, ram, gpus)
+    if disk > 0:
+        return ("{} VCPUs, " + ram_f + " GB RAM, {} GB DISK").format(cpu, ram, disk)
+    return ("{} VCPUs, " + ram_f + " GB RAM").format(cpu, ram)
