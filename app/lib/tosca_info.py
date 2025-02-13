@@ -240,9 +240,6 @@ class ToscaInfo:
 
                                     if "tabs" in pars_data:
                                         tosca_info["tabs"] = pars_data["tabs"]
-                                    
-                                    if tosca == 'single-vm/single_vm.yaml':
-                                        print('vm')
 
             updatable = updatabledeployment(tosca_info["inputs"])
             tosca_info["updatable"] = updatable
