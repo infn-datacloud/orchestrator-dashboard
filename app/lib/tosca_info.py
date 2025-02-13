@@ -214,18 +214,35 @@ class ToscaInfo:
                                     )
                                     if "inputs" in pars_data:
                                         pars_inputs = pars_data["inputs"]
-                                        tosca_info["inputs"] = {
-                                            **tosca_inputs,
-                                            **pars_inputs,
-                                        }
+                                        tosca_info["inputs"] = {}
+
+                                        # First, iterate over tosca_inputs to maintain order
+                                        for key in tosca_inputs:
+                                            tosca_info["inputs"][key] = {**tosca_inputs[key], **pars_inputs.get(key, {})}
+
+                                        # Then, add any new keys from pars_inputs that were not in tosca_inputs
+                                        for key in pars_inputs:
+                                            if key not in tosca_inputs:
+                                                tosca_info["inputs"][key] = pars_inputs[key]
+
                                     if "outputs" in pars_data:
                                         pars_outputs = pars_data["outputs"]
-                                        tosca_info["outputs"] = {
-                                            **tosca_outputs,
-                                            **pars_outputs,
-                                        }
+                                        tosca_info["outputs"] = {}
+
+                                        # First, iterate over tosca_outputs to maintain order
+                                        for key in tosca_outputs:
+                                            tosca_info["outputs"][key] = {**tosca_outputs[key], **pars_outputs.get(key, {})}
+
+                                        # Then, add any new keys from pars_outputs that were not in tosca_outputs
+                                        for key in pars_outputs:
+                                            if key not in tosca_outputs:
+                                                tosca_info["outputs"][key] = pars_outputs[key]
+
                                     if "tabs" in pars_data:
                                         tosca_info["tabs"] = pars_data["tabs"]
+                                    
+                                    if tosca == 'single-vm/single_vm.yaml':
+                                        print('vm')
 
             updatable = updatabledeployment(tosca_info["inputs"])
             tosca_info["updatable"] = updatable
