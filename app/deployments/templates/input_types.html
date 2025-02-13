@@ -1,5 +1,5 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.serializeJSON/2.9.0/jquery.serializejson.min.js" integrity="sha256-A6ALIKGCsaO4m9Bg8qeVYZpvU575sGTBvtpzEFdL0z8=" crossorigin="anonymous"></script>
-{% if value.hidden == True %}
+{% if value.hidden == True or value.type == "hidden" %}
 	{% set hidden = "hidden" %}
 {% else %}
  	{% set hidden = "" %}
@@ -237,27 +237,29 @@
 			{% endif %}
 		{% endif %}  <!-- end tag type existence if -->
 
-		<span id="help{{key}}" class="text-muted">
-			{{value.description}}
-			{% if 'bucket_name' in key %}
-				<details>
-					<summary>
-						<span id="rule_title_{{key}}">Naming rules</span>
-						<span id="icon_correct_{{key}}" style="color: green; display: none;"><i class="fas fa-check-circle"></i></span>
-						<span id="icon_error_{{key}}" style="color: red; display: none;"><i class="fas fa-exclamation-triangle"></i></i></span>
-					</summary>
-					<ul style="font-size: .8em;">
-						<li id="rule_0_{{key}}">Bucket names must be between 1 and 27 characters long.</li>
-						<li id="rule_1_{{key}}">Bucket names can consist only of lowercase letters, numbers, dots (.), and hyphens (-).</li>
-						<li id="rule_2_{{key}}">Bucket names must end with a letter or number.</li>
-						<li id="rule_3_{{key}}">Bucket names must not contain two adjacent periods.</li>
-						<li id="rule_4_{{key}}">Bucket names must not be formatted as an IP address (for example, 192.168.5.4).</li>
-						<!-- <li id="rule_5_{{key}}">Bucket names must not start with the prefix "xn--", "sthree-", "sthree-configurator", or "amzn-s3-demo-".</li> -->
-						<li id="rule_6_{{key}}">Bucket names must not end with the suffix "-s3alias", "--ol-s3", ".mrap" or "--x-s3".</li>
-					</ul>
-				</details>
-			{% endif %}
-		</span>
+		{% if (value.type is not defined or (value.type != "hidden" and value.type != "swift_token" and value.type != "swift_autouuid" and value.type != "random_password" and value.type != "openstack_ec2credentials" and value.type != "uuidgen" and value.type != "ldap_user" and value.type != "ssh_user" and value.type != "userinfo")) and (update == False or value.updatable is not defined or value.updatable == True)%}
+			<span id="help{{key}}" class="text-muted">
+				{{value.description}}
+				{% if 'bucket_name' in key %}
+					<details>
+						<summary>
+							<span id="rule_title_{{key}}">Naming rules</span>
+							<span id="icon_correct_{{key}}" style="color: green; display: none;"><i class="fas fa-check-circle"></i></span>
+							<span id="icon_error_{{key}}" style="color: red; display: none;"><i class="fas fa-exclamation-triangle"></i></i></span>
+						</summary>
+						<ul style="font-size: .8em;">
+							<li id="rule_0_{{key}}">Bucket names must be between 1 and 27 characters long.</li>
+							<li id="rule_1_{{key}}">Bucket names can consist only of lowercase letters, numbers, dots (.), and hyphens (-).</li>
+							<li id="rule_2_{{key}}">Bucket names must end with a letter or number.</li>
+							<li id="rule_3_{{key}}">Bucket names must not contain two adjacent periods.</li>
+							<li id="rule_4_{{key}}">Bucket names must not be formatted as an IP address (for example, 192.168.5.4).</li>
+							<!-- <li id="rule_5_{{key}}">Bucket names must not start with the prefix "xn--", "sthree-", "sthree-configurator", or "amzn-s3-demo-".</li> -->
+							<li id="rule_6_{{key}}">Bucket names must not end with the suffix "-s3alias", "--ol-s3", ".mrap" or "--x-s3".</li>
+						</ul>
+					</details>
+				{% endif %}
+			</span>
+		{% endif %}
 	{% endif %}
 
 	{% if value.info_box %}
