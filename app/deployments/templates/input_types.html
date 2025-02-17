@@ -1,5 +1,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.serializeJSON/2.9.0/jquery.serializejson.min.js" integrity="sha256-A6ALIKGCsaO4m9Bg8qeVYZpvU575sGTBvtpzEFdL0z8=" crossorigin="anonymous"></script>
-{% if value.hidden == True or value.type == "hidden" %}
+
+{% set invalid_types = ['hidden', 'swift_token', 'swift_autouuid', 'random_password', 'openstack_ec2credentials', 'uuidgen', 'ldap_user', 'ssh_user', 'userinfo'] %}
+
+{% if value.type == "hidden" %}
 	{% set hidden = "hidden" %}
 {% else %}
  	{% set hidden = "" %}
@@ -19,7 +22,7 @@
 {% endif %}
 
 <div class="form-group" id="form-group-{{key}}" {{ hidden }}>
-	{% if (value.type is not defined or (value.type != "hidden" and value.type != "swift_token" and value.type != "swift_autouuid" and value.type != "random_password" and value.type != "openstack_ec2credentials" and value.type != "uuidgen" and value.type != "ldap_user" and value.type != "ssh_user" and value.type != "userinfo")) and (update == False or value.updatable is not defined or value.updatable == True)%}
+	{% if (value.type not in invalid_types) and (update == False or value.updatable is not defined or value.updatable == True) %}
 		<label for="{{key}}">
 			{% if value.display_name is defined %}
 				{{value.display_name}}
@@ -237,7 +240,7 @@
 			{% endif %}
 		{% endif %}  <!-- end tag type existence if -->
 
-		{% if (value.type is not defined or (value.type != "hidden" and value.type != "swift_token" and value.type != "swift_autouuid" and value.type != "random_password" and value.type != "openstack_ec2credentials" and value.type != "uuidgen" and value.type != "ldap_user" and value.type != "ssh_user" and value.type != "userinfo")) and (update == False or value.updatable is not defined or value.updatable == True)%}
+		{% if (value.type not in invalid_types) and (update == False or value.updatable is not defined or value.updatable == True) %}
 			<span id="help{{key}}" class="text-muted">
 				{{value.description}}
 				{% if 'bucket_name' in key %}
