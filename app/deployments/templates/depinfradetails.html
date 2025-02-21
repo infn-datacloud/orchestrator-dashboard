@@ -123,7 +123,7 @@
                                 <span class="badge badge-success"/>
                                 {% elif info.state in ["STOPPED", "off"] %}
                                 <span class="badge badge-warning text-white"/>
-                                {% elif info.state in ["failed", "unconfigured", "unknown"] %}
+                                {% elif info.state in ["DELETED", "failed", "unconfigured", "unknown"] %}
                                 <span class="badge badge-danger"/>
                                 {% else %}
                                 <span class="badge badge-warning text-white"><span

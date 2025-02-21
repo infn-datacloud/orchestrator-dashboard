@@ -41,8 +41,8 @@ class ToscaInfo:
         """
         self.redis_client = redis_client
         self.tosca_dir = app.config.get("TOSCA_TEMPLATES_DIR") + "/"
-        self.tosca_params_dir = app.config.get("SETTINGS_DIR") + "/tosca-parameters"
-        self.tosca_metadata_dir = app.config.get("SETTINGS_DIR") + "/tosca-metadata"
+        self.tosca_params_dir = os.path.join(app.config.get("SETTINGS_DIR"), "tosca-parameters")
+        self.tosca_metadata_dir = os.path.join(app.config.get("SETTINGS_DIR"), "tosca-metadata")
         self.metadata_schema = app.config.get("METADATA_SCHEMA")
 
         tosca_info = {}
@@ -70,8 +70,9 @@ class ToscaInfo:
         self.redis_client.set("tosca_text", json.dumps(tosca_text))
 
     def _loadmetadata(self):
-        if os.path.isfile(self.tosca_metadata_dir + "/metadata.yml"):
-            with io.open(self.tosca_metadata_dir + "/metadata.yml") as stream:
+        mpath = os.path.join(self.tosca_metadata_dir, "metadata.yml")
+        if os.path.isfile(mpath):
+            with io.open(mpath) as stream:
                 metadata = yaml.full_load(stream)
 
                 # validate against schema
@@ -149,8 +150,8 @@ class ToscaInfo:
                         fmname = os.path.relpath(
                             os.path.join(mpath, mname), self.tosca_metadata_dir
                         )
-                        if fnmatch(fmname, os.path.splitext(tosca)[0] + ".metadata.yml") or fnmatch(
-                            fmname, os.path.splitext(tosca)[0] + ".metadata.yaml"
+                        if fnmatch(fmname, os.path.splitext(tosca)[0] + ".metadata.yml") or \
+                            fnmatch(fmname, os.path.splitext(tosca)[0] + ".metadata.yaml"
                         ):
                             # skip hidden files
                             if mname[0] != ".":

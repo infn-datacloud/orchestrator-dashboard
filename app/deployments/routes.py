@@ -102,6 +102,34 @@ def showdeployments():
     return render_template("deployments.html", deployments=deployments)
 
 
+@deployments_bp.route("/listall")
+@auth.authorized_with_valid_token
+def showalldeployments():
+    access_token = iam.token["access_token"]
+
+    group = None
+    if "active_usergroup" in session and session["active_usergroup"] is not None:
+        group = session["active_usergroup"]
+
+    deployments = []
+    try:
+        deployments = app.orchestrator.get_deployments(
+            access_token, user_group=group
+        )
+    except Exception as e:
+        flash("Error retrieving deployment list: \n" + str(e), "warning")
+
+    if deployments:
+        result = dbhelpers.updatedeploymentsstatus(deployments, session["userid"])
+        deployments = result["deployments"]
+        app.logger.debug("Deployments: " + str(deployments))
+
+        deployments_uuid_array = result["iids"]
+        session["deployments_uuid_array"] = deployments_uuid_array
+
+    return render_template("deploymentsall.html", deployments=deployments, user_group=group)
+
+
 @deployments_bp.route("/overview")
 @auth.authorized_with_valid_token
 def showdeploymentsoverview():

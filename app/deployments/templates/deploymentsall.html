@@ -29,15 +29,15 @@
                 </div>
             
                 <div class="dashboard-template-title">
-                    My deployments
+                    Deployments
+                    {% if user_group %}
+                        &nbspfor group: {{user_group}}<br/>
+                    {% endif %}
                 </div>
             
                 <div class="dashboard-template-header-buttons">
 					<button type="button" class="dashboard-button dashboard-button-outline-no-border" title="Refresh" onclick='location.href="{{ url_for('deployments_bp.showdeployments') }}"'>
 						<i class="fas fa-sync-alt"></i>&nbsp;Refresh
-					</button>
-					<button type="button" class="dashboard-button dashboard-button-primary" title="New deployment" onclick='location.href="{{ url_for('home_bp.home') }}"'>
-						New deployment<i class="fas fa-plus"></i>
 					</button>
                 </div>
             </div>
@@ -50,6 +50,7 @@
 							<th>Deployment identifier</th>
 							<th>Description</th>
 							<th>Status</th>
+                            <th>User</th>
 							<th>Creation time</th>
 							<th>Update time</th>
 							<th>Endpoint</th>
@@ -83,6 +84,7 @@
 									{% endif %}
 									{{deployment.status}}
 								</td>
+								<td><a href="{{ url_for('users_bp.show_user', subject=deployment.sub, ronly=True) }}">{{deployment.sub}}</a></td>
 								<td>{{deployment.creation_time}}</td>
 								<td>{{deployment.update_time}}</td>
 								<td>{{deployment.endpoint}}</td>
@@ -293,9 +295,9 @@ $('#tableUserDeployments').dataTable( {
 			"targets"  : 'no-sort',
 			"orderable": false,
 		},
-		{% if config['FEATURE_HIDDEN_DEPLOYMENT_COLUMNS'] != '' %}
+		{% if config['FEATURE_HIDDEN_ADMIN_DEPLOYMENT_COLUMNS'] != '' %}
 			{
-				"targets": [{{config['FEATURE_HIDDEN_DEPLOYMENT_COLUMNS']}}],
+				"targets": [{{config['FEATURE_HIDDEN_ADMIN_DEPLOYMENT_COLUMNS']}}],
 				"visible": false,
 			},
 		{% endif %}
