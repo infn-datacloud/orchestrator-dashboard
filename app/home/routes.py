@@ -14,6 +14,7 @@
 
 import json
 import re
+from semver.version import Version
 from datetime import datetime
 
 from flask import (
@@ -285,39 +286,37 @@ def login():
     return render_template(app.config.get("HOME_TEMPLATE"))
 
 
-def set_template_access(tosca, user_groups, active_group):
+def set_template_access(tosca, tosca_gversion, user_groups, active_group):
     """
     Set template access based on user groups and active group.
     """
     info = {}
 
-    for k, v in tosca.items():
-        metadata = v.get("metadata", {})
-        visibility = metadata.get("visibility", {"type": "public"})
+    version = Version.parse(tosca_gversion)
 
-        #if not active_group:
-        #    if visibility["type"] != "private":
-        #        if visibility["type"] == "protected":
-        #            metadata["access_locked"] = True
-        #        info[k] = v
-        #else:
-        #    is_owned = is_template_owned(visibility, active_group)
-        #    if is_owned:
-        #        info[k] = v
-        #    else:
-        #        if visibility["type"] != "private":
-        #            if visibility["type"] == "protected":
-        #                metadata["access_locked"] = True
-        #            info[k] = v
-
-        if not active_group and visibility["type"] != "private":
-            metadata["access_locked"] = True
-            info[k] = v
-        elif active_group:
-            is_locked = not is_template_owned(visibility, active_group)
-            if not (visibility["type"] == "private" and is_locked):
-                metadata["access_locked"] = is_locked
+    # handle legacy version of metadata
+    if version < "1.1.0":
+        for k, v in tosca.items():
+            metadata = v.get("metadata", {})
+            visibility = metadata.get("visibility", {"type": "public"})
+            if not active_group and visibility["type"] != "private":
+                metadata["access_locked"] = True
                 info[k] = v
+            elif active_group:
+                is_locked = not is_template_owned(visibility, active_group)
+                if not (visibility["type"] == "private" and is_locked):
+                    metadata["access_locked"] = is_locked
+                    info[k] = v
+    else:
+        if active_group:
+            for k, v in tosca.items():
+                metadata = v.get("metadata", {})
+                visibility = metadata.get("visibility")
+                if is_template_owned(visibility, active_group):
+                    info[k] = v
+                elif is_template_locked(visibility, active_group):
+                    metadata["access_locked"] = True
+                    info[k] = v
 
     return info
 
@@ -338,6 +337,22 @@ def is_template_owned(visibility, active_group):
         return active_group in allowed_groups
 
 
+def is_template_locked(visibility, active_group):
+    """
+    Check if access is locked based on visibility and active group.
+
+    :param visibility: dict, visibility settings
+    :param active_group: str, the active group
+    :return: bool, whether access is locked
+    """
+    regex = "locked_regex" in visibility
+    if regex:
+        return re.match(visibility["locked_regex"], active_group)
+    else:
+        locked_groups = visibility.get("locked", [])
+        return active_group in locked_groups
+
+
 def check_template_access(user_groups, active_group):
     """
     This function checks template access for a user within specific groups.
@@ -350,11 +365,11 @@ def check_template_access(user_groups, active_group):
     - templates_info: information about the accessible templates
     - enable_template_groups: a boolean indicating whether template groups are enabled
     """
-    tosca_info, _, tosca_gmetadata, _ = tosca.get()
+    tosca_info, _, tosca_gmetadata, tosca_gversion, _ = tosca.get()
     templates_data = tosca_gmetadata if tosca_gmetadata else tosca_info
     enable_template_groups = bool(tosca_gmetadata)
 
-    templates_info = set_template_access(templates_data, user_groups, active_group)
+    templates_info = set_template_access(templates_data, tosca_gversion, user_groups, active_group)
 
     return templates_info, enable_template_groups
 

@@ -29,6 +29,7 @@ python-ldap
 randomcolor
 sshpubkeys
 jsonschema[format]
+semver==3.0.4
 ###### tests
 #pytest
 #pytest-cov

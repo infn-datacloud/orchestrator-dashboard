@@ -1148,7 +1148,7 @@ def updatedep():
 @auth.authorized_with_valid_token
 def configure():
     steps = {"current": 1, "total": 2}
-    tosca_info, _, tosca_gmetadata, _ = tosca.get()
+    tosca_info, _, tosca_gmetadata, _, _ = tosca.get()
 
     selected_tosca = None
 
@@ -1172,7 +1172,7 @@ def configure_post():
     check_data = 0
     steps = {"current": 1, "total": 2}
 
-    tosca_info, _, _, _ = tosca.get()
+    tosca_info, _, _, _, _ = tosca.get()
 
     selected_tosca = None
 
@@ -1960,7 +1960,7 @@ def create_deployment(
 @deployments_bp.route("/submit", methods=["POST"])
 @auth.authorized_with_valid_token
 def createdep():
-    tosca_info, _, _, tosca_text = tosca.get()
+    tosca_info, _, _, _, tosca_text = tosca.get()
     access_token = iam.token["access_token"]
     # validate input
     request_template = os.path.normpath(request.args.get("selectedTemplate"))
@@ -2004,7 +2004,7 @@ def retrydep(depid=None):
     Parameters:
     - depid: str, the ID of the deployment
     """
-    tosca_info, _, _ = tosca.get()
+    tosca_info, _, _, _, _ = tosca.get()
     
     try:
         access_token = iam.token["access_token"]
