@@ -56,6 +56,7 @@ deployments_bp = Blueprint(
 )
 
 SHOW_DEPLOYMENTS_ROUTE = "deployments_bp.showdeployments"
+SHOW_ALLDEPLOYMENTS_ROUTE = "deployments_bp.showalldeployments"
 MANAGE_RULES_ROUTE = "deployments_bp.manage_rules"
 
 
@@ -927,26 +928,28 @@ def depqcgdetails(depid=None):
     return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
 
 
-@deployments_bp.route("/<depid>/delete")
+@deployments_bp.route("/<depid>/<mode>/delete")
 @auth.authorized_with_valid_token
-def depdel(depid=None):
+def depdel(depid=None, mode="user"):
     access_token = iam.token["access_token"]
 
     dep = dbhelpers.get_deployment(depid)
+    # should happen as a callback on the cancellation message from the orchestrator
     if dep is not None and dep.storage_encryption == 1:
         secret_path = session["userid"] + "/" + dep.vault_secret_uuid
         delete_secret_from_vault(access_token, secret_path)
+    ##
 
     try:
         app.orchestrator.delete(access_token, depid)
     except Exception as e:
         flash(str(e), "danger")
 
-    return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
+    return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE if mode == "user" else SHOW_ALLDEPLOYMENTS_ROUTE))
 
-@deployments_bp.route("/<depid>/reset")
+@deployments_bp.route("/<depid>/<mode>/reset")
 @auth.authorized_with_valid_token
-def depreset(depid=None):
+def depreset(depid=None, mode="user"):
     access_token = iam.token["access_token"]
 
     dep = dbhelpers.get_deployment(depid)
@@ -956,7 +959,7 @@ def depreset(depid=None):
         except Exception as e:
             flash(str(e), "danger")
 
-    return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
+    return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE if mode == "user" else SHOW_ALLDEPLOYMENTS_ROUTE))
 
 
 @deployments_bp.route("/depupdate/<depid>")

@@ -15,9 +15,9 @@
                 </div>
             
                 <div class="dashboard-template-header-buttons">
-					<button type="button" class="dashboard-button dashboard-button-outline-no-border" title="Back" onclick="location.href='{{ url_for('deployments_bp.showdeployments') }}'">
-						<i class="fas fa-arrow-left"></i>&nbsp;Back
-					</button>
+                    <button type="button" class="dashboard-button dashboard-button-outline-no-border" title="Back" onclick="set_loading(true); history.back()">
+                        <i class="fas fa-arrow-left"></i>&nbsp;Back
+                    </button>
 					<button type="button" class="dashboard-button dashboard-button-outline-no-border" title="Refresh" onclick='location.reload()'>
 						<i class="fas fa-sync-alt"></i>&nbsp;Refresh
 					</button>

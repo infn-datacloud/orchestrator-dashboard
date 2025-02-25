@@ -15,9 +15,9 @@
 					Deployments for:&nbsp;{{user.name}}
 				</div>
 				<div class="dashboard-template-header-buttons">
-					<button type="button" class="dashboard-button dashboard-button-outline-no-border" title="Back" onclick="location.href='{{ url_for('users_bp.show_users') }}'">
-						<i class="fas fa-arrow-left"></i>&nbsp;Back
-					</button>
+                    <button type="button" class="dashboard-button dashboard-button-outline-no-border" title="Back" onclick="set_loading(true); history.back()">
+                        <i class="fas fa-arrow-left"></i>&nbsp;Back
+                    </button>
 					<button type="button" class="dashboard-button dashboard-button-outline-no-border" title="Refresh" onclick="location.href='{{ url_for('users_bp.show_deployments', subject=user.sub) }}'">
 						<i class="fas fa-sync-alt"></i>&nbsp;Refresh
 					</button>

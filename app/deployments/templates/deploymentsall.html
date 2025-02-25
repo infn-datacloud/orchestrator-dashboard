@@ -107,8 +107,6 @@
 												</a>											
 											{% endif %}
                                             {% if deployment.status != 'DELETE_COMPLETE' %}
-											    <a class="dropdown-item" data-toggle="modal" data-target="#editDeployment" data-id="{{ deployment.uuid }}" data-description="{{ deployment.description }}" data-action="{{ url_for('deployments_bp.editdeployment') }}">
-												    <span class="fas fa-edit mr-2 grey-text"></span>Edit</a>
 											    <a class="dropdown-item" href="{{ url_for('deployments_bp.deptemplate', depid=deployment.uuid) }}"><span class="fas fa-search mr-2 grey-text"></span>Show template</a>
                                             {% endif %}
 											{% if deployment.deployment_type == "CLOUD" %}
@@ -146,14 +144,11 @@
 
 											{% if deployment.locked == 0 %}
                                                 {% if deployment.status == 'DELETE_IN_PROGRESS' %}
-                                                    <a class="dropdown-item" href="{{ url_for('deployments_bp.depreset', depid=deployment.uuid) }}">
+                                                    <a class="dropdown-item" href="{{ url_for('deployments_bp.depreset', depid=deployment.uuid, mode="all") }}">
                                                         <span class="fas fa-undo-alt mr-2"></span>Reset Status
                                                     </a>
                                                 {% else %}
                                                     {% if deployment.status != 'DELETE_COMPLETE' %}
-                                                        <a class="dropdown-item" href="{{ url_for('deployments_bp.lockdeployment', depid=deployment.uuid) }}">
-                                                            <span class="fas fa-lock mr-2"></span>Lock
-                                                        </a>
                                                         <a class="dropdown-item" style="color: red;" href="#delete_confirm_{{deployment.uuid}}" data-toggle="modal" data-backdrop="static" data-keyboard="false" data-target="#delete_confirm_{{deployment.uuid}}">
                                                             <span class="fas fa-trash-alt mr-2"></span>Delete
                                                         </a>
@@ -185,7 +180,7 @@
 												<button data-dismiss="modal" class="dashboard-button dashboard-button-lg dashboard-button-primary-outline" title="Close modal">
 													No, go back
 												</button>
-												<button role="button" onclick="set_loading(true); location.href='{{ url_for('deployments_bp.depdel', depid=deployment.uuid) }}'" type=button class="dashboard-button dashboard-button-lg dashboard-button-danger" title="Delete deployment">
+												<button role="button" onclick="set_loading(true); location.href='{{ url_for('deployments_bp.depdel', depid=deployment.uuid, mode="all") }}'" type=button class="dashboard-button dashboard-button-lg dashboard-button-danger" title="Delete deployment">
 													<i class="fas fa-trash-alt"></i>&nbsp;Yes, delete
 												</button>
 											</div>

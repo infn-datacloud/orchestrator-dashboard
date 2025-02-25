@@ -144,7 +144,7 @@
 
 											{% if deployment.locked == 0 %}
                                                 {% if deployment.status == 'DELETE_IN_PROGRESS' %}
-                                                    <a class="dropdown-item" href="{{ url_for('deployments_bp.depreset', depid=deployment.uuid) }}">
+                                                    <a class="dropdown-item" href="{{ url_for('deployments_bp.depreset', depid=deployment.uuid, mode="user") }}">
                                                         <span class="fas fa-undo-alt mr-2"></span>Reset Status
                                                     </a>
                                                 {% else %}
@@ -183,7 +183,7 @@
 												<button data-dismiss="modal" class="dashboard-button dashboard-button-lg dashboard-button-primary-outline" title="Close modal">
 													No, go back
 												</button>
-												<button role="button" onclick="set_loading(true); location.href='{{ url_for('deployments_bp.depdel', depid=deployment.uuid) }}'" type=button class="dashboard-button dashboard-button-lg dashboard-button-danger" title="Delete deployment">
+												<button role="button" onclick="set_loading(true); location.href='{{ url_for('deployments_bp.depdel', depid=deployment.uuid, mode="user") }}'" type=button class="dashboard-button dashboard-button-lg dashboard-button-danger" title="Delete deployment">
 													<i class="fas fa-trash-alt"></i>&nbsp;Yes, delete
 												</button>
 											</div>
