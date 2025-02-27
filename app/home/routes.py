@@ -64,6 +64,7 @@ def show_settings():
     """
     dashboard_last_conf = redis_client.get("last_configuration_info")
     last_settings = json.loads(dashboard_last_conf) if dashboard_last_conf else {}
+    _, _, _, tosca_gversion, _ = tosca.get()
     return render_template(
         "settings.html",
         iam_url=app.settings.iam_url,
@@ -71,6 +72,7 @@ def show_settings():
         orchestrator_conf=app.settings.orchestrator_conf,
         vault_url=app.config.get("VAULT_URL"),
         tosca_settings=last_settings,
+        tosca_version="{0:c}.{1:c}.{2:c}".format(tosca_gversion[0], tosca_gversion[2], tosca_gversion[4])
     )
 
 

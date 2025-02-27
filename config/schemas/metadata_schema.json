@@ -77,7 +77,7 @@
       },
       "visibility": {
         "type": "object",
-        "oneOf": [
+        "anyOf": [
           {
             "oneOf": [
               {
@@ -112,6 +112,7 @@
               {
                 "oneOf": [
                   {
+                    "type": "object",
                     "properties": {
                       "groups": {
                         "type": "array",
@@ -121,6 +122,7 @@
                     "required": ["groups"]
                   },
                   {
+                    "type": "object",
                     "properties": {
                       "groups_regex": { "type": "string", "format": "regex" }
                     },
@@ -131,6 +133,7 @@
               {
                 "oneOf": [
                   {
+                    "type": "object",
                     "properties": {
                       "locked": {
                         "type": "array",
@@ -140,6 +143,7 @@
                     "required": ["locked"]
                   },
                   {
+                    "type": "object",
                     "properties": {
                       "locked_regex": { "type": "string", "format": "regex"}
                     },

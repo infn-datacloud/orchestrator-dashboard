@@ -32,9 +32,13 @@
           </div>
       
           <div class="dashboard-template-header-buttons">
-            <button type="button" class="dashboard-button dashboard-button-outline-no-border" title="Back" onclick="history.back()"><i class="fas fa-arrow-left"></i>&nbsp;Back</button>
-            {% if ronly==False %}
-                <button type="submit" class="dashboard-button dashboard-button-primary" title="Update" onclick="set_loading(true)"><i class="fas fa-save"></i>&nbsp;Update</button>
+            <button type="button" class="dashboard-button dashboard-button-outline-no-border" title="Back" onclick="history.back()">
+                <i class="fas fa-arrow-left"></i>&nbsp;Back
+            </button>
+            {% if ronly=='False' %}
+                <button type="submit" class="dashboard-button dashboard-button-primary" title="Update" onclick="set_loading(true)">
+                    <i class="fas fa-save"></i>&nbsp;Update
+                </button>
             {% endif %}
           </div>
       </div>

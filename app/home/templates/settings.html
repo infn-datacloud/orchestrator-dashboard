@@ -79,6 +79,11 @@
 							<fieldset>
 								<br>
 								<div class="dashboard-text"><h5>TOSCA templates</h5></div>
+								<p class="text-success">Metadata version:
+									{% if tosca_version %}
+										{{ tosca_version }}
+									{% else %} Not Available{% endif %}
+								</p>
 								<p class="text-success">Current settings:
 									{% if tosca_settings.tosca_templates_url %}
 										{{ tosca_settings.tosca_templates_url }} (branch/tag: {{ tosca_settings.tosca_templates_tag_or_branch }})
