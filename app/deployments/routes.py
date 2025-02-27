@@ -299,22 +299,22 @@ def process_deployment_data(dep):
     """
     try:
         i = json.loads(dep.inputs.strip('"')) if dep.inputs else {}
-    except json.decoder.JSONDecodeError:
+    except:
         i = {}
 
     try:
         stinputs = json.loads(dep.stinputs.strip('"')) if dep.stinputs else {}
-    except json.decoder.JSONDecodeError:
+    except:
         stinputs = {}
 
     try:
         outputs = json.loads(dep.outputs.strip('"')) if dep.outputs else {}
-    except json.decoder.JSONDecodeError:
+    except:
         outputs = {}
 
     try:
         stoutputs = json.loads(dep.stoutputs.strip('"')) if dep.stoutputs else {}
-    except json.decoder.JSONDecodeError:
+    except:
         stoutputs = {}
 
     inputs = {k: v for k, v in i.items() if is_input_printable(stinputs, k)}
