@@ -95,7 +95,7 @@
                                                 {% endif %}
 											{% endif %}
                                             {% if deployment.status == 'DELETE_IN_PROGRESS' %}
-                                                <a class="dropdown-item" href="{{ url_for('deployments_bp.depreset', depid=deployment.uuid) }}">
+                                                <a class="dropdown-item" href="{{ url_for('deployments_bp.depreset', depid=deployment.uuid, mode="user") }}">
                                                     <span class="fas fa-undo-alt mr-2"></span>Reset Status
                                                 </a>
                                             {% else %}
