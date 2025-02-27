@@ -74,6 +74,7 @@ class ToscaInfo:
                 tosca_gmetadata = {str(uuid.uuid4()): service for service in metadata["services"]}
                 tosca_gversion = "1.0.0"  if "version" not in metadata else metadata["version"]
                 return tosca_gmetadata, tosca_gversion
+        return {}, "1.0.0"
 
     def _loadtoscatemplates(self):
         toscatemplates = []
