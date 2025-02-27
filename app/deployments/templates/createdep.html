@@ -113,14 +113,6 @@
     </div>
 </div>
 
-<style>
-
-#manschedConf {
-  display: none;
-}
-
-</style>
-
 <script>
 /**
  * Filters an array of elements to return only those whose names start with the specified prefix and have a non-empty value.
@@ -479,24 +471,6 @@ $(document).ready(function () {
 
         return true;
     });
-});
-
-
-$(document).ready(function () {
-	function hideSelectSla() {
-		if ($("#mansched").is(":checked")){
-			$('#manschedConf').show();
-		}
-		else {
-			$('#manschedConf').hide();
-		}
-	}
-
-	$("input[name='extra_opts.schedtype']").click(function() {
-		hideSelectSla();
-	});
-
-  	hideSelectSla();
 });
 
 $(document).ready(function () {

@@ -8,24 +8,17 @@
         <div class="card-body">
 			<div class="dashboard-template-header">
 				<div class="dashboard-template-title">
-					Select
+					Scheduling
 				</div>
 				
 				<div class="dashboard-template-step">
-					Step&nbsp;1/4
+					Step&nbsp;{{ steps['current'] }}/{{ steps['total'] }}
 				</div>
 			</div>
-			<form id="depSelect" action="{{ url_for('deployments_bp.select_scheduling') }}" method="post">
+			<form id="depSelect" action="{{ url_for('deployments_bp.configure_form', steps_current=steps['current'], steps_total=steps['total']) }}" method="post">
 				<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-				{% for template in templates %}
-					<div class="form-check">
-						<input class="form-check-input" type="radio" id="choice{{loop.index}}" name="selected_tosca" value="{{ template['name'] }}" {% if loop.index==1 %}checked{% endif %}  >
-						<label class="form-check-label" for="choice{{loop.index}}">{{ template['option'] }}</label>
-					</div>
-					{% if template['description'] %}
-						<p>{{template['description'] | safe }}</p>
-					{% endif %}
-				{% endfor %}
+				<input type="hidden" name="selected_tosca" value="{{ selected_tosca }}">
+				{% include 'scheduling_config.html' %}
 				<br>
 				<div class="dashboard-template-buttons-container">
 					<button id="cancelBtn" type=button class="dashboard-button dashboard-button-lg dashboard-button-danger" title="Cancel" onclick="location.href='{{ url_for('home_bp.portfolio') }}'">

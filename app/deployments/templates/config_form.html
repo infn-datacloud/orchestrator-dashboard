@@ -7,13 +7,9 @@
 {% set tabs = ['Configuration'] %}
 {% endif %}
 
-	{% if config['FEATURE_ADVANCED_MENU']|str2bool or session['userrole'] == 'admin' %}
-		<li class="nav-item"><a class="nav-link active" data-toggle="tab" href=#Scheduling>Scheduling</a></li> <!-- always create Scheduling tab -->
-	{% endif %}
-
 	{% for tab in tabs %}
 		{% if loop.first %}
-		<li class="nav-item"><a class="nav-link" data-toggle="tab" href=#{{tab}}>{{tab}}</a></li>
+		<li class="nav-item"><a class="nav-link active" data-toggle="tab" href=#{{tab}}>{{tab}}</a></li>
 		{% else %}
 		<li class="nav-item"><a class="nav-link" data-toggle="tab" href=#{{tab}}>{{tab}}</a></li>
 		{% endif %}
@@ -26,14 +22,9 @@
   <!-- end tab creation section -->
 
 <div class="tab-content">
-	<!-- scheduling -->
-	<div id="Scheduling" class="tab-pane fade show active">
-		{% include 'scheduling_config.html' %}
-	</div>
-
   	<!-- inputs -->
     {% for tab in tabs %}
-		<div id={{tab}} class="tab-pane fade">
+		<div id={{tab}} class="tab-pane fade show active">
 
 		{% for key, value in inputs.items() %}
 				{% if value.tab == tab or ( tab == tabs[0] and value.tab is not defined) %}
