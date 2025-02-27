@@ -297,10 +297,25 @@ def process_deployment_data(dep):
     outputs: The processed outputs.
     stoutputs: The processed stoutputs.
     """
-    i = json.loads(dep.inputs.strip('"')) if dep.inputs else {}
-    stinputs = json.loads(dep.stinputs.strip('"')) if dep.stinputs else {}
-    outputs = json.loads(dep.outputs.strip('"')) if dep.outputs else {}
-    stoutputs = json.loads(dep.stoutputs.strip('"')) if dep.stoutputs else {}
+    try:
+        i = json.loads(dep.inputs.strip('"')) if dep.inputs else {}
+    except json.decoder.JSONDecodeError:
+        i = {}
+
+    try:
+        stinputs = json.loads(dep.stinputs.strip('"')) if dep.stinputs else {}
+    except json.decoder.JSONDecodeError:
+        stinputs = {}
+
+    try:
+        outputs = json.loads(dep.outputs.strip('"')) if dep.outputs else {}
+    except json.decoder.JSONDecodeError:
+        outputs = {}
+
+    try:
+        stoutputs = json.loads(dep.stoutputs.strip('"')) if dep.stoutputs else {}
+    except json.decoder.JSONDecodeError:
+        stoutputs = {}
 
     inputs = {k: v for k, v in i.items() if is_input_printable(stinputs, k)}
 
