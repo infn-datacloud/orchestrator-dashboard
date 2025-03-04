@@ -302,7 +302,7 @@ $('#tableUserDeployments').dataTable( {
 			}
 		{% endif %}
 	]
-    {% if config['FEATURE_HIDDEN_DEPLOYMENT_SORT_COLUMN'] != '' %}
+    {% if config['FEATURE_HIDDEN_DEPLOYMENT_SORT_COLUMN'] %}
         , "order": [[{{config['FEATURE_HIDDEN_DEPLOYMENT_SORT_COLUMN']|safe}}]]
     {% else %}
       , "order": [[4, 'desc']]

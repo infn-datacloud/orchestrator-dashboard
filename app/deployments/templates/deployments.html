@@ -297,7 +297,7 @@ $('#tableUserDeployments').dataTable( {
 			"targets"  : 'no-sort',
 			"orderable": false,
 		}
-		{% if config['FEATURE_HIDDEN_DEPLOYMENT_COLUMNS'] != '' %}
+		{% if config['FEATURE_HIDDEN_DEPLOYMENT_COLUMNS'] %}
            ,{
 				"targets": [{{config['FEATURE_HIDDEN_DEPLOYMENT_COLUMNS']}}],
 				"visible": false,
