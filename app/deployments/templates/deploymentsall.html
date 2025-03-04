@@ -47,7 +47,7 @@
                 <input type="hidden" id="showhdep" name="showhdep" value={{ showdepdel }}>
             </form>
 			<div class="table-responsive" style="overflow:inherit;">
-				<table class="table table-bordered table-striped" id="tableUserDeployments" width="100%" cellspacing="0">
+				<table class="table table-bordered table-striped" id="tableAdminDeployments" width="100%" cellspacing="0">
 					<!--Table head-->
 					<thead>
 						<tr>
@@ -288,7 +288,17 @@ $(document).ready(() => {
     $("#show_deleted_deployments").prop("checked", {% if  showdepdel == "True"%} true {% else %} false {% endif %});
 });
 
-$('#tableUserDeployments').dataTable( {
+$('#tableAdminDeployments').dataTable( {
+    "stateSave": true,
+    "stateSaveCallback": function (settings, data) {
+        localStorage.setItem(
+            'tableAdminDeployments_' + settings.sInstance,
+            JSON.stringify(data)
+        );
+    },
+    "stateLoadCallback": function (settings) {
+        return JSON.parse(localStorage.getItem('tableAdminDeployments_' + settings.sInstance));
+    },
 	"responsive": true,
 	"columnDefs": [
 		{
@@ -309,16 +319,17 @@ $('#tableUserDeployments').dataTable( {
     {% endif %}
 	,'fnDrawCallback': function () {
 		$('.dataTables_filter').each(function () {
-			$(this).prepend(
-                '<label><input type="checkbox" id="show_deleted_deployments" name="show_deleted_deployments"\
+            if ($('#show_deleted_deployments').length == 0) {
+                $(this).prepend(
+                    '<label><input type="checkbox" id="show_deleted_deployments" name="show_deleted_deployments"\
                 id="show_deleted_deployments" \
                 >&nbsp;Show deleted deployments</label>&nbsp;&nbsp;&nbsp;&nbsp;'
-            );
-            $('#show_deleted_deployments:checkbox').click(function()
-            {
-                var checkbox = $(this);
-                processCBClick(checkbox);
-            });
+                );
+                $('#show_deleted_deployments:checkbox').click(function () {
+                    var checkbox = $(this);
+                    processCBClick(checkbox);
+                });
+            };
 		});
 	}
 });
