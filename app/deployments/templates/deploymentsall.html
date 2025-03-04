@@ -1,19 +1,20 @@
 {% extends "base.html" %}
 {% block content %}
 
-<!-- Column indexes for FEATURE_HIDDEN_DEPLOYMENT_COLUMNS setting
+<!-- Column indexes for FEATURE_HIDDEN_ADMIN_DEPLOYMENT_COLUMNS setting
 
-    0 = description
-    1 = uuid
+    0 = uuid
+    1 = description
     2 = status
-    3 = creation time
-    4 = update time
-    5 = endpoint
-    6 = provider name
+    3 = user uuid
+    4 = creation time
+    5 = update time
+    6 = endpoint
     7 = physical id (infrastructure id)
-	8 = region_name
+    8 = provider name
+	9 = region_name
 
-    value must be comma separated (i.e.  "4, 6, 7")
+    value must be comma separated (i.e.  "5, 6, 7")
 
     Empty string or missing setting means no hidden columns
 -->
@@ -31,17 +32,20 @@
                 <div class="dashboard-template-title">
                     Deployments
                     {% if user_group %}
-                        &nbspfor group: {{user_group}}<br/>
+                        &nbsp;for group: {{user_group}}<br/>
                     {% endif %}
                 </div>
             
                 <div class="dashboard-template-header-buttons">
-					<button type="button" class="dashboard-button dashboard-button-outline-no-border" title="Refresh" onclick='location.href="{{ url_for('deployments_bp.showalldeployments') }}"'>
+					<button type="button" class="dashboard-button dashboard-button-outline-no-border" title="Refresh" onclick='postMain();'>
 						<i class="fas fa-sync-alt"></i>&nbsp;Refresh
 					</button>
                 </div>
             </div>
-
+            <form id="tableform" action="{{ url_for('deployments_bp.showalldeployments') }}" method="post">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" id="showhdep" name="showhdep" value={{ showdepdel }}>
+            </form>
 			<div class="table-responsive" style="overflow:inherit;">
 				<table class="table table-bordered table-striped" id="tableUserDeployments" width="100%" cellspacing="0">
 					<!--Table head-->
@@ -281,6 +285,7 @@ $(document).ready(() => {
 		$(this).addClass("disabled", true);
 		$(this).html( `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Deleting...` );
 	});
+    $("#show_deleted_deployments").prop("checked", {% if  showdepdel == "True"%} true {% else %} false {% endif %});
 });
 
 $('#tableUserDeployments').dataTable( {
@@ -289,16 +294,48 @@ $('#tableUserDeployments').dataTable( {
 		{
 			"targets"  : 'no-sort',
 			"orderable": false,
-		},
+		}
 		{% if config['FEATURE_HIDDEN_ADMIN_DEPLOYMENT_COLUMNS'] != '' %}
-			{
+          ,{
 				"targets": [{{config['FEATURE_HIDDEN_ADMIN_DEPLOYMENT_COLUMNS']}}],
 				"visible": false,
-			},
+			}
 		{% endif %}
-	],
-	"order": [[ 3, "desc" ]]
+	]
+    {% if config['FEATURE_HIDDEN_DEPLOYMENT_SORT_COLUMN'] != '' %}
+        , "order": [[{{config['FEATURE_HIDDEN_DEPLOYMENT_SORT_COLUMN']|safe}}]]
+    {% else %}
+      , "order": [[3, 'desc']]
+    {% endif %}
+	,'fnDrawCallback': function () {
+		$('.dataTables_filter').each(function () {
+			$(this).prepend(
+                '<label><input type="checkbox" id="show_deleted_deployments" name="show_deleted_deployments"\
+                id="show_deleted_deployments" \
+                >&nbsp;Show deleted deployments</label>&nbsp;&nbsp;&nbsp;&nbsp;'
+            );
+            $('#show_deleted_deployments:checkbox').click(function()
+            {
+                var checkbox = $(this);
+                processCBClick(checkbox);
+            });
+		});
+	}
 });
+
+function postMain() {
+    $( "#tableform" ).submit();
+    return true;
+}
+
+function processCBClick(control) {
+    if (control.is(':checked')==true) {
+        document.getElementById("showhdep").value = "True";
+    } else {
+        document.getElementById("showhdep").value = "False";
+    }
+    postMain();
+}
 
 $('#requestPorts').on('show.bs.modal', function (event) {
     let target = $(event.relatedTarget) // Button that triggered the modal

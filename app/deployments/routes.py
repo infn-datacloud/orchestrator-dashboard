@@ -22,6 +22,7 @@ import string
 from typing import Optional
 import uuid as uuid_generator
 from urllib.parse import urlparse
+from distutils.util import strtobool
 
 import openstack
 import openstack.connection
@@ -75,10 +76,13 @@ def showdeploymentsingroup():
     return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
 
 
-@deployments_bp.route("/list")
+@deployments_bp.route("/list", methods=["GET", "POST"])
 @auth.authorized_with_valid_token
 def showdeployments():
     access_token = iam.token["access_token"]
+    show_deleted="False"
+    if request.method == "POST":
+        show_deleted = request.form.to_dict()["showhdep"]
 
     group = None
     if "active_usergroup" in session and session["active_usergroup"] is not None:
@@ -95,18 +99,29 @@ def showdeployments():
     if deployments:
         result = dbhelpers.updatedeploymentsstatus(deployments, session["userid"])
         deployments = result["deployments"]
+        if (show_deleted == "False"):
+            deployments = filter_function(deployments, "DELETE_COMPLETE", False)
         app.logger.debug("Deployments: " + str(deployments))
 
         deployments_uuid_array = result["iids"]
         session["deployments_uuid_array"] = deployments_uuid_array
 
-    return render_template("deployments.html", deployments=deployments)
+    return render_template("deployments.html", deployments=deployments, showdepdel=show_deleted)
 
+def filter_function(deployments, search_string, negate):
+    def iterator_func(x):
+        if x.status == search_string:
+            return negate
+        return not negate
+    return filter(iterator_func, deployments)
 
-@deployments_bp.route("/listall")
+@deployments_bp.route("/listall", methods=["GET", "POST"])
 @auth.authorized_with_valid_token
 def showalldeployments():
     access_token = iam.token["access_token"]
+    show_deleted="False"
+    if request.method == "POST":
+        show_deleted = request.form.to_dict()["showhdep"]
 
     group = None
     if "active_usergroup" in session and session["active_usergroup"] is not None:
@@ -123,12 +138,14 @@ def showalldeployments():
     if deployments:
         result = dbhelpers.updatedeploymentsstatus(deployments, session["userid"])
         deployments = result["deployments"]
+        if (show_deleted == "False"):
+            deployments = filter_function(deployments, "DELETE_COMPLETE", False)
         app.logger.debug("Deployments: " + str(deployments))
 
         deployments_uuid_array = result["iids"]
         session["deployments_uuid_array"] = deployments_uuid_array
 
-    return render_template("deploymentsall.html", deployments=deployments, user_group=group)
+    return render_template("deploymentsall.html", deployments=deployments, user_group=group, showdepdel=show_deleted)
 
 
 @deployments_bp.route("/overview")
