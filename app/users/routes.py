@@ -59,22 +59,31 @@ def show_user(subject,ronly):
     else:
         return render_template(app.config.get("HOME_TEMPLATE"))
 
+def filter_function(deployments, search_string, negate):
+    def iterator_func(x):
+        if x.status == search_string:
+            return negate
+        return not negate
+    return filter(iterator_func, deployments)
 
-@users_bp.route("/<subject>/deployments")
+@users_bp.route("/<subject>/deployments", methods=["GET", "POST"])
 @auth.authorized_with_valid_token
 @auth.only_for_admin
 def show_deployments(subject):
-    issuer = app.settings.iam_url
-    if not issuer.endswith("/"):
-        issuer += "/"
 
+    access_token = iam.token["access_token"]
     user = dbhelpers.get_user(subject)
 
     if user is not None:
-        #
-        # retrieve deployments from orchestrator
-        access_token = iam.token["access_token"]
 
+        issuer = iam.base_url
+        if not issuer.endswith("/"):
+            issuer += "/"
+        show_deleted = "False"
+        if request.method == "POST":
+            show_deleted = request.form.to_dict()["showhdep"]
+
+        '''
         headers = {"Authorization": "bearer %s" % access_token}
 
         url = (
@@ -93,18 +102,27 @@ def show_deployments(subject):
         #
         # retrieve deployments from DB
         deployments = dbhelpers.cvdeployments(dbhelpers.get_user_deployments(user.sub))
-        for dep in deployments:
-            newremote = dep.remote
-            if dep.uuid not in iids:
-                if dep.remote == 1:
-                    newremote = 0
-            else:
-                if dep.remote == 0:
-                    newremote = 1
-            if dep.remote != newremote:
-                dbhelpers.update_deployment(dep.uuid, dict(remote=newremote))
+        '''
 
-        return render_template("dep_user.html", user=user, deployments=deployments)
+        deployments = []
+        try:
+            deployments = app.orchestrator.get_deployments(
+                access_token, created_by="{}@{}".format(subject, issuer)
+            )
+        except Exception as e:
+            flash("Error retrieving deployment list: \n" + str(e), "warning")
+
+        if deployments:
+            result = dbhelpers.sanitizedeployments(deployments)
+            deployments = result["deployments"]
+            if (show_deleted == "False"):
+                deployments = filter_function(deployments, "DELETE_COMPLETE", False)
+            app.logger.debug("Deployments: " + str(deployments))
+
+            deployments_uuid_array = result["iids"]
+            session["deployments_uuid_array"] = deployments_uuid_array
+
+        return render_template("dep_user.html", user=user, deployments=deployments, showdepdel=show_deleted)
     else:
         flash("User not found!", "warning")
         users = User.get_users()

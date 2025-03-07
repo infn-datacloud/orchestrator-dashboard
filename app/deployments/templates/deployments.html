@@ -31,8 +31,12 @@
                 <div class="dashboard-template-title">
                     My deployments
                 </div>
-            
                 <div class="dashboard-template-header-buttons">
+                    {% if showback == 'True' %}
+                    <button type="button" class="dashboard-button dashboard-button-outline-no-border" title="Back" onclick="set_loading(true); history.back()">
+                        <i class="fas fa-arrow-left"></i>&nbsp;Back
+                    </button>
+                    {% endif %}
 					<button type="button" class="dashboard-button dashboard-button-outline-no-border" title="Refresh" onclick='postMain();'>
 						<i class="fas fa-sync-alt"></i>&nbsp;Refresh
 					</button>
@@ -44,6 +48,7 @@
             <form id="tableform" action="{{ url_for('deployments_bp.showdeployments') }}" method="post">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" id="showhdep" name="showhdep" value={{ showdepdel }}>
+                <input type="hidden" id="showback" name="showback" value={{ showback }}>
             </form>
 			<div class="table-responsive" style="overflow:inherit;">
 				<table class="table table-bordered table-striped" id="tableUserDeployments" width="100%" cellspacing="0">
@@ -53,8 +58,8 @@
 							<th>Deployment identifier</th>
 							<th>Description</th>
 							<th>Status</th>
-							<th>Creation time</th>
-							<th>Update time</th>
+							<th>Creation At</th>
+							<th>Update At</th>
 							<th>Endpoint</th>
 							<th>Physical Id</th>
 							<th>Deployed at</th>

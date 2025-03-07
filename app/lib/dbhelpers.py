@@ -117,10 +117,12 @@ def get_deployment_region(dep: dict[str:Any]) -> Optional[str]:
     return None
 
 
-def updatedeploymentsstatus(deployments, userid):
+def sanitizedeployments(deployments):
     result = {}
     deps = []
     iids = []
+
+    access_token = iam.token["access_token"]
 
     # update deployments status in database
     for dep_json in deployments:
@@ -182,8 +184,6 @@ def updatedeploymentsstatus(deployments, userid):
             app.logger.info("Deployment with uuid:{} not found!".format(uuid))
 
             # retrieve template
-            access_token = iam.token["access_token"]
-
             try:
                 template = app.orchestrator.get_template(access_token, uuid)
             except Exception:
@@ -207,7 +207,7 @@ def updatedeploymentsstatus(deployments, userid):
                 stoutputs="",
                 task=dep_json["task"],
                 links=json.dumps(dep_json["links"]),
-                sub=userid,
+                sub=dep_json["createdBy"]["subject"],
                 template=template,
                 template_parameters="",
                 template_metadata="",
@@ -237,7 +237,7 @@ def updatedeploymentsstatus(deployments, userid):
             db.session.commit()
 
             deps.append(deployment)
-
+    '''
     # check delete in progress or missing
     dd = Deployment.query.filter(
         Deployment.sub == userid, Deployment.status == "DELETE_IN_PROGRESS"
@@ -253,7 +253,7 @@ def updatedeploymentsstatus(deployments, userid):
             d.update_time = time_string
             db.session.add(d)
             db.session.commit()
-
+    '''
     result["deployments"] = deps
     result["iids"] = iids
     return result
@@ -341,7 +341,7 @@ def update_deployments_status(deployments_from_orchestrator, subject):
     if not deployments_from_orchestrator:
         return
 
-    iids = updatedeploymentsstatus(deployments_from_orchestrator, subject)["iids"]
+    iids = sanitizedeployments(deployments_from_orchestrator)["iids"]
 
     # retrieve deployments from DB
     deployments = cvdeployments(get_user_deployments(subject))

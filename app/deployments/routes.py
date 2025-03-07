@@ -59,6 +59,7 @@ deployments_bp = Blueprint(
 SHOW_DEPLOYMENTS_ROUTE = "deployments_bp.showdeployments"
 SHOW_ALLDEPLOYMENTS_ROUTE = "deployments_bp.showalldeployments"
 MANAGE_RULES_ROUTE = "deployments_bp.manage_rules"
+LOGIN_ROUTE = "home_bp.login"
 
 
 class InputValidationError(Exception):
@@ -73,16 +74,17 @@ def showdeploymentsingroup():
     group = request.args["group"]
     session["active_usergroup"] = group
     flash("Project set to {}".format(group), "info")
-    return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
+    return showdeployments("True")
 
 
 @deployments_bp.route("/list", methods=["GET", "POST"])
 @auth.authorized_with_valid_token
-def showdeployments():
+def showdeployments(show_back="False"):
     access_token = iam.token["access_token"]
     show_deleted="False"
     if request.method == "POST":
         show_deleted = request.form.to_dict()["showhdep"]
+        show_back =  request.form.to_dict()["showback"]
 
     group = None
     if "active_usergroup" in session and session["active_usergroup"] is not None:
@@ -97,16 +99,17 @@ def showdeployments():
         flash("Error retrieving deployment list: \n" + str(e), "warning")
 
     if deployments:
-        result = dbhelpers.updatedeploymentsstatus(deployments, session["userid"])
-        deployments = result["deployments"]
+        sanitized = dbhelpers.sanitizedeployments(deployments)
         if (show_deleted == "False"):
-            deployments = filter_function(deployments, "DELETE_COMPLETE", False)
+            deployments = filter_function(sanitized["deployments"], "DELETE_COMPLETE", False)
+        else:
+            deployments = sanitized["deployments"]
         app.logger.debug("Deployments: " + str(deployments))
 
-        deployments_uuid_array = result["iids"]
+        deployments_uuid_array = sanitized["iids"]
         session["deployments_uuid_array"] = deployments_uuid_array
 
-    return render_template("deployments.html", deployments=deployments, showdepdel=show_deleted)
+    return render_template("deployments.html", deployments=deployments, showdepdel=show_deleted, showback=show_back)
 
 def filter_function(deployments, search_string, negate):
     def iterator_func(x):
@@ -117,15 +120,17 @@ def filter_function(deployments, search_string, negate):
 
 @deployments_bp.route("/listall", methods=["GET", "POST"])
 @auth.authorized_with_valid_token
-def showalldeployments():
+def showalldeployments(show_back="False"):
     access_token = iam.token["access_token"]
     show_deleted="False"
+    group = "None"
     if request.method == "POST":
         show_deleted = request.form.to_dict()["showhdep"]
+        show_back =  request.form.to_dict()["showback"]
+        group =  request.form.to_dict()["group"]
 
-    group = None
-    if "active_usergroup" in session and session["active_usergroup"] is not None:
-        group = session["active_usergroup"]
+    if (group == "None"):
+        group = None
 
     deployments = []
     try:
@@ -136,16 +141,17 @@ def showalldeployments():
         flash("Error retrieving deployment list: \n" + str(e), "warning")
 
     if deployments:
-        result = dbhelpers.updatedeploymentsstatus(deployments, session["userid"])
-        deployments = result["deployments"]
+        sanitized = dbhelpers.sanitizedeployments(deployments)
         if (show_deleted == "False"):
-            deployments = filter_function(deployments, "DELETE_COMPLETE", False)
+            deployments = filter_function(sanitized["deployments"], "DELETE_COMPLETE", False)
+        else:
+            deployments = sanitized["deployments"]
         app.logger.debug("Deployments: " + str(deployments))
 
-        deployments_uuid_array = result["iids"]
+        deployments_uuid_array = sanitized["iids"]
         session["deployments_uuid_array"] = deployments_uuid_array
 
-    return render_template("deploymentsall.html", deployments=deployments, user_group=group, showdepdel=show_deleted)
+    return render_template("deploymentsall.html", deployments=deployments, group=group, showdepdel=show_deleted, showback=show_back)
 
 
 @deployments_bp.route("/overview")
@@ -157,6 +163,9 @@ def showdeploymentsoverview():
     except Exception as e:
         flash("Error retrieving deployment list: \n" + str(e), "warning")
 
+    only_remote = True
+    show_deleted = False
+
     deps = dbhelpers.get_user_deployments(session["userid"])
     # Initialize dictionaries for status, projects, and providers
     statuses = {"UNKNOWN": 0}
@@ -165,7 +174,8 @@ def showdeploymentsoverview():
 
     for dep in deps:
         status = dep.status or "UNKNOWN"
-        if status != "DELETE_COMPLETE" and dep.remote == 1:
+        if (show_deleted == True or status != "DELETE_COMPLETE") and \
+            (only_remote == False or dep.remote == 1):
             statuses[status] = statuses.get(status, 0) + 1
 
             project = dep.user_group or "UNKNOWN"
@@ -187,7 +197,85 @@ def showdeploymentsoverview():
         pr_title="Providers",
         pr_labels=list(providers.keys()),
         pr_values=list(providers.values()),
+        pr_colors=utils.gencolors("green", len(providers))
+    )
+
+
+@deployments_bp.route("/depstats", methods=["GET", "POST"])
+@auth.authorized_with_valid_token
+def showdeploymentstats():
+
+    access_token = iam.token["access_token"]
+
+    only_remote = True
+    show_deleted = False
+
+    group = "None"
+    if request.method == "POST":
+        show_deleted = request.form.to_dict()["showhdep"]
+        group =  request.form.to_dict()["group"]
+
+    if (group == "None"):
+        group = None
+
+    deployments = []
+    try:
+        deployments = app.orchestrator.get_deployments(
+            access_token, user_group=group
+        )
+    except Exception as e:
+        flash("Error retrieving deployment list: \n" + str(e), "warning")
+
+    if deployments:
+        sanitized = dbhelpers.sanitizedeployments(deployments)
+        if (show_deleted == "False"):
+            deployments = filter_function(sanitized["deployments"], "DELETE_COMPLETE", False)
+        else:
+            deployments = sanitized["deployments"]
+
+    # Initialize dictionaries for status, projects, and providers
+    statuses = {"UNKNOWN": 0}
+    projects = {"UNKNOWN": 0}
+    providers = {"UNKNOWN": 0}
+    templates = {"UNKNOWN": 0}
+
+    t_info, _, _, _, _ = tosca.get()
+
+    for info in t_info:
+        templates[info] = 0
+
+    for dep in deployments:
+        status = dep.status or "UNKNOWN"
+        if (show_deleted == True or status != "DELETE_COMPLETE") and \
+            (only_remote == False or dep.remote == 1):
+            statuses[status] = statuses.get(status, 0) + 1
+
+            project = dep.user_group or "UNKNOWN"
+            projects[project] = projects.get(project, 0) + 1
+
+            provider = dep.provider_name or "UNKNOWN"
+            providers[provider] = providers.get(provider, 0) + 1
+
+            template = dep.selected_template or "UNKNOWN"
+            templates[template] = templates.get(template, 0) + 1
+
+    return render_template(
+        "depstatistics.html",
+        s_title="Deployments status",
+        s_labels=list(statuses.keys()),
+        s_values=list(statuses.values()),
+        s_colors=utils.genstatuscolors(statuses),
+        p_title="Projects",
+        p_labels=list(projects.keys()),
+        p_values=list(projects.values()),
+        p_colors=utils.gencolors("blue", len(projects)),
+        pr_title="Providers",
+        pr_labels=list(providers.keys()),
+        pr_values=list(providers.values()),
         pr_colors=utils.gencolors("green", len(providers)),
+        d_templates=templates,
+        group=group,
+        showdepdel=show_deleted
     )
 
 
@@ -344,7 +432,7 @@ def process_deployment_data(dep):
 @deployments_bp.route("/<depid>/templatedb")
 def deptemplatedb(depid):
     if not iam.authorized:
-        return redirect(url_for("home_bp.login"))
+        return redirect(url_for(LOGIN_ROUTE))
     # retrieve deployment from DB
     dep = dbhelpers.get_deployment(depid)
     if dep is None:
@@ -2082,7 +2170,7 @@ def retrydep(depid=None):
         flash("Error retrieving deployment list: \n" + str(e), "danger")
 
     if deployments:
-        result = dbhelpers.updatedeploymentsstatus(deployments, session["userid"])
+        result = dbhelpers.sanitizedeployments(deployments)
         deployments = result["deployments"]
         app.logger.debug("Deployments: " + str(deployments))
 

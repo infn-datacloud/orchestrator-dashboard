@@ -1,6 +1,24 @@
 {% extends "base.html" %}
 {% block content %}
 
+    <!-- Column indexes for FEATURE_HIDDEN_DEPLOYMENT_COLUMNS setting
+
+    0 = uuid
+    1 = description
+    2 = status
+    3 = creation time
+    4 = update time
+    5 = endpoint
+    6 = physical id (infrastructure id)
+    7 = provider name
+	8 = region_name
+    9 = group
+
+    value must be comma separated (i.e.  "4, 5, 6")
+
+    Empty string or missing setting means no hidden columns
+-->
+
 <div class="container-fluid">
     {% set ar = namespace(found=false) %}
     <br>
@@ -18,15 +36,19 @@
                     <button type="button" class="dashboard-button dashboard-button-outline-no-border" title="Back" onclick="set_loading(true); history.back()">
                         <i class="fas fa-arrow-left"></i>&nbsp;Back
                     </button>
-					<button type="button" class="dashboard-button dashboard-button-outline-no-border" title="Refresh" onclick="location.href='{{ url_for('users_bp.show_deployments', subject=user.sub) }}'">
+					<button type="button" class="dashboard-button dashboard-button-outline-no-border" title="Refresh" onclick="postMain();">
 						<i class="fas fa-sync-alt"></i>&nbsp;Refresh
 					</button>
 				</div>
 			</div>
+            <form id="tableform" action="{{ url_for('users_bp.show_deployments', subject=user.sub) }}" method="post">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" id="showhdep" name="showhdep" value={{ showdepdel }}>
+            </form>
 
 			<!--Table-->
 			<div class="table-responsive">
-				<table id="tableDeployments" class="table table-bordered" width="100%" cellspacing="0">
+				<table id="tableDeploymentsUser" class="table table-bordered" width="100%" cellspacing="0">
 					<!--Table head-->
 					<thead>
 						<tr>
@@ -35,6 +57,7 @@
 						<th>Status</th>
 						<th>Created At</th>
 						<th>Updated At</th>
+						<th>Endpoint</th>
 						<th>Physical Id</th>
 						<th>Deployed At</th>
                         <th>Region</th>
@@ -67,6 +90,7 @@
 								</td>
 								<td>{{deployment.creation_time}}</td>
 								<td>{{deployment.update_time}}</td>
+								<td>{{deployment.endpoint}}</td>
 								<td>{{deployment.physicalId}}</td>
 								<td>{{deployment.provider_name}}</td>
                                 <td>{{deployment.region_name if deployment.region_name != None else ''}}</td>
@@ -81,6 +105,11 @@
 											<span class="sr-only">Toggle Dropdown</span>
 										</button>
 										<div class="dropdown-menu">
+											{% if 'CREATE_FAILED' in deployment.status %}
+												<a class="dropdown-item" href="{{ url_for('deployments_bp.retrydep', depid=deployment.uuid) }}">
+													<span class="fas fa-sync-alt mr-2 grey-text"></span>Retry
+												</a>
+											{% endif %}
                                             {% if deployment.status != 'DELETE_COMPLETE' %}
 											    <a class="dropdown-item" href="{{ url_for('deployments_bp.deptemplate', depid=deployment.uuid) }}"><span class="fas fa-search mr-2 grey-text"></span>Show template</a>
                                             {% endif %}
@@ -88,23 +117,51 @@
 												<a class="dropdown-item {% if deployment.physicalId is not defined %}disabled{% endif %}" href="{{ url_for('deployments_bp.deplog', depid=deployment.uuid) }}">
 													<span class="fas fa-file-alt mr-2 grey-text"></span>Log
 												</a>
-                                                {% if deployment.status != 'CREATE_FAILED' %}
-												    <a class="dropdown-item {% if deployment.physicalId is not defined %}disabled{% endif %}" href="{{ url_for('deployments_bp.depinfradetails', depid=deployment.uuid) }}">
+												{% if config['FEATURE_PORTS_REQUEST']|str2bool and (deployment.status == 'CREATE_COMPLETE' or deployment.status == 'UPDATE_COMPLETE') %}
+													<!-- <a class="dropdown-item" data-toggle="modal" data-target="#requestPorts" data-id="{{ deployment.uuid }}" data-action="{{ url_for('deployments_bp.sendportsrequest') }}" >
+														<span class="fas fa-ticket-alt mr-2 grey-text"></span>Request Ports
+													</a> -->
+
+													<a class="dropdown-item {% if deployment.physicalId is not defined %}disabled{% endif %}" href="{{ url_for('deployments_bp.security_groups', depid=deployment.uuid, depProvider=deployment.provider_name) }}">
+														<span class="fas fa-shield-alt mr-2 grey-text"></span>Manage Ports
+													</a>
+												{% endif %}
+												<a class="dropdown-item {% if deployment.physicalId is not defined %}disabled{% endif %}" href="{{ url_for('deployments_bp.depinfradetails', depid=deployment.uuid) }}">
+                                                    {% if deployment.status != 'DELETE_COMPLETE' %}
 													    <span class="fas fa-desktop mr-2 grey-text"></span>Manage Nodes
+                                                    {% else %}
+                                                        {% if deployment.status != 'CREATE_FAILED' %}
+                                                            <span class="fas fa-desktop mr-2 grey-text"></span>View Nodes
+                                                        {% endif %}
+                                                    {% endif %}
+												</a>
+											{% endif %}
+
+											{% if deployment.deployment_type == "QCG" %}
+												<a class="dropdown-item {% if deployment.physicalId is not defined %}disabled{% endif %}" href="{{ url_for('deployments_bp.depqcgdetails', depid=deployment.uuid) }}">
+													<span class="fas fa-bars mr-2 grey-text"></span>Job details
+												</a>
+											{% endif %}
+
+											{% if deployment.locked == 0 %}
+                                                {% if deployment.status == 'DELETE_IN_PROGRESS' %}
+                                                    <a class="dropdown-item" href="{{ url_for('deployments_bp.depreset', depid=deployment.uuid, mode="all") }}">
+                                                        <span class="fas fa-undo-alt mr-2"></span>Reset Status
+                                                    </a>
+                                                {% else %}
+                                                    {% if deployment.status != 'DELETE_COMPLETE' %}
+                                                        <a class="dropdown-item" style="color: red;" href="#delete_confirm_{{deployment.uuid}}" data-toggle="modal" data-backdrop="static" data-keyboard="false" data-target="#delete_confirm_{{deployment.uuid}}">
+                                                            <span class="fas fa-trash-alt mr-2"></span>Delete
+                                                        </a>
+                                                    {% endif %}
+                                                {% endif %}
+											{% else %}
+                                                {% if deployment.status != 'DELETE_COMPLETE' %}
+												    <a class="dropdown-item" href="{{ url_for('deployments_bp.unlockdeployment', depid=deployment.uuid) }}">
+													    <span class="fas fa-lock-open mr-2"></span>Unlock
 												    </a>
                                                 {% endif %}
 											{% endif %}
-                                            {% if deployment.status == 'DELETE_IN_PROGRESS' %}
-                                                <a class="dropdown-item" href="{{ url_for('deployments_bp.depreset', depid=deployment.uuid, mode="user") }}">
-                                                    <span class="fas fa-undo-alt mr-2"></span>Reset Status
-                                                </a>
-                                            {% else %}
-                                                {% if deployment.status != 'DELETE_COMPLETE' %}
-                                                    <a class="dropdown-item" style="color: red;" href="#delete_confirm_{{deployment.uuid}}" data-toggle="modal" data-backdrop="static" data-keyboard="false" data-target="#delete_confirm_{{deployment.uuid}}">
-                                                        <span class="fas fa-trash-alt mr-2"></span>Delete
-                                                    </a>
-                                                {% endif %}
-                                            {% endif %}
 										</div>
 									</div>
 								</td>
@@ -159,22 +216,68 @@
 
 <script>
 
-$('#tableDeployments').DataTable({
+$(document).ready(() => {
+    $("#show_deleted_deployments").prop("checked", {% if  showdepdel == "True"%} true {% else %} false {% endif %});
+});
+
+$('#tableDeploymentsUser').DataTable({
+    "stateSave": true,
+    "stateSaveCallback": function (settings, data) {
+        localStorage.setItem(
+            'tableDeploymentsUser_' + settings.sInstance,
+            JSON.stringify(data)
+        );
+    },
+    "stateLoadCallback": function (settings) {
+        return JSON.parse(localStorage.getItem('tableDeploymentsUser_' + settings.sInstance));
+    },
 	"responsive": true,
-	"order": [],
 	"columnDefs": [ {
 		"targets"  : 'no-sort',
 		"orderable": false,
-	},
-    {% if config['FEATURE_HIDDEN_DEPLOYMENT_COLUMNS'] != '' %}
-        {
-            "targets": [{{config['FEATURE_HIDDEN_DEPLOYMENT_COLUMNS']}}],
-            "visible": false,
-        },
+	    }
+		{% if config['FEATURE_HIDDEN_DEPLOYMENT_COLUMNS'] %}
+           ,{
+				"targets": [{{config['FEATURE_HIDDEN_DEPLOYMENT_COLUMNS']}}],
+				"visible": false,
+			}
+		{% endif %}
+    ]
+    {% if config['FEATURE_DEPLOYMENT_SORT_COLUMN'] %}
+      , "order": [[{{config['FEATURE_DEPLOYMENT_SORT_COLUMN']|safe}}]]
+    {% else %}
+      , "order": [[3, 'desc']]
     {% endif %}
-    ],
-	"order": [[ 3, "desc" ]]
+	,'fnDrawCallback': function () {
+		$('.dataTables_filter').each(function () {
+            if ($('#show_deleted_deployments').length == 0) {
+                $(this).prepend(
+                    '<label><input type="checkbox" id="show_deleted_deployments" name="show_deleted_deployments"\
+                id="show_deleted_deployments" \
+                >&nbsp;Show deleted deployments</label>&nbsp;&nbsp;&nbsp;&nbsp;'
+                );
+                $('#show_deleted_deployments:checkbox').click(function () {
+                    var checkbox = $(this);
+                    processCBClick(checkbox);
+                });
+            };
+		});
+	}
 });
+
+function postMain() {
+    $( "#tableform" ).submit();
+    return true;
+}
+
+function processCBClick(control) {
+    if (control.is(':checked')==true) {
+        document.getElementById("showhdep").value = "True";
+    } else {
+        document.getElementById("showhdep").value = "False";
+    }
+    postMain();
+}
 
 </script>
 

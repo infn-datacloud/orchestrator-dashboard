@@ -13,7 +13,11 @@
                 </div>
             
                 <div class="dashboard-template-title">
-                    Deployments Overview
+                    {% if group %}
+                        Deployments Overview for project: {{group}}<br/>
+                    {% else %}
+                        Deployments Overview
+                    {% endif %}
                 </div>
             
                 <div class="dashboard-template-header-buttons">
