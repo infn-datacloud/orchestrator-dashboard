@@ -106,9 +106,6 @@ def showdeployments(show_back="False"):
             deployments = sanitized["deployments"]
         app.logger.debug("Deployments: " + str(deployments))
 
-        deployments_uuid_array = sanitized["iids"]
-        session["deployments_uuid_array"] = deployments_uuid_array
-
     return render_template("deployments.html", deployments=deployments, showdepdel=show_deleted, showback=show_back)
 
 def filter_function(deployments, search_string, negate):
@@ -147,9 +144,7 @@ def showalldeployments(show_back="False"):
         else:
             deployments = sanitized["deployments"]
 
-        deployments_uuid_array = sanitized["iids"]
-        app.logger.debug("Deployments: " + str(deployments_uuid_array))
-        session["deployments_uuid_array"] = deployments_uuid_array
+        app.logger.debug("Deployments: " + str(deployments))
 
     return render_template("deploymentsall.html", deployments=deployments, group=group, showdepdel=show_deleted, showback=show_back)
 
@@ -354,13 +349,6 @@ def depoutput(depid=None):
     Returns:
     - rendered template with deployment details, inputs, outputs, and structured outputs
     """
-    if (
-        session["userrole"].lower() != "admin"
-        and depid not in session["deployments_uuid_array"]
-    ):
-        flash("You are not allowed to browse this page!", "danger")
-        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
-
     # retrieve deployment from DB
     dep = dbhelpers.get_deployment(depid)
     if dep is None:
@@ -430,9 +418,8 @@ def process_deployment_data(dep):
 
 
 @deployments_bp.route("/<depid>/templatedb")
+@auth.authorized_with_valid_token
 def deptemplatedb(depid):
-    if not iam.authorized:
-        return redirect(url_for(LOGIN_ROUTE))
     # retrieve deployment from DB
     dep = dbhelpers.get_deployment(depid)
     if dep is None:
@@ -2174,9 +2161,6 @@ def retrydep(depid=None):
         deployments = result["deployments"]
         app.logger.debug("Deployments: " + str(deployments))
 
-        deployments_uuid_array = result["iids"]
-        session["deployments_uuid_array"] = deployments_uuid_array
-
         for tmp_dep in deployments:
             if (
                 tmp_name + str_retry in tmp_dep.description
@@ -2408,6 +2392,7 @@ def add_storage_encryption(access_token, inputs):
 
 
 @deployments_bp.route("/sendportsreq", methods=["POST"])
+@auth.authorized_with_valid_token
 def sendportsrequest():
     form_data = request.form.to_dict()
 

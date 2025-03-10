@@ -119,9 +119,6 @@ def show_deployments(subject):
                 deployments = filter_function(deployments, "DELETE_COMPLETE", False)
             app.logger.debug("Deployments: " + str(deployments))
 
-            deployments_uuid_array = result["iids"]
-            session["deployments_uuid_array"] = deployments_uuid_array
-
         return render_template("dep_user.html", user=user, deployments=deployments, showdepdel=show_deleted)
     else:
         flash("User not found!", "warning")
