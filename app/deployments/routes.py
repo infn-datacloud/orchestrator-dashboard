@@ -146,9 +146,9 @@ def showalldeployments(show_back="False"):
             deployments = filter_function(sanitized["deployments"], "DELETE_COMPLETE", False)
         else:
             deployments = sanitized["deployments"]
-        app.logger.debug("Deployments: " + str(deployments))
 
         deployments_uuid_array = sanitized["iids"]
+        app.logger.debug("Deployments: " + str(deployments_uuid_array))
         session["deployments_uuid_array"] = deployments_uuid_array
 
     return render_template("deploymentsall.html", deployments=deployments, group=group, showdepdel=show_deleted, showback=show_back)
