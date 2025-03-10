@@ -196,47 +196,68 @@ def sanitizedeployments(deployments):
                 else ""
             )
 
-            deployment = Deployment(
-                uuid=uuid,
-                creation_time=creation_time,
-                update_time=update_time,
-                physicalId=vphid,
-                description="",
-                status=dep_json["status"],
-                outputs=json.dumps(dep_json["outputs"]),
-                stoutputs="",
-                task=dep_json["task"],
-                links=json.dumps(dep_json["links"]),
-                sub=dep_json["createdBy"]["subject"],
-                template=template,
-                template_parameters="",
-                template_metadata="",
-                selected_template="",
-                inputs=json.dumps(dep_json.get("inputs", "")),
-                stinputs=json.dumps(dep_json.get("stinputs", "")),
-                params="",
-                deployment_type=getdeploymenttype(dep_json),
-                provider_name=providername,
-                provider_type=provider_type,
-                region_name=region_name,
-                user_group=dep_json.get("userGroup"),
-                endpoint=endpoint,
-                remote=1,
-                locked=0,
-                feedback_required=0,
-                keep_last_attempt=0,
-                issuer=dep_json["createdBy"]["issuer"],
-                storage_encryption=0,
-                vault_secret_uuid="",
-                vault_secret_key="",
-                elastic=0,
-                updatable=0,
-            )
+            try:
+                #check user existence
+                subject = dep_json["createdBy"]["subject"]
+                user = get_user(subject)
+                if user is None:
+                    user = User(
+                        sub=subject,
+                        name="unknown",
+                        username="unknown",
+                        given_name="unknown",
+                        family_name="unknown",
+                        email="unknown",
+                        organisation_name="unknown",
+                        role="user",
+                        active=0
+                    )
+                    add_object(user)
 
-            db.session.add(deployment)
-            db.session.commit()
+                deployment = Deployment(
+                    uuid=uuid,
+                    creation_time=creation_time,
+                    update_time=update_time,
+                    physicalId=vphid,
+                    description="",
+                    status=dep_json["status"],
+                    outputs=json.dumps(dep_json["outputs"]),
+                    stoutputs="",
+                    task=dep_json["task"],
+                    links=json.dumps(dep_json["links"]),
+                    sub=subject,
+                    template=template,
+                    template_parameters="",
+                    template_metadata="",
+                    selected_template="",
+                    inputs=json.dumps(dep_json.get("inputs", "")),
+                    stinputs=json.dumps(dep_json.get("stinputs", "")),
+                    params="",
+                    deployment_type=getdeploymenttype(dep_json),
+                    provider_name=providername,
+                    provider_type=provider_type,
+                    region_name=region_name,
+                    user_group=dep_json.get("userGroup"),
+                    endpoint=endpoint,
+                    remote=1,
+                    locked=0,
+                    feedback_required=0,
+                    keep_last_attempt=0,
+                    issuer=dep_json["createdBy"]["issuer"],
+                    storage_encryption=0,
+                    vault_secret_uuid="",
+                    vault_secret_key="",
+                    elastic=0,
+                    updatable=0,
+                )
 
-            deps.append(deployment)
+                db.session.add(deployment)
+                db.session.commit()
+
+                deps.append(deployment)
+            except Exception:
+                app.logger.info("Error sanitizing deployment with uuid:{}".format(uuid))
+
     '''
     # check delete in progress or missing
     dd = Deployment.query.filter(

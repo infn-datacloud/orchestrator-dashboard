@@ -403,14 +403,15 @@ def portfolio():
     if session.get("userid"):
         # check database
         # if user not found, insert
-        user = dbhelpers.get_user(session["userid"])
+        subject = session["userid"]
+        email = session["useremail"]
+        user = dbhelpers.get_user(subject)
         if user is None:
-            email = session["useremail"]
             admins = json.dumps(app.config["ADMINS"])
             role = "admin" if email in admins else "user"
 
             user = User(
-                sub=session["userid"],
+                sub=subject,
                 name=session["username"],
                 username=session["preferred_username"],
                 given_name=session["given_name"],
@@ -422,6 +423,17 @@ def portfolio():
                 active=1,
             )
             dbhelpers.add_object(user)
+        else:
+            # update user data but role
+            dbhelpers.update_user(subject, dict(
+                name=session["username"],
+                username=session["preferred_username"],
+                given_name=session["given_name"],
+                family_name=session["family_name"],
+                email=email,
+                organisation_name=session["organisation_name"],
+                picture=utils.avatar(email, 26),
+                active=1))
 
         session["userrole"] = user.role  # role
 
