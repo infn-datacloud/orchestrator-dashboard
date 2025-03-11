@@ -11,7 +11,7 @@
 		{% if loop.first %}
 		<li class="nav-item"><a class="nav-link active" data-toggle="tab" href=#{{tab}}>{{tab}}</a></li>
 		{% else %}
-		<li class="nav-item"><a class="nav-link" data-toggle="tab" href=#{{tab}}>{{tab}}</a></li>
+		<li class="nav-item" id={{'tab_' + tab.replace(' ', '_').replace('-', '_').lower()}}><a class="nav-link" data-toggle="tab" href=#{{tab}}>{{tab}}</a></li>
 		{% endif %}
 	{% endfor %}
 
@@ -46,3 +46,52 @@
 		{% include 'advanced_config.html' %}
 	</div>
 </div>
+
+<!-- Input Customization -->
+<script>
+	/* 
+		Kubernetes cluster with InterLink Virtual Node
+		Hide tabs on input change
+	*/
+	$(document).ready(() => {
+		let arch_type = $('#virtual_node_architecture')
+
+		let tab_cluster = $('#tab_interlink_in_cluster')
+		let tab_edge = $('#tab_interlink_edge')
+		let tab_tuneled = $('#tab_interlink_tunneled')
+		
+		let inputs_cluster = $("#InterLink-In-Cluster").find("input, textarea, select")
+		let inputs_edge = $("#InterLink-Edge").find("input, textarea, select")
+		let inputs_tuneled = $("#InterLink-Tunneled").find("input, textarea, select")
+
+		if (arch_type) {
+			// tab_cluster not hidden by default because is the first selected value
+			// tab_cluster?.hide();
+			tab_edge?.hide();
+			tab_tuneled?.hide();
+
+			arch_type.on('change', () => {
+				let selected = arch_type.val();
+
+				tab_edge?.hide();
+				tab_tuneled?.hide();
+				tab_cluster?.hide();
+
+				/* Show / hide tabs and clear all hidden inputs */
+				if (selected === 'in-cluster-k8s') {					
+					tab_cluster?.show();
+					inputs_edge?.val("");
+					inputs_tuneled?.val("");
+				} else if (selected === 'edge') {
+					tab_edge?.show();
+					inputs_cluster?.val("");
+					inputs_tuneled?.val("");
+				} else if (selected === 'tunneled') {
+					tab_tuneled?.show();
+					inputs_cluster?.val("");
+					inputs_edge?.val("");
+				}
+			})
+		}
+	})
+</script>
