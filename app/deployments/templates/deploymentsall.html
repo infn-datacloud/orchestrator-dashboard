@@ -53,10 +53,12 @@
                         <a class="dropdown-item" href="javascript:" onclick="processGroupSelect(''); return true;">
                             all
 						</a>
-						{% for user_group in session['supported_usergroups'] %}
-							<a class="dropdown-item" href="javascript:" onclick="processGroupSelect('{{user_group}}'); return true;">
-								{{user_group}}
-							</a>
+						{% for user_group in projects%}
+                            {% if user_group != "UNKNOWN" %}
+                                <a class="dropdown-item" href="javascript:" onclick="processGroupSelect('{{user_group}}'); return true;">
+                                    {{user_group}}
+                                </a>
+                            {% endif %}
 						{% endfor %}
 					</div>
                 </div>

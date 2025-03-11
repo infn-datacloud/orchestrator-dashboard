@@ -22,6 +22,7 @@ from flask import (
     request,
 )
 from app.lib import auth, dbhelpers
+from app.lib.dbhelpers import filter_function
 from app.models.User import User
 from app.iam import iam
 
@@ -59,12 +60,6 @@ def show_user(subject,ronly):
     else:
         return render_template(app.config.get("HOME_TEMPLATE"))
 
-def filter_function(deployments, search_string, negate):
-    def iterator_func(x):
-        if x.status == search_string:
-            return negate
-        return not negate
-    return filter(iterator_func, deployments)
 
 @users_bp.route("/<subject>/deployments", methods=["GET", "POST"])
 @auth.authorized_with_valid_token
@@ -116,7 +111,8 @@ def show_deployments(subject):
             result = dbhelpers.sanitizedeployments(deployments)
             deployments = result["deployments"]
             if (show_deleted == "False"):
-                deployments = filter_function(deployments, "DELETE_COMPLETE", False)
+                deployments = filter_function(deployments,
+                                              ["DELETE_COMPLETE", "DELETE_IN_PROGRESS"], False)
             app.logger.debug("Deployments: " + str(deployments))
 
         return render_template("dep_user.html", user=user, deployments=deployments, showdepdel=show_deleted)

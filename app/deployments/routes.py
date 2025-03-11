@@ -45,6 +45,7 @@ from app.iam import iam
 from app.lib import auth, dbhelpers, fed_reg, providers, s3, utils
 from app.lib import openstack as keystone
 from app.lib import tosca_info as tosca_helpers
+from app.lib.dbhelpers import filter_function
 from app.lib.ldap_user import LdapUserManager
 from app.models.Deployment import Deployment
 from app.providers import sla
@@ -101,19 +102,13 @@ def showdeployments(show_back="False"):
     if deployments:
         sanitized = dbhelpers.sanitizedeployments(deployments)
         if (show_deleted == "False"):
-            deployments = filter_function(sanitized["deployments"], "DELETE_COMPLETE", False)
+            deployments = filter_function(sanitized["deployments"],
+                                          ["DELETE_COMPLETE", "DELETE_IN_PROGRESS"], False)
         else:
             deployments = sanitized["deployments"]
         app.logger.debug("Deployments: " + str(deployments))
 
     return render_template("deployments.html", deployments=deployments, showdepdel=show_deleted, showback=show_back)
-
-def filter_function(deployments, search_string, negate):
-    def iterator_func(x):
-        if x.status == search_string:
-            return negate
-        return not negate
-    return filter(iterator_func, deployments)
 
 @deployments_bp.route("/listall", methods=["GET", "POST"])
 @auth.authorized_with_valid_token
@@ -140,13 +135,33 @@ def showalldeployments(show_back="False"):
     if deployments:
         sanitized = dbhelpers.sanitizedeployments(deployments)
         if (show_deleted == "False"):
-            deployments = filter_function(sanitized["deployments"], "DELETE_COMPLETE", False)
+            deployments = filter_function(sanitized["deployments"],
+                                          ["DELETE_COMPLETE", "DELETE_IN_PROGRESS"], False)
         else:
             deployments = sanitized["deployments"]
 
+        projects = ["UNKNOWN"]
+
+        for dep in deployments:
+            status = dep.status or "UNKNOWN"
+            if (show_deleted == True or (status not in ["DELETE_COMPLETE", "DELETE_IN_PROGRESS"])):
+                project = dep.user_group or "UNKNOWN"
+                if not project in projects:
+                    projects.append(project)
+
+        supported_usergroups = session["supported_usergroups"]
+        for g in supported_usergroups:
+            if not g in projects:
+                projects.append(g)
+
         app.logger.debug("Deployments: " + str(deployments))
 
-    return render_template("deploymentsall.html", deployments=deployments, group=group, showdepdel=show_deleted, showback=show_back)
+    return render_template("deploymentsall.html",
+                           deployments=deployments,
+                           group=group,
+                           showdepdel=show_deleted,
+                           showback=show_back,
+                           projects=projects)
 
 
 @deployments_bp.route("/overview")
@@ -224,7 +239,8 @@ def showdeploymentstats():
     if deployments:
         sanitized = dbhelpers.sanitizedeployments(deployments)
         if (show_deleted == "False"):
-            deployments = filter_function(sanitized["deployments"], "DELETE_COMPLETE", False)
+            deployments = filter_function(sanitized["deployments"],
+                                          ["DELETE_COMPLETE", "DELETE_IN_PROGRESS"], False)
         else:
             deployments = sanitized["deployments"]
 
@@ -241,7 +257,7 @@ def showdeploymentstats():
 
     for dep in deployments:
         status = dep.status or "UNKNOWN"
-        if (show_deleted == True or status != "DELETE_COMPLETE") and \
+        if (show_deleted == True or (status not in ["DELETE_COMPLETE" , "DELETE_IN_PROGRESS"])) and \
             (only_remote == False or dep.remote == 1):
             statuses[status] = statuses.get(status, 0) + 1
 
@@ -253,6 +269,12 @@ def showdeploymentstats():
 
             template = dep.selected_template or "UNKNOWN"
             templates[template] = templates.get(template, 0) + 1
+
+    projects_names = list(projects.keys())
+    supported_usergroups = session["supported_usergroups"]
+    for g in supported_usergroups:
+        if not g in projects_names:
+            projects[g] = 0
 
     return render_template(
         "depstatistics.html",

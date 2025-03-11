@@ -258,26 +258,17 @@ def sanitizedeployments(deployments):
             except Exception:
                 app.logger.info("Error sanitizing deployment with uuid:{}".format(uuid))
 
-    '''
-    # check delete in progress or missing
-    dd = Deployment.query.filter(
-        Deployment.sub == userid, Deployment.status == "DELETE_IN_PROGRESS"
-    ).all()
-
-    for d in dd:
-        uuid = d.uuid
-        if uuid not in iids:
-            time_string = datetime.datetime.now(datetime.timezone.utc).strftime(
-                "%Y-%m-%d %H:%M:%S"
-            )
-            d.status = "DELETE_COMPLETE"
-            d.update_time = time_string
-            db.session.add(d)
-            db.session.commit()
-    '''
     result["deployments"] = deps
     result["iids"] = iids
     return result
+
+
+def filter_function(deployments, search_string_list, negate):
+    def iterator_func(x):
+        if x.status in search_string_list:
+            return negate
+        return not negate
+    return list(filter(iterator_func, deployments))
 
 
 def cvdeployments(deps):
