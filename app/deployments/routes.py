@@ -384,12 +384,12 @@ def get_openstack_connection(
             name=provider_name,
             type=provider_type,
         )
-        assert (
-            len(providers) < 2
-        ), f"Found multiple providers with name '{provider_name}' and type '{provider_type}'"
-        assert (
-            len(providers) > 0
-        ), f"Provider with name '{provider_name}' and type '{provider_type}' not found"
+        assert len(providers) < 2, (
+            f"Found multiple providers with name '{provider_name}' and type '{provider_type}'"
+        )
+        assert len(providers) > 0, (
+            f"Provider with name '{provider_name}' and type '{provider_type}' not found"
+        )
         provider = providers[0]
 
         # Retrieve the authentication details matching the current identity provider
@@ -1162,7 +1162,7 @@ def select_scheduling(selected_tosca=None, multi_templates=True):
     if multi_templates:
         steps = {"current": 2, "total": 4}
 
-    # If not only one tosca template, read the chosed tosca from the form
+    # If not only one tosca template, read the chosed tosca from the previous form
     if not selected_tosca:
         selected_tosca = request.form.get("selected_tosca")
 
@@ -1207,14 +1207,12 @@ def configure_form():
     if sched_type == "man":
         # At least a default value for selected_sla is given
         selected_sla = request.form.get("extra_opts.selectedSLA")
-        values = selected_sla.split("_")
-        selected_sla = values[0]
-        selected_region = values[1] if len(values) > 1 else None
+        selected_sla, region_name = selected_sla.split("_")
         template = patch_template(
             access_token=access_token,
             template=template,
             sla_id=selected_sla,
-            region_name=selected_region,
+            region_name=region_name,
         )
     else:
         template = patch_template(access_token=access_token, template=template)
@@ -1243,18 +1241,19 @@ def configure_form():
 
 
 def patch_template(
-    *, access_token: str, template: dict, sla_id: Optional[str] = None, region_name=None
+    *,
+    access_token: str,
+    template: dict,
+    sla_id: Optional[str] = None,
+    region_name: Optional[str] = None,
 ):
     if app.settings.use_fed_reg:
         user_group = fed_reg.retrieve_active_user_group(access_token=access_token)
         if user_group is None:
             pass  # TODO: return to home??
 
-        flavors, images = fed_reg.retrieve_slas_data_from_active_user_group(
-            access_token=access_token,
-            user_group=user_group,
-            sla_id=sla_id,
-            region_name=region_name,
+        flavors, images = fed_reg.retrieve_active_user_group_resources(
+            access_token=access_token, user_group=user_group, sla_id=sla_id, region_name=region_name
         )
         pattern = r"^(?=.*flavor)(?!.*partition).*"
         # patch flavors
@@ -1606,12 +1605,12 @@ def process_openstack_ec2credentials(key: str, inputs: dict, stinputs: dict):
                     name=session["active_usergroup"],
                     idp_endpoint=session["iss"],
                 )
-                assert (
-                    len(user_groups) < 2
-                ), f"Found multiple user groups with name '{session['active_usergroup']}' and issuer '{session['iss']}'"
-                assert (
-                    len(user_groups) > 0
-                ), f"User group with name '{session['active_usergroup']}' and issuer '{session['iss']}' not found"
+                assert len(user_groups) < 2, (
+                    f"Found multiple user groups with name '{session['active_usergroup']}' and issuer '{session['iss']}'"
+                )
+                assert len(user_groups) > 0, (
+                    f"User group with name '{session['active_usergroup']}' and issuer '{session['iss']}' not found"
+                )
                 user_group = user_groups[0]
 
                 # Find project, provider and region matching service url

@@ -103,6 +103,11 @@ def get_flavors(*, access_token: str, timeout: int = 60, **kwargs):
     return get(access_token=access_token, entity="flavors", timeout=timeout, **kwargs)
 
 
+def get_images(*, access_token: str, timeout: int = 60, **kwargs):
+    """Retrieve all images details and related entities."""
+    return get(access_token=access_token, entity="images", timeout=timeout, **kwargs)
+
+
 def deployment_supports_service(*, deployment_type: str, service_name: str):
     """A deployment type supports only specific service categories."""
     if deployment_type == "CLOUD":
@@ -189,10 +194,7 @@ def retrieve_slas_from_active_user_group(
     return slas
 
 
-def retrieve_active_user_group(
-    *,
-    access_token: str,
-):
+def retrieve_active_user_group(*, access_token: str):
     """Retrieve the active user group data."""
     # From session retrieve current user group name and issuer
     if "active_usergroup" in session and session["active_usergroup"] is not None:
@@ -221,166 +223,108 @@ def retrieve_active_user_group(
     return None
 
 
-def retrieve_slas_data_from_active_user_group(
-    *, access_token: str, user_group: Any, sla_id=None, region_name=None
-):
-    # TODO: initialize with the original template values so
-    # if the try-except fails it returns the template defaults
-    flavors = []
-    images = []
+def filter_resources(
+    resources: list[dict],
+    *,
+    project_uid: str,
+    provider_uid: str,
+    region_name: Optional[str] = None,
+) -> list[dict]:
+    """Filter resources (flavors and images).
 
-    temp_flavors = {}
-    temp_images = {}
-    idx_flv = 1
-    idx_fli = 1
+    Keep public resources or private ones accessible from the target project and
+    belonging to the same region-provider couples.
+    """
+    filtered = []
+    for resource in resources:
+        for service in resource["services"]:
+            if (
+                service["region"]["provider"]["uid"] == provider_uid
+                and (region_name is None or service["region"]["name"] == region_name)
+                and (
+                    resource["is_public"]
+                    or project_uid in [i["uid"] for i in resource["projects"]]
+                )
+            ):
+                filtered.append(resource)
+    return filtered
 
-    try:
-        for sla in user_group["slas"]:
-            if sla_id is None or sla["uid"] == sla_id:
-                for project in sla["projects"]:
-                    # TODO: resolve when a region_name is specified
-                    # if region_name is not None:
-                    # service_type = "compute"
-                    # for quota in filter(lambda x: x["service"]["type"] == service_type, project["quotas"]):
-                    #     service = quota["service"]
-                    #     region = service["region"]
-                    # if not region_name or any()
 
-                    project_data = get_project(
-                        access_token=access_token,
-                        with_conn=True,
-                        uid=project["uid"],
-                    )
+def remap_flavors(flavors: list[dict]) -> dict[str, dict]:
+    """Keep only flavors' relevant values and remove duplicates.
 
-                    # Handle flavor list
-                    project_flavors = project_data["flavors"]
-                    # get useful fields and remove duplicates
-                    for flavor in project_flavors:
-                        # if flavor["is_public"] == True:
-                        ram_d = float(flavor["ram"])
-                        if ram_d % 1024.0 != 0:
-                            ram_f = "{:.1f}"
-                        else:
-                            ram_f = "{:.0f}"
-                        ram = ram_d / 1024.0
-                        cpu = int(flavor["vcpus"])
-                        disk = int(flavor["disk"])
-                        gpus = int(flavor["gpus"])
-                        gpu_model = flavor["gpu_model"]
-                        name = ",".join((str(cpu), str(ram), str(gpus), str(disk)))
-                        if name not in temp_flavors:
-                            f = {
-                                "name": name,
-                                "cpu": cpu,
-                                "ram": ram,
-                                "disk": disk,
-                                "gpus": gpus,
-                                "gpu_model": gpu_model,
-                                "enable_gpu": True if gpus > 0 else False,
-                            }
-                            temp_flavors[name] = f
-
-                    # Handle image list
-                    project_images = project_data["images"]
-                    # get useful fields and remove duplicates
-                    for image in project_images:
-                        # if image["is_public"] == True:
-                        os_distro = image["os_distro"]
-                        os_version = image["os_version"]
-                        description = image["description"]
-                        name = ",".join(
-                            (str(os_distro), str(os_version), str(description))
-                        )
-                        created_at = datetime.strptime(
-                            image["created_at"], "%Y-%m-%dT%H:%M:%S%z"
-                        )
-                        if name not in temp_images or created_at > datetime.strptime(
-                            temp_images[name]["created_at"],
-                            "%Y-%m-%dT%H:%M:%S%z",
-                        ):
-                            i = {
-                                "name": image["name"],
-                                "description": description,
-                                "os_distro": os_distro,
-                                "os_version": os_version,
-                                "gpu_driver": image["gpu_driver"],
-                                "created_at": image["created_at"],
-                            }
-                            temp_images[name] = i
-
-        # sort flavors
-        sorted_flavors = {
-            k: v
-            for k, v in sorted(
-                temp_flavors.items(),
-                key=lambda x: (
-                    x[1]["cpu"],
-                    x[1]["ram"],
-                    x[1]["gpus"],
-                    x[1]["disk"],
-                ),
-            )
-        }
-        # sort images
-        sorted_images = {
-            k: v
-            for k, v in sorted(
-                temp_images.items(),
-                key=lambda x: (
-                    (x[1]["os_distro"] is None, x[1]["os_distro"]),
-                    (x[1]["os_version"] is None, x[1]["os_version"]),
-                ),
-            )
-        }
-
-        # create flavor list
-        for f in sorted_flavors.values():
-            flavor = {
-                "value": "{}".format(idx_flv),
-                "label": make_flavor_label(
-                    cpu=f["cpu"],
-                    ram=f["ram"],
-                    disk=f["disk"],
-                    gpus=f["gpus"],
-                    ram_f=ram_f,
-                ),
-                "set": {
-                    "num_cpus": "{}".format(f["cpu"]),
-                    "mem_size": (ram_f + " GB").format(f["ram"]),
-                    "disk_size": "{} GB".format(f["disk"]),
-                    "num_gpus": "{}".format(f["gpus"]),
-                    "gpu_model": "{}".format(f["gpu_model"]),
-                    "enable_gpu": "{}".format(f["enable_gpu"]),
-                },
+    Keep vcpus, disk, ram, gpus and gpu model attributes.
+    Define the flavor unique name based on its attributes.
+    Keep only one flavor for each of these names.
+    """
+    MB = 1024.0
+    d = {}
+    for flavor in flavors:
+        ram_d = float(flavor["ram"])
+        if ram_d % MB != 0:
+            ram_f = "{:.1f}"
+        else:
+            ram_f = "{:.0f}"
+        ram = ram_d / MB
+        cpu = int(flavor["vcpus"])
+        disk = int(flavor["disk"])
+        gpus = int(flavor["gpus"])
+        gpu_model = flavor["gpu_model"]
+        name = ",".join((str(cpu), str(ram), str(gpus), str(disk)))
+        if name not in d:
+            f = {
+                "name": name,
+                "cpu": cpu,
+                "ram": ram,
+                "ram_f": ram_f,
+                "disk": disk,
+                "gpus": gpus,
+                "gpu_model": gpu_model,
+                "enable_gpu": gpus > 0,
             }
-            flavors.append(flavor)
-            idx_flv += 1
+            d[name] = f
+    return d
 
-        # create image list
-        for i in sorted_images.values():
-            image = {
-                "value": "{}".format(idx_fli),
-                "label": make_image_label(
-                    distro=i["os_distro"],
-                    version=i["os_version"],
-                    description=i["description"],
-                    name=i["name"],
-                ),
-                "set": {
-                    "os_distribution": "{}".format(i["os_distro"]),
-                    "os_version": "{}".format(i["os_version"]),
-                },
+
+def remap_images(images: list[dict]) -> dict[str, dict]:
+    """Keep only images' relevant values and remove duplicates.
+
+    Keep OS distro, OS version, name, description, creation time and support for GPUs.
+    Define the image unique name based on its attributes.
+    Keep only one image for each of these names.
+    When there is a duplicate, keep the most recent one.
+    """
+    d = {}
+    for image in images:
+        os_distro = image["os_distro"]
+        os_version = image["os_version"]
+        description = image["description"]
+        name = ",".join((str(os_distro), str(os_version), str(description)))
+        created_at = datetime.strptime(image["created_at"], "%Y-%m-%dT%H:%M:%S%z")
+        if name not in d or created_at > datetime.strptime(
+            d[name]["created_at"],
+            "%Y-%m-%dT%H:%M:%S%z",
+        ):
+            i = {
+                "name": image["name"],
+                "description": description,
+                "os_distro": os_distro,
+                "os_version": os_version,
+                "gpu_driver": image["gpu_driver"],
+                "created_at": image["created_at"],
             }
-            images.append(image)
-            idx_fli += 1
-
-    except Exception as e:
-        flash("Error retrieving user group data: \n" + str(e), "warning")
-
-    return flavors, images
+            d[name] = i
+    return d
 
 
-def make_image_label(*, distro: str, version: str, description: str, name: str):
+def make_image_label(
+    *,
+    distro: Optional[str],
+    version: Optional[str],
+    description: Optional[str],
+    name: Optional[str],
+) -> str:
+    """Build the image label to show on the dashboard."""
     if description and version and distro:
         return "{} {} ( {} )".format(distro, version, description)
     if version and distro:
@@ -390,7 +334,15 @@ def make_image_label(*, distro: str, version: str, description: str, name: str):
     return "no label"
 
 
-def make_flavor_label(*, cpu: int, ram: float, disk: int, gpus: int, ram_f: str):
+def make_flavor_label(
+    *,
+    cpu: Optional[int],
+    ram: Optional[float],
+    disk: Optional[int],
+    gpus: Optional[int],
+    ram_f: Optional[str],
+) -> str:
+    """Build the flavor label to show on the dashboard."""
     if gpus > 0 and disk > 0:
         return ("{} VCPUs, " + ram_f + " GB RAM, {} GB DISK, {} GPUS").format(
             cpu, ram, disk, gpus
@@ -400,3 +352,122 @@ def make_flavor_label(*, cpu: int, ram: float, disk: int, gpus: int, ram_f: str)
     if disk > 0:
         return ("{} VCPUs, " + ram_f + " GB RAM, {} GB DISK").format(cpu, ram, disk)
     return ("{} VCPUs, " + ram_f + " GB RAM").format(cpu, ram)
+
+
+def sort_and_prepare_flavors(flavors: dict[str, dict]) -> list[dict]:
+    """Sort flavors and return a list of dict with filtered values for the dashboard."""
+    outputs = []
+    sorted_flavors = dict(
+        sorted(
+            flavors.items(),
+            key=lambda x: (
+                x[1]["cpu"],
+                x[1]["ram"],
+                x[1]["gpus"],
+                x[1]["disk"],
+            ),
+        )
+    )
+    for i, v in enumerate(sorted_flavors.values()):
+        flavor = {
+            "value": "{}".format(i + 1),
+            "label": make_flavor_label(
+                cpu=v["cpu"],
+                ram=v["ram"],
+                disk=v["disk"],
+                gpus=v["gpus"],
+                ram_f=v["ram_f"],
+            ),
+            "set": {
+                "num_cpus": "{}".format(v["cpu"]),
+                "mem_size": (v["ram_f"] + " GB").format(v["ram"]),
+                "disk_size": "{} GB".format(v["disk"]),
+                "num_gpus": "{}".format(v["gpus"]),
+                "gpu_model": "{}".format(v["gpu_model"]),
+                "enable_gpu": "{}".format(v["enable_gpu"]),
+            },
+        }
+        outputs.append(flavor)
+    return outputs
+
+
+def sort_and_prepare_images(images: dict[str, dict]) -> list[dict]:
+    """Sort images and return a list of dict with filtered values for the dashboard."""
+    outputs = []
+    sorted_images = dict(
+        sorted(
+            images.items(),
+            key=lambda x: (
+                (x[1]["os_distro"] is None, x[1]["os_distro"]),
+                (x[1]["os_version"] is None, x[1]["os_version"]),
+            ),
+        )
+    )
+    for i, v in enumerate(sorted_images.values()):
+        image = {
+            "value": "{}".format(i + 1),
+            "label": make_image_label(
+                distro=v["os_distro"],
+                version=v["os_version"],
+                description=v["description"],
+                name=v["name"],
+            ),
+            "set": {
+                "os_distribution": "{}".format(v["os_distro"]),
+                "os_version": "{}".format(v["os_version"]),
+            },
+        }
+        outputs.append(image)
+    return outputs
+
+
+def retrieve_active_user_group_resources(
+    *,
+    access_token: str,
+    user_group: Any,
+    sla_id: Optional[str] = None,
+    region_name: Optional[str] = None,
+) -> tuple[list[dict], list[dict]]:
+    # TODO: initialize with the original template values so
+    # if the try-except fails it returns the template defaults
+
+    # Retrieve all flavors and images
+    try:
+        fed_reg_flavors = get_flavors(access_token=access_token, with_conn=True)
+    except Exception as e:
+        flash("Error retrieving flavors data: \n" + str(e), "warning")
+
+    try:
+        fed_reg_images = get_images(access_token=access_token, with_conn=True)
+    except Exception as e:
+        flash("Error retrieving flavors data: \n" + str(e), "warning")
+
+    # Filter flavors and images accessible to the user group
+    # and matching the target provider if defined
+    project_flavors = []
+    project_images = []
+    for sla in user_group["slas"]:
+        if sla_id is None or sla["uid"] == sla_id:
+            for project in sla["projects"]:
+                project_flavors += filter_resources(
+                    region_name=region_name,
+                    project_uid=project["uid"],
+                    provider_uid=project["provider"]["uid"],
+                    resources=fed_reg_flavors,
+                )
+                project_images += filter_resources(
+                    region_name=region_name,
+                    project_uid=project["uid"],
+                    provider_uid=project["provider"]["uid"],
+                    resources=fed_reg_images,
+                )
+
+    # Handle flavos and images list: get useful fields and remove duplicates
+    temp_flavors = remap_flavors(project_flavors)
+    temp_images = remap_images(project_images)
+
+    # Sort flavors and images
+    sorted_flavors = sort_and_prepare_flavors(temp_flavors)
+    sorted_images = sort_and_prepare_images(temp_images)
+
+    return sorted_flavors, sorted_images
