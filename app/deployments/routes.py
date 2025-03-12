@@ -1132,7 +1132,12 @@ def configure():  # TODO: Rename?
     _, _, tosca_gmetadata, _ = tosca.get()
 
     selected_group = request.args.get("selected_group", None)
+    
+    if selected_group is None:
+        selected_group = session['selected_group']
+    
     if selected_group is not None:
+        session["selected_group"] = selected_group
         templates = tosca_gmetadata[selected_group]["templates"]
 
         if len(templates) == 1:
@@ -1153,7 +1158,7 @@ def configure():  # TODO: Rename?
     return redirect(url_for(SHOW_HOME_ROUTE))
 
 
-@deployments_bp.route("/configure", methods=["POST"])
+@deployments_bp.route("/select_scheduling", methods=["GET"])
 @auth.authorized_with_valid_token
 def select_scheduling(selected_tosca=None, multi_templates=True):
     access_token = iam.token["access_token"]
@@ -1162,9 +1167,9 @@ def select_scheduling(selected_tosca=None, multi_templates=True):
     if multi_templates:
         steps = {"current": 2, "total": 4}
 
-    # If not only one tosca template, read the chosed tosca from the previous form
+    # If not only one tosca template, read the chosen tosca from query parameters
     if not selected_tosca:
-        selected_tosca = request.form.get("selected_tosca")
+        selected_tosca = request.args.get("selected_tosca")  # Changed from form to args
 
     tosca_info, _, _, _ = tosca.get()
     template = tosca_info.get(os.path.normpath(selected_tosca), None)
@@ -1175,7 +1180,8 @@ def select_scheduling(selected_tosca=None, multi_templates=True):
     slas = providers.getslasdt(
         access_token=access_token, deployment_type=template["deployment_type"]
     )
-    # TODO salvare in redis questa lista?
+    # TODO: Consider saving this list in Redis for caching?
+
     return render_template(
         "chooseprovider.html",
         slas=slas,
@@ -1184,36 +1190,39 @@ def select_scheduling(selected_tosca=None, multi_templates=True):
     )
 
 
-@deployments_bp.route("/configure_form", methods=["POST"])
+@deployments_bp.route("/configure_form", methods=["GET"])
 @auth.authorized_with_valid_token
 def configure_form():
     access_token = iam.token["access_token"]
     steps = {
-        "current": int(request.args["steps_current"]) + 1,
-        "total": int(request.args["steps_total"]),
+        "current": int(request.args.get("steps_current", 0)) + 1,
+        "total": int(request.args.get("steps_total", 0)),
     }
+    selected_sla = None
 
-    selected_tosca = request.form.get("selected_tosca", None)
+    selected_tosca = request.args.get("selected_tosca")
     if selected_tosca is None:
-        # Should never reach this point, since selected_tosca is always defined
-        # (if following the procedure).
-        flash("Error getting template (not found)".format(), "danger")
+        flash("Error getting template (not found)", "danger")
         return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
 
     tosca_info, _, _, _ = tosca.get()
     template = copy.deepcopy(tosca_info[os.path.normpath(selected_tosca)])
 
-    sched_type = request.form.get("extra_opts.schedtype", "auto")
+    sched_type = request.args.get(
+        "extra_opts.schedtype", "auto"
+    )
     if sched_type == "man":
-        # At least a default value for selected_sla is given
-        selected_sla = request.form.get("extra_opts.selectedSLA")
-        selected_sla, region_name = selected_sla.split("_")
-        template = patch_template(
-            access_token=access_token,
-            template=template,
-            sla_id=selected_sla,
-            region_name=region_name,
+        selected_sla = request.args.get(
+            "extra_opts.selectedSLA"
         )
+        if selected_sla:
+            selected_sla, region_name = selected_sla.split("_")
+            template = patch_template(
+                access_token=access_token,
+                template=template,
+                sla_id=selected_sla,
+                region_name=region_name,
+            )
     else:
         template = patch_template(access_token=access_token, template=template)
 
@@ -1237,6 +1246,8 @@ def configure_form():
         ssh_pub_key=ssh_pub_key,
         steps=steps,
         update=False,
+        sched_type=sched_type,
+        selected_sla=selected_sla,
     )
 
 
@@ -1422,7 +1433,7 @@ def add_sla_to_template(template, sla):
     if sla_split[0]:
         sla_id = sla_split[0]
 
-    if sla_split[1]:
+    if len(sla_split) > 1 and sla_split[1]:
         sla_region = sla_split[1]
 
     tosca_sla_placement_type = "tosca.policies.indigo.SlaPlacement"

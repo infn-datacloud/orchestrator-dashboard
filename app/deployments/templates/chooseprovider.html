@@ -15,15 +15,24 @@
 					Step&nbsp;{{ steps['current'] }}/{{ steps['total'] }}
 				</div>
 			</div>
-			<form id="depSelect" action="{{ url_for('deployments_bp.configure_form', steps_current=steps['current'], steps_total=steps['total']) }}" method="post">
-				<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+			<form id="depSelect" action="{{ url_for('deployments_bp.configure_form') }}" method="get">
 				<input type="hidden" name="selected_tosca" value="{{ selected_tosca }}">
+				<input type="hidden" name="steps_current" value="{{ steps.current }}">
+				<input type="hidden" name="steps_total" value="{{ steps.total }}">
 				{% include 'scheduling_config.html' %}
 				<br>
 				<div class="dashboard-template-buttons-container">
 					<button id="cancelBtn" type=button class="dashboard-button dashboard-button-lg dashboard-button-danger" title="Cancel" onclick="location.href='{{ url_for('home_bp.portfolio') }}'">
 						Cancel&nbsp;<i class="fas fa-ban"></i>
 					</button>
+
+					{% if steps['current'] > 1 %}
+						<button type="button" class="dashboard-button dashboard-button-outline-no-border" title="Back"
+							onclick="history.back()" style="margin-left: auto; margin-right: 4px;">
+							<i class="fas fa-arrow-left"></i>&nbsp;Back
+						</button>
+					{% endif %}
 
 					<button type="submit" class="dashboard-button dashboard-button-lg dashboard-button-primary" title="Continue" onclick="set_loading(true)">
 						Continue&nbsp;<i class="fas fa-arrow-right"></i>
