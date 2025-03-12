@@ -195,9 +195,10 @@ def showdeploymentsoverview():
             groups[user_group] = groups.get(user_group, 0) + 1
 
             provider = dep.provider_name or "UNKNOWN"
-            provider_ext = (provider + "-" + dep.region_name).lower()
-            if  providers_to_split and provider_ext in providers_to_split:
-                provider = provider + "-" + dep.region_name.lower()
+            if dep.region_name:            
+                provider_ext = (provider + "-" + dep.region_name).lower()
+                if  providers_to_split and provider_ext in providers_to_split:
+                    provider = provider + "-" + dep.region_name.lower()
 
             providers[provider] = providers.get(provider, 0) + 1
 
@@ -276,9 +277,10 @@ def showdeploymentstats():
             groups[user_group] = groups.get(user_group, 0) + 1
 
             provider = dep.provider_name or "UNKNOWN"
-            provider_ext = (provider + "-" + dep.region_name).lower()
-            if  providers_to_split and provider_ext in providers_to_split:
-                provider = provider + "-" + dep.region_name.lower()
+            if dep.region_name:
+                provider_ext = (provider + "-" + dep.region_name).lower()
+                if  providers_to_split and provider_ext in providers_to_split:
+                    provider = provider + "-" + dep.region_name.lower()
 
             providers[provider] = providers.get(provider, 0) + 1
 
