@@ -182,6 +182,8 @@ def showdeploymentsoverview():
     groups = {"UNKNOWN": 0}
     providers = {"UNKNOWN": 0}
 
+    providers_to_split = app.config.get("PROVIDER_NAMES_TO_SPLIT", None)
+
     for dep in deps:
         status = dep.status or "UNKNOWN"
         if (show_deleted == True or status != "DELETE_COMPLETE") and \
@@ -192,6 +194,9 @@ def showdeploymentsoverview():
             groups[user_group] = groups.get(user_group, 0) + 1
 
             provider = dep.provider_name or "UNKNOWN"
+            if  providers_to_split and provider in providers_to_split:
+                provider = provider + "-" + dep.region_name
+
             providers[provider] = providers.get(provider, 0) + 1
 
     return render_template(
@@ -255,6 +260,8 @@ def showdeploymentstats():
     for info in t_info:
         templates[info] = 0
 
+    providers_to_split = app.config.get("PROVIDER_NAMES_TO_SPLIT", None)
+
     for dep in deployments:
         status = dep.status or "UNKNOWN"
         if (show_deleted == True or (status not in ["DELETE_COMPLETE" , "DELETE_IN_PROGRESS"])) and \
@@ -265,6 +272,9 @@ def showdeploymentstats():
             groups[user_group] = groups.get(user_group, 0) + 1
 
             provider = dep.provider_name or "UNKNOWN"
+            if  providers_to_split and provider in providers_to_split:
+                provider = provider + "-" + dep.region_name
+
             providers[provider] = providers.get(provider, 0) + 1
 
             template = dep.selected_template or "UNKNOWN"
