@@ -183,7 +183,8 @@ def showdeploymentsoverview():
     providers = {"UNKNOWN": 0}
 
     providers_to_split = app.config.get("PROVIDER_NAMES_TO_SPLIT", None)
-
+    if providers_to_split:
+        providers_to_split = providers_to_split.lower()
     for dep in deps:
         status = dep.status or "UNKNOWN"
         if (show_deleted == True or status != "DELETE_COMPLETE") and \
@@ -194,8 +195,9 @@ def showdeploymentsoverview():
             groups[user_group] = groups.get(user_group, 0) + 1
 
             provider = dep.provider_name or "UNKNOWN"
-            if  providers_to_split and provider in providers_to_split:
-                provider = provider + "-" + dep.region_name
+            provider_ext = (provider + "-" + dep.region_name).lower()
+            if  providers_to_split and provider_ext in providers_to_split:
+                provider = provider + "-" + dep.region_name.lower()
 
             providers[provider] = providers.get(provider, 0) + 1
 
@@ -261,6 +263,8 @@ def showdeploymentstats():
         templates[info] = 0
 
     providers_to_split = app.config.get("PROVIDER_NAMES_TO_SPLIT", None)
+    if providers_to_split:
+        providers_to_split = providers_to_split.lower()
 
     for dep in deployments:
         status = dep.status or "UNKNOWN"
@@ -272,8 +276,9 @@ def showdeploymentstats():
             groups[user_group] = groups.get(user_group, 0) + 1
 
             provider = dep.provider_name or "UNKNOWN"
-            if  providers_to_split and provider in providers_to_split:
-                provider = provider + "-" + dep.region_name
+            provider_ext = (provider + "-" + dep.region_name).lower()
+            if  providers_to_split and provider_ext in providers_to_split:
+                provider = provider + "-" + dep.region_name.lower()
 
             providers[provider] = providers.get(provider, 0) + 1
 
