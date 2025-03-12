@@ -74,7 +74,7 @@ class InputValidationError(Exception):
 def showdeploymentsingroup():
     group = request.args["group"]
     session["active_usergroup"] = group
-    flash("Project set to {}".format(group), "info")
+    flash("Group set to {}".format(group), "info")
     return showdeployments("True")
 
 
@@ -140,19 +140,19 @@ def showalldeployments(show_back="False"):
         else:
             deployments = sanitized["deployments"]
 
-        projects = ["UNKNOWN"]
+        groups = ["UNKNOWN"]
 
         for dep in deployments:
             status = dep.status or "UNKNOWN"
             if (show_deleted == True or (status not in ["DELETE_COMPLETE", "DELETE_IN_PROGRESS"])):
-                project = dep.user_group or "UNKNOWN"
-                if not project in projects:
-                    projects.append(project)
+                user_group = dep.user_group or "UNKNOWN"
+                if not user_group in groups:
+                    groups.append(user_group)
 
         supported_usergroups = session["supported_usergroups"]
         for g in supported_usergroups:
-            if not g in projects:
-                projects.append(g)
+            if not g in groups:
+                groups.append(g)
 
         app.logger.debug("Deployments: " + str(deployments))
 
@@ -161,7 +161,7 @@ def showalldeployments(show_back="False"):
                            group=group,
                            showdepdel=show_deleted,
                            showback=show_back,
-                           projects=projects)
+                           groups=groups)
 
 
 @deployments_bp.route("/overview")
@@ -179,7 +179,7 @@ def showdeploymentsoverview():
     deps = dbhelpers.get_user_deployments(session["userid"])
     # Initialize dictionaries for status, projects, and providers
     statuses = {"UNKNOWN": 0}
-    projects = {"UNKNOWN": 0}
+    groups = {"UNKNOWN": 0}
     providers = {"UNKNOWN": 0}
 
     for dep in deps:
@@ -188,8 +188,8 @@ def showdeploymentsoverview():
             (only_remote == False or dep.remote == 1):
             statuses[status] = statuses.get(status, 0) + 1
 
-            project = dep.user_group or "UNKNOWN"
-            projects[project] = projects.get(project, 0) + 1
+            user_group = dep.user_group or "UNKNOWN"
+            groups[user_group] = groups.get(user_group, 0) + 1
 
             provider = dep.provider_name or "UNKNOWN"
             providers[provider] = providers.get(provider, 0) + 1
@@ -200,10 +200,10 @@ def showdeploymentsoverview():
         s_labels=list(statuses.keys()),
         s_values=list(statuses.values()),
         s_colors=utils.genstatuscolors(statuses),
-        p_title="Projects",
-        p_labels=list(projects.keys()),
-        p_values=list(projects.values()),
-        p_colors=utils.gencolors("blue", len(projects)),
+        p_title="Groups",
+        p_labels=list(groups.keys()),
+        p_values=list(groups.values()),
+        p_colors=utils.gencolors("blue", len(groups)),
         pr_title="Providers",
         pr_labels=list(providers.keys()),
         pr_values=list(providers.values()),
@@ -246,7 +246,7 @@ def showdeploymentstats():
 
     # Initialize dictionaries for status, projects, and providers
     statuses = {"UNKNOWN": 0}
-    projects = {"UNKNOWN": 0}
+    groups = {"UNKNOWN": 0}
     providers = {"UNKNOWN": 0}
     templates = {"UNKNOWN": 0}
 
@@ -261,8 +261,8 @@ def showdeploymentstats():
             (only_remote == False or dep.remote == 1):
             statuses[status] = statuses.get(status, 0) + 1
 
-            project = dep.user_group or "UNKNOWN"
-            projects[project] = projects.get(project, 0) + 1
+            user_group = dep.user_group or "UNKNOWN"
+            groups[user_group] = groups.get(user_group, 0) + 1
 
             provider = dep.provider_name or "UNKNOWN"
             providers[provider] = providers.get(provider, 0) + 1
@@ -270,11 +270,11 @@ def showdeploymentstats():
             template = dep.selected_template or "UNKNOWN"
             templates[template] = templates.get(template, 0) + 1
 
-    projects_names = list(projects.keys())
+    groups_names = list(groups.keys())
     supported_usergroups = session["supported_usergroups"]
     for g in supported_usergroups:
-        if not g in projects_names:
-            projects[g] = 0
+        if not g in groups_names:
+            groups[g] = 0
 
     return render_template(
         "depstatistics.html",
@@ -282,10 +282,10 @@ def showdeploymentstats():
         s_labels=list(statuses.keys()),
         s_values=list(statuses.values()),
         s_colors=utils.genstatuscolors(statuses),
-        p_title="Projects",
-        p_labels=list(projects.keys()),
-        p_values=list(projects.values()),
-        p_colors=utils.gencolors("blue", len(projects)),
+        p_title="Groups",
+        p_labels=list(groups.keys()),
+        p_values=list(groups.values()),
+        p_colors=utils.gencolors("blue", len(groups)),
         pr_title="Providers",
         pr_labels=list(providers.keys()),
         pr_values=list(providers.values()),

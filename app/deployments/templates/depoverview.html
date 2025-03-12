@@ -14,7 +14,7 @@
             
                 <div class="dashboard-template-title">
                     {% if group %}
-                        Deployments Overview for project: {{group}}<br/>
+                        Deployments Overview for group: {{group}}<br/>
                     {% else %}
                         Deployments Overview
                     {% endif %}
@@ -100,7 +100,7 @@ function drawchart(chartid, title, subtitle, labels, values, colors) {
 
 console.log("{{s_text}}");
 drawchart("status_chart", "{{s_title}}", "", {{ s_labels | safe}}, {{ s_values }}, {{s_colors | safe}});
-drawchart("projects_chart", "{{p_title}}", "deployments distribution per project",  {{ p_labels | safe}}, {{ p_values }}, {{p_colors | safe}});
+drawchart("projects_chart", "{{p_title}}", "deployments distribution per group",  {{ p_labels | safe}}, {{ p_values }}, {{p_colors | safe}});
 drawchart("providers_chart", "{{pr_title}}", "deployments distribution per provider", {{ pr_labels | safe}}, {{ pr_values }}, {{pr_colors | safe}});
 
 </script>
