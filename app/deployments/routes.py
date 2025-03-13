@@ -838,7 +838,7 @@ def delnode(depid):
             node = next((res for res in resources if res.get("uuid") == vm_id), None)
             node_name = node.get("toscaNodeName")
             # current count -1 --> remove one node
-            filtered = list(filter(lambda res: res.get("toscaNodeName") == node_name))
+            filtered = list(filter(lambda res: res.get("toscaNodeName") == node_name, resources))
             count = len(filtered) - 1
 
             app.logger.debug(f"Resource details: {resource}")
