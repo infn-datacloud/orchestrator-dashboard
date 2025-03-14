@@ -263,9 +263,22 @@ def sanitizedeployments(deployments):
     return result
 
 
-def filter_function(deployments, search_string_list, negate):
+def filter_status(deployments, search_string_list, negate):
     def iterator_func(x):
         if x.status in search_string_list:
+            return negate
+        return not negate
+    return list(filter(iterator_func, deployments))
+
+
+def filter_provider(deployments, search_string_list, negate, providers_to_split):
+    def iterator_func(x):
+        provider = x.provider_name or "UNKNOWN"
+        if x.region_name:
+            provider_ext = (provider + "-" + x.region_name).lower()
+            if providers_to_split and provider_ext in providers_to_split:
+                provider = provider + "-" + x.region_name.lower()
+        if provider in search_string_list:
             return negate
         return not negate
     return list(filter(iterator_func, deployments))

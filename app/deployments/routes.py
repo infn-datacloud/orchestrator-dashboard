@@ -45,7 +45,7 @@ from app.iam import iam
 from app.lib import auth, dbhelpers, fed_reg, providers, s3, utils
 from app.lib import openstack as keystone
 from app.lib import tosca_info as tosca_helpers
-from app.lib.dbhelpers import filter_function
+from app.lib.dbhelpers import filter_status, filter_provider
 from app.lib.ldap_user import LdapUserManager
 from app.models.Deployment import Deployment
 from app.providers import sla
@@ -102,7 +102,7 @@ def showdeployments(show_back="False"):
     if deployments:
         sanitized = dbhelpers.sanitizedeployments(deployments)
         if (show_deleted == "False"):
-            deployments = filter_function(
+            deployments = filter_status(
                 sanitized["deployments"],
                 ["DELETE_COMPLETE", "DELETE_IN_PROGRESS"],
                 False)
@@ -137,7 +137,7 @@ def showalldeployments(show_back="False"):
     if deployments:
         sanitized = dbhelpers.sanitizedeployments(deployments)
         if (show_deleted == "False"):
-            deployments = filter_function(
+            deployments = filter_status(
                 sanitized["deployments"],
                 ["DELETE_COMPLETE", "DELETE_IN_PROGRESS"],
                 False)
@@ -240,16 +240,21 @@ def showdeploymentstats():
     access_token = iam.token["access_token"]
 
     only_remote = True
-    show_deleted = False
+    show_deleted = "False"
     filter_statuses = ["DELETE_COMPLETE", "DELETE_IN_PROGRESS", "CREATE_FAILED", "DELETE_FAILED"]
 
     group = "None"
+    provider = "None"
     if request.method == "POST":
         show_deleted = request.form.to_dict()["showhdep"]
         group =  request.form.to_dict()["group"]
+        provider = request.form.to_dict()["provider"]
 
     if (group == "None"):
         group = None
+
+    if (provider == "None"):
+        provider = None
 
     deployments = []
     try:
@@ -259,10 +264,11 @@ def showdeploymentstats():
     except Exception as e:
         flash("Error retrieving deployment list: \n" + str(e), "warning")
 
+    # sanitize data and filter undesired states
     if deployments:
         sanitized = dbhelpers.sanitizedeployments(deployments)
         if (show_deleted == "False"):
-            deployments = filter_function(
+            deployments = filter_status(
                 sanitized["deployments"],
                 filter_statuses,
                 False)
@@ -284,22 +290,53 @@ def showdeploymentstats():
     if providers_to_split:
         providers_to_split = providers_to_split.lower()
 
+    groups_labels = []
+    providers_labels = []
+
+    # first round, load labels (names)
     for dep in deployments:
+        if only_remote == False or dep.remote == True:
+
+            user_group = dep.user_group or "UNKNOWN"
+            if user_group and user_group not in groups_labels:
+                groups_labels.append(user_group)
+
+            dep_provider = dep.provider_name or "UNKNOWN"
+            if dep.region_name:
+                provider_ext = (dep_provider + "-" + dep.region_name).lower()
+                if  providers_to_split and provider_ext in providers_to_split:
+                    dep_provider = dep_provider + "-" + dep.region_name.lower()
+            if dep_provider and dep_provider not in providers_labels:
+                providers_labels.append(dep_provider)
+
+    #filter eventually provider
+    filter_providers = []
+    if provider:
+        filter_providers.append(provider)
+        filtered_deployments = filter_provider(
+                deployments,
+                filter_providers,
+                True,
+                providers_to_split)
+    else:
+        filtered_deployments = deployments
+
+    # second round, count instances
+    for dep in filtered_deployments:
         status = dep.status or "UNKNOWN"
-        if (show_deleted == True or status not in filter_statuses) and \
-            (only_remote == False or dep.remote == True):
+        if only_remote == False or dep.remote == True:
             statuses[status] = statuses.get(status, 0) + 1
 
             user_group = dep.user_group or "UNKNOWN"
             groups[user_group] = groups.get(user_group, 0) + 1
 
-            provider = dep.provider_name or "UNKNOWN"
+            dep_provider = dep.provider_name or "UNKNOWN"
             if dep.region_name:
-                provider_ext = (provider + "-" + dep.region_name).lower()
+                provider_ext = (dep_provider + "-" + dep.region_name).lower()
                 if  providers_to_split and provider_ext in providers_to_split:
-                    provider = provider + "-" + dep.region_name.lower()
+                    dep_provider = dep_provider + "-" + dep.region_name.lower()
 
-            providers[provider] = providers.get(provider, 0) + 1
+            providers[dep_provider] = providers.get(dep_provider, 0) + 1
 
             template = dep.selected_template or "UNKNOWN"
             templates[template] = templates.get(template, 0) + 1
@@ -315,11 +352,10 @@ def showdeploymentstats():
         templates.pop("UNKNOWN")
 
     # add local groups if missing
-    groups_names = list(groups.keys())
     supported_usergroups = session["supported_usergroups"]
     for g in supported_usergroups:
-        if not g in groups_names:
-            groups[g] = 0
+        if not g in groups_labels:
+            groups_labels.append(g)
 
     return render_template(
         "depstatistics.html",
@@ -336,7 +372,10 @@ def showdeploymentstats():
         pr_values=list(providers.values()),
         pr_colors=utils.gencolors("green", len(providers)),
         d_templates=templates,
+        groups_labels=groups_labels,
+        providers_labels=providers_labels,
         group=group,
+        provider=provider,
         showdepdel=show_deleted
     )
 

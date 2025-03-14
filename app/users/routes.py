@@ -22,7 +22,7 @@ from flask import (
     request,
 )
 from app.lib import auth, dbhelpers
-from app.lib.dbhelpers import filter_function
+from app.lib.dbhelpers import filter_status
 from app.models.User import User
 from app.iam import iam
 
@@ -90,7 +90,7 @@ def show_deployments(subject):
             result = dbhelpers.sanitizedeployments(deployments)
             deployments = result["deployments"]
             if (show_deleted == "False"):
-                deployments = filter_function(
+                deployments = filter_status(
                     deployments,
                     ["DELETE_COMPLETE", "DELETE_IN_PROGRESS"],
                     False)

@@ -12,37 +12,66 @@
                     <i class="fas fa-chart-pie"></i>
                 </div>
                 <div class="dashboard-template-title">
-                    {% if group %}
-                        Deployments Overview for group: {{group}}<br/>
-                    {% else %}
-                        Deployments Overview
+                    Deployments Overview
+                    {% if group or privider%}
+                        &nbsp;for
                     {% endif %}
+                    {% if group %}
+                        &nbsp;group: {{group}}
+                    {% endif %}
+                    {% if provider %}
+                        &nbsp;provider: {{provider}}
+                    {% endif %}
+                    <br/>
                 </div>
                 <div class="dashboard-template-header-buttons">
-					<button type="button" class="dashboard-button dashboard-button-outline-no-border" onclick='postMain();'>
+
+					<button type="button" id="refreshbutton" class="dashboard-button dashboard-button-outline-no-border" onclick='postMain();'>
 						<i class="fas fa-sync-alt"></i>&nbsp;Refresh
 					</button>
-					<button type="button" class="dashboard-button dashboard-button-small dashboard-button-primary dropdown-toggle dropdown-toggle-split" data-toggle="dropdown">
-						<span class='fas fa-list mr-2'></span>Group&nbsp;
-					</button>
-                    <div class="dropdown-menu">
-                        <a class="dropdown-item" href="javascript:;" onclick="processGroupSelect(''); return true;">
-                            all
-						</a>
-						{% for user_group in p_labels %}
-                            {% if user_group != "UNKNOWN" %}
-                                <a class="dropdown-item" href="javascript:;" onclick="processGroupSelect('{{user_group}}'); return true;">
-                                    {{user_group}}
-                                </a>
-                            {% endif %}
-						{% endfor %}
-					</div>
+                    &nbsp;
+                    <div>
+                        <button type="button" id="providerbutton" class="dashboard-button dashboard-button-small dashboard-button-primary dropdown-toggle dropdown-toggle-split" data-toggle="dropdown">
+                            <span class='fas fa-list mr-2'></span>Provider&nbsp;
+                        </button>
+                        <div class="dropdown-menu">
+                            <a class="dropdown-item" href="javascript:;" onclick="processProviderSelect(''); return true;">
+                                all
+                            </a>
+                            {% for user_provider in providers_labels %}
+                                {% if user_provider != "UNKNOWN" %}
+                                    <a class="dropdown-item" href="javascript:;" onclick="processProviderSelect('{{user_provider}}'); return true;">
+                                        {{user_provider}}
+                                    </a>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                    &nbsp;&nbsp;
+                    <div>
+                        <button type="button" id="groupbutton" class="dashboard-button dashboard-button-small dashboard-button-primary dropdown-toggle dropdown-toggle-split" data-toggle="dropdown">
+                            <span class='fas fa-list mr-2'></span>Group&nbsp;
+                        </button>
+                        <div class="dropdown-menu">
+                            <a class="dropdown-item" href="javascript:;" onclick="processGroupSelect(''); return true;">
+                                all
+                            </a>
+                            {% for user_group in groups_labels %}
+                                {% if user_group != "UNKNOWN" %}
+                                    <a class="dropdown-item" href="javascript:;" onclick="processGroupSelect('{{user_group}}'); return true;">
+                                        {{user_group}}
+                                    </a>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
                 </div>
             </div>
             <form id="tableform" action="{{ url_for('deployments_bp.showdeploymentstats') }}" method="post">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" id="showhdep" name="showhdep" value={{ showdepdel }}>
                 <input type="hidden" id="group" name="group" value={{ group }}>
+                <input type="hidden" id="provider" name="provider" value={{ provider }}>
             </form>
             <div class="row">
                 <div class="col-1">
@@ -63,11 +92,17 @@
                     <i class="fas fa-file-invoice"></i>
                 </div>
                 <div class="dashboard-template-title">
-                    {% if group %}
-                        Templates Usage for group: {{group}}<br/>
-                    {% else %}
-                        Templates Usage
+                    Templates Usage
+                    {% if group or privider%}
+                        &nbsp;for
                     {% endif %}
+                    {% if group %}
+                        &nbsp;group: {{group}}
+                    {% endif %}
+                    {% if provider %}
+                        &nbsp;provider: {{provider}}
+                    {% endif %}
+                    <br/>
                 </div>
             </div>
             <div>
@@ -112,6 +147,11 @@ function postMain() {
 
 function processGroupSelect(group) {
     document.getElementById("group").value = group;
+    postMain();
+}
+
+function processProviderSelect(provider) {
+    document.getElementById("provider").value = provider;
     postMain();
 }
 
