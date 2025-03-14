@@ -102,8 +102,10 @@ def showdeployments(show_back="False"):
     if deployments:
         sanitized = dbhelpers.sanitizedeployments(deployments)
         if (show_deleted == "False"):
-            deployments = filter_function(sanitized["deployments"],
-                                          ["DELETE_COMPLETE", "DELETE_IN_PROGRESS"], False)
+            deployments = filter_function(
+                sanitized["deployments"],
+                ["DELETE_COMPLETE", "DELETE_IN_PROGRESS"],
+                False)
         else:
             deployments = sanitized["deployments"]
         app.logger.debug("Deployments: " + str(deployments))
@@ -135,8 +137,10 @@ def showalldeployments(show_back="False"):
     if deployments:
         sanitized = dbhelpers.sanitizedeployments(deployments)
         if (show_deleted == "False"):
-            deployments = filter_function(sanitized["deployments"],
-                                          ["DELETE_COMPLETE", "DELETE_IN_PROGRESS"], False)
+            deployments = filter_function(
+                sanitized["deployments"],
+                ["DELETE_COMPLETE", "DELETE_IN_PROGRESS"],
+                False)
         else:
             deployments = sanitized["deployments"]
 
@@ -149,6 +153,7 @@ def showalldeployments(show_back="False"):
                 if not user_group in groups:
                     groups.append(user_group)
 
+        # add local groups if missing
         supported_usergroups = session["supported_usergroups"]
         for g in supported_usergroups:
             if not g in groups:
@@ -177,6 +182,7 @@ def showdeploymentsoverview():
     show_deleted = False
 
     deps = dbhelpers.get_user_deployments(session["userid"])
+
     # Initialize dictionaries for status, projects, and providers
     statuses = {"UNKNOWN": 0}
     groups = {"UNKNOWN": 0}
@@ -195,12 +201,20 @@ def showdeploymentsoverview():
             groups[user_group] = groups.get(user_group, 0) + 1
 
             provider = dep.provider_name or "UNKNOWN"
-            if dep.region_name:            
+            if dep.region_name:
                 provider_ext = (provider + "-" + dep.region_name).lower()
                 if  providers_to_split and provider_ext in providers_to_split:
                     provider = provider + "-" + dep.region_name.lower()
 
             providers[provider] = providers.get(provider, 0) + 1
+
+    # remove unused UNKNOWN entries
+    if groups["UNKNOWN"] == 0:
+        groups.pop("UNKNOWN")
+    if statuses["UNKNOWN"] == 0:
+        statuses.pop("UNKNOWN")
+    if providers["UNKNOWN"] == 0:
+        providers.pop("UNKNOWN")
 
     return render_template(
         "depoverview.html",
@@ -227,6 +241,7 @@ def showdeploymentstats():
 
     only_remote = True
     show_deleted = False
+    filter_statuses = ["DELETE_COMPLETE", "DELETE_IN_PROGRESS", "CREATE_FAILED", "DELETE_FAILED"]
 
     group = "None"
     if request.method == "POST":
@@ -247,8 +262,10 @@ def showdeploymentstats():
     if deployments:
         sanitized = dbhelpers.sanitizedeployments(deployments)
         if (show_deleted == "False"):
-            deployments = filter_function(sanitized["deployments"],
-                                          ["DELETE_COMPLETE", "DELETE_IN_PROGRESS"], False)
+            deployments = filter_function(
+                sanitized["deployments"],
+                filter_statuses,
+                False)
         else:
             deployments = sanitized["deployments"]
 
@@ -269,8 +286,8 @@ def showdeploymentstats():
 
     for dep in deployments:
         status = dep.status or "UNKNOWN"
-        if (show_deleted == True or (status not in ["DELETE_COMPLETE" , "DELETE_IN_PROGRESS"])) and \
-            (only_remote == False or dep.remote == 1):
+        if (show_deleted == True or status not in filter_statuses) and \
+            (only_remote == False or dep.remote == True):
             statuses[status] = statuses.get(status, 0) + 1
 
             user_group = dep.user_group or "UNKNOWN"
@@ -287,6 +304,17 @@ def showdeploymentstats():
             template = dep.selected_template or "UNKNOWN"
             templates[template] = templates.get(template, 0) + 1
 
+    # remove unused UNKNOWN entries
+    if groups["UNKNOWN"] == 0:
+        groups.pop("UNKNOWN")
+    if statuses["UNKNOWN"] == 0:
+        statuses.pop("UNKNOWN")
+    if providers["UNKNOWN"] == 0:
+        providers.pop("UNKNOWN")
+    if templates["UNKNOWN"] == 0:
+        templates.pop("UNKNOWN")
+
+    # add local groups if missing
     groups_names = list(groups.keys())
     supported_usergroups = session["supported_usergroups"]
     for g in supported_usergroups:

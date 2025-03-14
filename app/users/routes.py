@@ -78,27 +78,6 @@ def show_deployments(subject):
         if request.method == "POST":
             show_deleted = request.form.to_dict()["showhdep"]
 
-        '''
-        headers = {"Authorization": "bearer %s" % access_token}
-
-        url = (
-            app.settings.orchestrator_url
-            + "/deployments?createdBy={}&page={}&size={}".format(
-                "{}@{}".format(subject, issuer), 0, 999999
-            )
-        )
-        response = requests.get(url, headers=headers)
-
-        iids = []
-        if response.ok:
-            deporch = response.json()["content"]
-            iids = dbhelpers.updatedeploymentsstatus(deporch, subject)["iids"]
-
-        #
-        # retrieve deployments from DB
-        deployments = dbhelpers.cvdeployments(dbhelpers.get_user_deployments(user.sub))
-        '''
-
         deployments = []
         try:
             deployments = app.orchestrator.get_deployments(
@@ -111,8 +90,10 @@ def show_deployments(subject):
             result = dbhelpers.sanitizedeployments(deployments)
             deployments = result["deployments"]
             if (show_deleted == "False"):
-                deployments = filter_function(deployments,
-                                              ["DELETE_COMPLETE", "DELETE_IN_PROGRESS"], False)
+                deployments = filter_function(
+                    deployments,
+                    ["DELETE_COMPLETE", "DELETE_IN_PROGRESS"],
+                    False)
             app.logger.debug("Deployments: " + str(deployments))
 
         return render_template("dep_user.html", user=user, deployments=deployments, showdepdel=show_deleted)

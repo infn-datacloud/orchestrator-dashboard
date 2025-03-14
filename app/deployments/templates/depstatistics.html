@@ -78,7 +78,7 @@
                   <thead>
                     <tr>
                       <th>Template name</th>
-                      <th>Used times</th>
+                      <th>Instances</th>
                     </tr>
                   </thead>
                   <!--Table head-->
@@ -188,7 +188,7 @@ drawchart("providers_chart", "{{pr_title}}", "deployments distribution per provi
 </script>
 
 {% if ar.found %}
-	<script>setTimeout(function(){location.reload();},30000);</script>
+	<script>setTimeout(function(){postMain();},30000);</script>
 {% endif %}
 
 {% endblock %}
