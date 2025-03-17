@@ -12,28 +12,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, Optional
-from flask import current_app as app, flash
-from app.providers import sla
-from app.lib import fed_reg
+from typing import Optional
 
-def getslas(
-        *,
-        access_token: str
-):
+from flask import current_app as app
+from flask import flash
+
+from app.lib import fed_reg
+from app.providers import sla
+
+
+def getslas(*, access_token: str):
     slas = []
     try:
         # Fed-Reg
-        if app.settings.use_fed_reg == True:
+        if app.settings.use_fed_reg:
             app.logger.debug("FED_REG_URL: {}".format(app.settings.fed_reg_url))
             slas = fed_reg.retrieve_slas_from_active_user_group(
                 access_token=access_token
             )
         # SLAM
         elif app.settings.slam_url is not None and app.settings.cmdb_url is not None:
-            app.logger.debug(
-                "SLAM_URL: {}".format(app.settings.slam_url)
-            )
+            app.logger.debug("SLAM_URL: {}".format(app.settings.slam_url))
             slas = sla.get_slas(
                 access_token,
                 app.settings.slam_url,
@@ -48,15 +47,12 @@ def getslas(
 
 
 def getslasdt(
-        *,
-        access_token: str,
-        service_type: Optional[str] = "compute",
-        deployment_type: str
+    *, access_token: str, service_type: Optional[str] = "compute", deployment_type: str
 ):
     slas = []
     try:
         # Fed-Reg
-        if app.settings.use_fed_reg == True:
+        if app.settings.use_fed_reg:
             app.logger.debug("FED_REG_URL: {}".format(app.settings.fed_reg_url))
             slas = fed_reg.retrieve_slas_from_active_user_group(
                 access_token=access_token,
@@ -65,9 +61,7 @@ def getslasdt(
             )
         # SLAM
         elif app.settings.slam_url is not None and app.settings.cmdb_url is not None:
-            app.logger.debug(
-                "SLAM_URL: {}".format(app.settings.slam_url)
-            )
+            app.logger.debug("SLAM_URL: {}".format(app.settings.slam_url))
             slas = sla.get_slas(
                 access_token,
                 app.settings.slam_url,
