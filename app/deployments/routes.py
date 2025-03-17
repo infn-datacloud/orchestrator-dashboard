@@ -1128,10 +1128,18 @@ def updatedep():
 
 @deployments_bp.route("/configure", methods=["GET"])
 @auth.authorized_with_valid_token
-def configure():  # TODO: Rename?
+def configure():
     _, _, tosca_gmetadata, _ = tosca.get()
 
     selected_group = request.args.get("selected_group", None)
+    
+    ssh_pub_key = dbhelpers.get_ssh_pub_key(session["userid"])
+    if not ssh_pub_key and app.config.get("FEATURE_REQUIRE_USER_SSH_PUBKEY") == "yes":
+        flash(
+            "Warning! You will not be able to deploy your service \
+                as no Public SSH key has been uploaded.",
+            "danger",
+        )
     
     if selected_group is None:
         selected_group = session['selected_group']
@@ -1152,7 +1160,9 @@ def configure():  # TODO: Rename?
                 "option": template.get("option", ""),
             }
             items.append(item)
-        return render_template("choosedep.html", templates=templates)
+        return render_template(
+            "choosedep.html", templates=templates, ssh_pub_key=ssh_pub_key
+        )
 
     flash("Error getting selected_group (not found)", "danger")
     return redirect(url_for(SHOW_HOME_ROUTE))
@@ -1180,13 +1190,16 @@ def select_scheduling(selected_tosca=None, multi_templates=True):
     slas = providers.getslasdt(
         access_token=access_token, deployment_type=template["deployment_type"]
     )
-    # TODO: Consider saving this list in Redis for caching?
-
+    # TODO: Consider saving this list in Redis for caching?)
+    
+    ssh_pub_key = dbhelpers.get_ssh_pub_key(session["userid"])
+    
     return render_template(
         "chooseprovider.html",
         slas=slas,
         selected_tosca=selected_tosca,
         steps=steps,
+        ssh_pub_key=ssh_pub_key,
     )
 
 
@@ -1226,14 +1239,7 @@ def configure_form():
     else:
         template = patch_template(access_token=access_token, template=template)
 
-    # TODO Move at first step
     ssh_pub_key = dbhelpers.get_ssh_pub_key(session["userid"])
-    if not ssh_pub_key and app.config.get("FEATURE_REQUIRE_USER_SSH_PUBKEY") == "yes":
-        flash(
-            "Warning! You will not be able to deploy your service \
-                as no Public SSH key has been uploaded.",
-            "danger",
-        )
 
     return render_template(
         "createdep.html",
@@ -1261,7 +1267,8 @@ def patch_template(
     if app.settings.use_fed_reg:
         user_group = fed_reg.retrieve_active_user_group(access_token=access_token)
         if user_group is None:
-            pass  # TODO: return to home??
+            flash("Error getting user_group (not found)", "danger")
+            return redirect(url_for(SHOW_HOME_ROUTE))
 
         flavors, images = fed_reg.retrieve_active_user_group_resources(
             access_token=access_token, user_group=user_group, sla_id=sla_id, region_name=region_name
