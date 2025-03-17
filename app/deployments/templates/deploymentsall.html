@@ -175,9 +175,15 @@
                                                     </a>
                                                 {% else %}
                                                     {% if deployment.status != 'DELETE_COMPLETE' %}
-                                                        <a class="dropdown-item" style="color: red;" href="#delete_confirm_{{deployment.uuid}}" data-toggle="modal" data-backdrop="static" data-keyboard="false" data-target="#delete_confirm_{{deployment.uuid}}">
-                                                            <span class="fas fa-trash-alt mr-2"></span>Delete
-                                                        </a>
+                                                        {% if deployment.status != 'DELETE_FAILED' %}
+                                                            <a class="dropdown-item" style="color: red;" href="#delete_confirm_{{deployment.uuid}}" data-toggle="modal" data-backdrop="static" data-keyboard="false" data-target="#delete_confirm_{{deployment.uuid}}">
+                                                                <span class="fas fa-trash-alt mr-2"></span>Delete
+                                                            </a>
+                                                        {% else %}
+                                                            <a class="dropdown-item" style="color: red;" href="#forcedelete_confirm_{{deployment.uuid}}" data-toggle="modal" data-backdrop="static" data-keyboard="false" data-target="#forcedelete_confirm_{{deployment.uuid}}">
+                                                                <span class="fas fa-trash-alt mr-2"></span>Delete (force)
+                                                            </a>
+                                                        {% endif %}
                                                     {% endif %}
                                                 {% endif %}
 											{% else %}
@@ -206,7 +212,7 @@
 												<button data-dismiss="modal" class="dashboard-button dashboard-button-lg dashboard-button-primary-outline" title="Close modal">
 													No, go back
 												</button>
-												<button role="button" onclick="set_loading(true); location.href='{{ url_for('deployments_bp.depdel', depid=deployment.uuid, mode="all") }}'" type=button class="dashboard-button dashboard-button-lg dashboard-button-danger" title="Delete deployment">
+												<button role="button" onclick="set_loading(true); location.href='{{ url_for('deployments_bp.depdel', depid=deployment.uuid, mode="all", force="false") }}'" type=button class="dashboard-button dashboard-button-lg dashboard-button-danger" title="Delete deployment">
 													<i class="fas fa-trash-alt"></i>&nbsp;Yes, delete
 												</button>
 											</div>
@@ -214,6 +220,30 @@
 									</div>
 								</div>
 							</div>
+                            <!-- Modal FORCE DELETE -->
+							<div class="modal fade" id="forcedelete_confirm_{{deployment.uuid}}" role="dialog">
+								<div class="modal-dialog" role="document">
+									<div class="modal-content">
+										<div class="modal-header">
+											<h5 class="modal-title" id="forcedelete_confirm_label_{{deployment.uuid}}">Confirm deployment forced deletion</h5>
+											<button type="button" class="close" data-dismiss="modal">&times;</button>
+										</div>
+										<div class="modal-body">
+											<p>Do you really want to delete the deployment {{deployment.uuid}} ?</p>
+											<br>
+											<div class="dashboard-template-buttons-container">
+												<button data-dismiss="modal" class="dashboard-button dashboard-button-lg dashboard-button-primary-outline" title="Close modal">
+													No, go back
+												</button>
+												<button role="button" onclick="set_loading(true); location.href='{{ url_for('deployments_bp.depdel', depid=deployment.uuid, mode="all", force="true") }}'" type=button class="dashboard-button dashboard-button-lg dashboard-button-danger" title="Delete deployment">
+													<i class="fas fa-trash-alt"></i>&nbsp;Yes, delete
+												</button>
+											</div>
+										</div>
+									</div>
+								</div>
+							</div>
+
 						{% endfor %}
 					</tbody>
 					<!--Table body-->

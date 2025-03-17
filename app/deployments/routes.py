@@ -1141,9 +1141,9 @@ def depqcgdetails(depid=None):
     return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
 
 
-@deployments_bp.route("/<depid>/<mode>/delete")
+@deployments_bp.route("/<depid>/<mode>/<force>/delete")
 @auth.authorized_with_valid_token
-def depdel(depid=None, mode="user"):
+def depdel(depid=None, mode="user", force="false"):
     access_token = iam.token["access_token"]
 
     dep = dbhelpers.get_deployment(depid)
@@ -1154,11 +1154,16 @@ def depdel(depid=None, mode="user"):
     ##
 
     try:
-        app.orchestrator.delete(access_token, depid)
+        app.orchestrator.delete(
+            access_token,
+            depid,
+            force)
+
     except Exception as e:
         flash(str(e), "danger")
 
     return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE if mode == "user" else SHOW_ALLDEPLOYMENTS_ROUTE))
+
 
 @deployments_bp.route("/<depid>/<mode>/reset")
 @auth.authorized_with_valid_token

@@ -38,8 +38,15 @@ class Orchestrator:
         self.orchestrator_url = orchestrator_url
         self.timeout = timeout
 
-    def get_deployments(self, access_token, created_by=None, user_group=None):
+    def get_deployments(
+        self,
+        access_token,
+        created_by=None,
+        user_group=None
+    ):
+
         headers = {"Authorization": "Bearer %s" % access_token}
+
         params = []
         if created_by:
             params.append("createdBy={}".format(created_by))
@@ -50,8 +57,9 @@ class Orchestrator:
         if params:
             str_params = "?{}".format("&".join(params))
 
-        deployments = []
         url = self.orchestrator_url + "/deployments" + str_params
+
+        deployments = []
 
         try:
             get_all_results(url, headers=headers, timeout=self.timeout, results=deployments)
@@ -59,7 +67,12 @@ class Orchestrator:
             raise Exception("Error retrieving deployment list: {}".format(str(e)))
         return deployments
 
-    def get_template(self, access_token, deployment_uuid) -> str:
+    def get_template(
+        self,
+        access_token,
+        deployment_uuid
+    ) -> str:
+
         headers = {"Authorization": "Bearer %s" % access_token}
         url = self.orchestrator_url + "/deployments/" + deployment_uuid + "/template"
 
@@ -73,7 +86,12 @@ class Orchestrator:
             )
         return response.text
 
-    def get_log(self, access_token, deployment_uuid) -> str:
+    def get_log(
+        self,
+        access_token,
+        deployment_uuid
+    ) -> str:
+
         headers = {"Authorization": "Bearer %s" % access_token}
         url = self.orchestrator_url + "/deployments/" + deployment_uuid + "/log"
 
@@ -85,7 +103,12 @@ class Orchestrator:
             )
         return response.text
 
-    def get_extra_info(self, access_token, deployment_uuid) -> str:
+    def get_extra_info(
+        self,
+        access_token,
+        deployment_uuid
+    ) -> str:
+
         headers = {"Authorization": "Bearer %s" % access_token}
         url = self.orchestrator_url + "/deployments/" + deployment_uuid + "/extrainfo"
 
@@ -99,7 +122,13 @@ class Orchestrator:
             )
         return response.text
 
-    def get_resources(self, access_token, deployment_uuid, type=None):
+    def get_resources(
+        self,
+        access_token,
+        deployment_uuid,
+        type=None
+    ):
+
         url = f"{self.orchestrator_url}/deployments/{deployment_uuid}/resources"
         if type:
             url += f"?type={type}"
@@ -117,7 +146,13 @@ class Orchestrator:
             )
         return resources
 
-    def get_resource(self, access_token, deployment_uuid, resource_id):
+    def get_resource(
+        self,
+        access_token,
+        deployment_uuid,
+        resource_id
+    ):
+
         url = f"{self.orchestrator_url}/deployments/{deployment_uuid}/resources/{resource_id}"
 
         headers = {"Authorization": f"Bearer {access_token}"}
@@ -131,8 +166,13 @@ class Orchestrator:
             )
         return response.json()
 
-    def post_action(self, access_token, deployment_uuid, resource_uuid, action):
-        headers = {"Authorization": "Bearer %s" % access_token}
+    def post_action(
+        self,
+        access_token,
+        deployment_uuid,
+        resource_uuid,
+        action
+    ):
 
         url = (
             self.orchestrator_url
@@ -142,6 +182,8 @@ class Orchestrator:
             + resource_uuid
             + "/actions"
         )
+        headers = {"Authorization": "Bearer %s" % access_token}
+
         response = requests.post(url, timeout=self.timeout, headers=headers, json={"type": action})
 
         if not response.ok:
@@ -218,10 +260,27 @@ class Orchestrator:
                 "Error updating deployment: {}: {}".format(deployment_uuid, response.text)
             )
 
-    def delete(self, access_token, deployment_uuid):
-        headers = {"Authorization": "Bearer %s" % access_token}
-        url = self.orchestrator_url + "/deployments/" + deployment_uuid
-        response = requests.delete(url, timeout=self.timeout, headers=headers)
+    def delete(
+        self,
+        access_token,
+        deployment_uuid,
+        force
+    ):
+        headers = {
+            "Authorization": "bearer %s" % access_token
+        }
+
+        params = []
+        if force:
+            params.append("force={}".format(force))
+
+        str_params = ""
+        if params:
+            str_params = "?{}".format("&".join(params))
+
+        url = self.orchestrator_url + "/deployments/" + deployment_uuid + str_params
+
+        response = requests.delete(url, timeout=self.timeout, json = params, headers=headers)
         if not response.ok:
             raise Exception(
                 "Error deleting deployment {}: {}".format(deployment_uuid, response.text)
