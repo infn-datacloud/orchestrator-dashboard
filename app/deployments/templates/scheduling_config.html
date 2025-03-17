@@ -1,0 +1,51 @@
+<div id="confScheduling">
+	<div class="form-group">
+		<label>Scheduling type</label>
+		<br>
+		<div class="form-check">
+			<input id="autosched" class="form-check-input" type="radio" name="extra_opts.schedtype" value="auto" checked>
+			<label for="autosched" class="form-check-label">Automatic</label>
+		</div>
+		<div class="form-check">
+			<input id="mansched" class="form-check-input" type="radio" name="extra_opts.schedtype" value="man" >
+			<label for="mansched" class="form-check-label">Manual</label>
+		</div>
+		<span class="text-muted">Select a deployment provider or let the system choose automatically</span>
+	</div>
+	<div id="manschedConf" class="form-group">
+		<label>Provider</label>
+		<select class="js-example-basic-single js-states form-control" id="selectSLA" name="extra_opts.selectedSLA">
+			{% for sla in slas %}
+			<option name="selectedSLA" {% if sla_id == sla.id%}{{"selected"}}{% endif %} value="{{sla.id}}_{{sla.region_name}}">{{sla.sitename}}: {{sla.service_type}}</option>
+			{% endfor %}
+		</select>
+		<span class="text-muted">List of allowed providers</span>
+	</div>
+</div>
+
+<style>
+
+#manschedConf {
+  display: none;
+}
+
+</style>
+
+<script>
+	$(document).ready(function () {
+		function hideSelectSla() {
+			if ($("#mansched").is(":checked")){
+				$('#manschedConf').show();
+			}
+			else {
+				$('#manschedConf').hide();
+			}
+		}
+
+		$("input[name='extra_opts.schedtype']").click(function() {
+			hideSelectSla();
+		});
+
+		hideSelectSla();
+	});
+</script>

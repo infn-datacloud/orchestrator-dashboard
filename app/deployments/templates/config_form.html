@@ -24,13 +24,8 @@
 <div class="tab-content">
   	<!-- inputs -->
     {% for tab in tabs %}
-		{% if loop.first %}
-			<div id={{tab}} class="tab-pane fade show active">
-		{% else %}
-			<div id={{tab}} class="tab-pane fade">
-		{% endif %}
+		<div id={{tab}} class="tab-pane fade show active">
 
-		<br>
 		{% for key, value in inputs.items() %}
 				{% if value.tab == tab or ( tab == tabs[0] and value.tab is not defined) %}
 					{% include 'input_types.html' %}
@@ -40,8 +35,7 @@
     {% endfor %}
   	<!-- end inputs -->
 
-  	<!-- scheduling -->
-	<br>
+  	<!-- advanced -->
 	<div id="Advanced" class="tab-pane fade">
 		{% include 'advanced_config.html' %}
 	</div>
