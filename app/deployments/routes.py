@@ -103,7 +103,7 @@ def showdeployments(show_back="False"):
         if (show_deleted == "False"):
             deployments = filter_status(
                 sanitized["deployments"],
-                ["DELETE_COMPLETE", "DELETE_IN_PROGRESS"],
+                ["DELETE_COMPLETE"],
                 False)
         else:
             deployments = sanitized["deployments"]
@@ -138,7 +138,7 @@ def showalldeployments(show_back="False"):
         if (show_deleted == "False"):
             deployments = filter_status(
                 sanitized["deployments"],
-                ["DELETE_COMPLETE", "DELETE_IN_PROGRESS"],
+                ["DELETE_COMPLETE"],
                 False)
         else:
             deployments = sanitized["deployments"]
@@ -147,7 +147,7 @@ def showalldeployments(show_back="False"):
 
         for dep in deployments:
             status = dep.status or "UNKNOWN"
-            if (show_deleted == True or (status not in ["DELETE_COMPLETE", "DELETE_IN_PROGRESS"])):
+            if (show_deleted == True or (status not in ["DELETE_COMPLETE"])):
                 user_group = dep.user_group or "UNKNOWN"
                 if not user_group in groups:
                     groups.append(user_group)
@@ -1168,7 +1168,7 @@ def depdel(depid=None, mode="user", force="false"):
 @auth.authorized_with_valid_token
 def depreset(depid=None, mode="user"):
     access_token = iam.token["access_token"]
-
+    # add check last update time to ensure stuck state
     dep = dbhelpers.get_deployment(depid)
     if dep is not None and dep.status == "DELETE_IN_PROGRESS":
         try:
