@@ -44,7 +44,7 @@ from app.iam import iam
 from app.lib import auth, dbhelpers, fed_reg, providers, s3, utils
 from app.lib import openstack as keystone
 from app.lib import tosca_info as tosca_helpers
-from app.lib.dbhelpers import filter_status, filter_provider
+from app.lib.dbhelpers import filter_status, filter_provider, filter_group
 from app.lib.ldap_user import LdapUserManager
 from app.models.Deployment import Deployment
 
@@ -239,6 +239,7 @@ def showdeploymentstats():
     access_token = iam.token["access_token"]
 
     only_remote = True
+    only_effective = True
     show_deleted = "False"
     filter_statuses = ["DELETE_COMPLETE", "DELETE_IN_PROGRESS", "CREATE_FAILED", "DELETE_FAILED"]
 
@@ -258,7 +259,7 @@ def showdeploymentstats():
     deployments = []
     try:
         deployments = app.orchestrator.get_deployments(
-            access_token, user_group=group
+            access_token
         )
     except Exception as e:
         flash("Error retrieving deployment list: \n" + str(e), "warning")
@@ -309,21 +310,29 @@ def showdeploymentstats():
                 providers_labels.append(dep_provider)
 
     #filter eventually provider
-    filter_providers = []
+    providers_to_filter = []
     if provider:
-        filter_providers.append(provider)
-        filtered_deployments = filter_provider(
+        providers_to_filter.append(provider)
+        deployments = filter_provider(
                 deployments,
-                filter_providers,
+                providers_to_filter,
                 True,
                 providers_to_split)
-    else:
-        filtered_deployments = deployments
+
+    #filter eventually group
+    groups_to_filter = []
+    if group:
+        groups_to_filter.append(group)
+        deployments = filter_group(
+                deployments,
+                groups_to_filter,
+                True)
 
     # second round, count instances
-    for dep in filtered_deployments:
+    for dep in deployments:
         status = dep.status or "UNKNOWN"
-        if only_remote == False or dep.remote == True:
+        if (only_remote == False or dep.remote == True) and \
+                (only_effective == False or dep.selected_template):
             statuses[status] = statuses.get(status, 0) + 1
 
             user_group = dep.user_group or "UNKNOWN"
@@ -351,10 +360,10 @@ def showdeploymentstats():
         templates.pop("UNKNOWN")
 
     # add local groups if missing
-    supported_usergroups = session["supported_usergroups"]
-    for g in supported_usergroups:
-        if not g in groups_labels:
-            groups_labels.append(g)
+    #supported_usergroups = session["supported_usergroups"]
+    #for g in supported_usergroups:
+    #    if not g in groups_labels:
+    #        groups_labels.append(g)
 
     return render_template(
         "depstatistics.html",

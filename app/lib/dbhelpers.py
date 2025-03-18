@@ -271,6 +271,14 @@ def filter_status(deployments, search_string_list, negate):
     return list(filter(iterator_func, deployments))
 
 
+def filter_group(deployments, search_string_list, negate):
+    def iterator_func(x):
+        if x.user_group in search_string_list:
+            return negate
+        return not negate
+    return list(filter(iterator_func, deployments))
+
+
 def filter_provider(deployments, search_string_list, negate, providers_to_split):
     def iterator_func(x):
         provider = x.provider_name or "UNKNOWN"
