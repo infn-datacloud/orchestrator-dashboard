@@ -48,8 +48,8 @@ class Settings:
         if temp_tosca_dir is None:
             raise Exception("TOSCA_TEMPLATES_DIR is not defined in configuration")
         self.tosca_dir = utils.url_path_join(temp_tosca_dir, "/")
-        self.tosca_params_dir = utils.url_path_join(temp_settings_dir, "/tosca-parameters")
-        self.tosca_metadata_dir = utils.url_path_join(temp_settings_dir, "/tosca-metadata")
+        self.tosca_params_dir = utils.url_path_join(temp_settings_dir, "tosca-parameters")
+        self.tosca_metadata_dir = utils.url_path_join(temp_settings_dir, "tosca-metadata")
 
         self.iam_url = app.config["IAM_BASE_URL"]
         self.iam_client_id = app.config.get("IAM_CLIENT_ID")

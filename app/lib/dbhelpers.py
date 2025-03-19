@@ -117,10 +117,12 @@ def get_deployment_region(dep: dict[str:Any]) -> Optional[str]:
     return None
 
 
-def updatedeploymentsstatus(deployments, userid):
+def sanitizedeployments(deployments):
     result = {}
     deps = []
     iids = []
+
+    access_token = iam.token["access_token"]
 
     # update deployments status in database
     for dep_json in deployments:
@@ -182,8 +184,6 @@ def updatedeploymentsstatus(deployments, userid):
             app.logger.info("Deployment with uuid:{} not found!".format(uuid))
 
             # retrieve template
-            access_token = iam.token["access_token"]
-
             try:
                 template = app.orchestrator.get_template(access_token, uuid)
             except Exception:
@@ -196,67 +196,100 @@ def updatedeploymentsstatus(deployments, userid):
                 else ""
             )
 
-            deployment = Deployment(
-                uuid=uuid,
-                creation_time=creation_time,
-                update_time=update_time,
-                physicalId=vphid,
-                description="",
-                status=dep_json["status"],
-                outputs=json.dumps(dep_json["outputs"]),
-                stoutputs="",
-                task=dep_json["task"],
-                links=json.dumps(dep_json["links"]),
-                sub=userid,
-                template=template,
-                template_parameters="",
-                template_metadata="",
-                selected_template="",
-                inputs=json.dumps(dep_json.get("inputs", "")),
-                stinputs=json.dumps(dep_json.get("stinputs", "")),
-                params="",
-                deployment_type=getdeploymenttype(dep_json),
-                provider_name=providername,
-                provider_type=provider_type,
-                region_name=region_name,
-                user_group=dep_json.get("userGroup"),
-                endpoint=endpoint,
-                remote=1,
-                locked=0,
-                feedback_required=0,
-                keep_last_attempt=0,
-                issuer=dep_json["createdBy"]["issuer"],
-                storage_encryption=0,
-                vault_secret_uuid="",
-                vault_secret_key="",
-                elastic=0,
-                updatable=0,
-            )
+            try:
+                #check user existence
+                subject = dep_json["createdBy"]["subject"]
+                user = get_user(subject)
+                if user is None:
+                    user = User(
+                        sub=subject,
+                        name="unknown",
+                        username="unknown",
+                        given_name="unknown",
+                        family_name="unknown",
+                        email="unknown",
+                        organisation_name="unknown",
+                        role="user",
+                        active=0
+                    )
+                    add_object(user)
 
-            db.session.add(deployment)
-            db.session.commit()
+                deployment = Deployment(
+                    uuid=uuid,
+                    creation_time=creation_time,
+                    update_time=update_time,
+                    physicalId=vphid,
+                    description="",
+                    status=dep_json["status"],
+                    outputs=json.dumps(dep_json["outputs"]),
+                    stoutputs="",
+                    task=dep_json["task"],
+                    links=json.dumps(dep_json["links"]),
+                    sub=subject,
+                    template=template,
+                    template_parameters="",
+                    template_metadata="",
+                    selected_template="",
+                    inputs=json.dumps(dep_json.get("inputs", "")),
+                    stinputs=json.dumps(dep_json.get("stinputs", "")),
+                    params="",
+                    deployment_type=getdeploymenttype(dep_json),
+                    provider_name=providername,
+                    provider_type=provider_type,
+                    region_name=region_name,
+                    user_group=dep_json.get("userGroup"),
+                    endpoint=endpoint,
+                    remote=1,
+                    locked=0,
+                    feedback_required=0,
+                    keep_last_attempt=0,
+                    issuer=dep_json["createdBy"]["issuer"],
+                    storage_encryption=0,
+                    vault_secret_uuid="",
+                    vault_secret_key="",
+                    elastic=0,
+                    updatable=0,
+                )
 
-            deps.append(deployment)
+                db.session.add(deployment)
+                db.session.commit()
 
-    # check delete in progress or missing
-    dd = Deployment.query.filter(
-        Deployment.sub == userid, Deployment.status == "DELETE_IN_PROGRESS"
-    ).all()
-
-    for d in dd:
-        uuid = d.uuid
-        if uuid not in iids:
-            time_string = datetime.datetime.now(datetime.timezone.utc).strftime(
-                "%Y-%m-%d %H:%M:%S"
-            )
-            d.status = "DELETE_COMPLETE"
-            d.update_time = time_string
-            db.session.add(d)
-            db.session.commit()
+                deps.append(deployment)
+            except Exception:
+                app.logger.info("Error sanitizing deployment with uuid:{}".format(uuid))
 
     result["deployments"] = deps
     result["iids"] = iids
     return result
+
+
+def filter_status(deployments, search_string_list, negate):
+    def iterator_func(x):
+        if x.status in search_string_list:
+            return negate
+        return not negate
+    return list(filter(iterator_func, deployments))
+
+
+def filter_group(deployments, search_string_list, negate):
+    def iterator_func(x):
+        if x.user_group in search_string_list:
+            return negate
+        return not negate
+    return list(filter(iterator_func, deployments))
+
+
+def filter_provider(deployments, search_string_list, negate, providers_to_split):
+    def iterator_func(x):
+        provider = x.provider_name or "UNKNOWN"
+        if x.region_name:
+            provider_ext = (provider + "-" + x.region_name).lower()
+            if providers_to_split and provider_ext in providers_to_split:
+                provider = provider + "-" + x.region_name.lower()
+        if provider in search_string_list:
+            return negate
+        return not negate
+    return list(filter(iterator_func, deployments))
 
 
 def cvdeployments(deps):
@@ -341,7 +374,7 @@ def update_deployments_status(deployments_from_orchestrator, subject):
     if not deployments_from_orchestrator:
         return
 
-    iids = updatedeploymentsstatus(deployments_from_orchestrator, subject)["iids"]
+    iids = sanitizedeployments(deployments_from_orchestrator)["iids"]
 
     # retrieve deployments from DB
     deployments = cvdeployments(get_user_deployments(subject))

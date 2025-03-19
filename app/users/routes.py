@@ -22,6 +22,7 @@ from flask import (
     request,
 )
 from app.lib import auth, dbhelpers
+from app.lib.dbhelpers import filter_status
 from app.models.User import User
 from app.iam import iam
 
@@ -39,10 +40,10 @@ def show_users():
     return render_template("users.html", users=users)
 
 
-@users_bp.route("/<subject>", methods=["GET", "POST"])
+@users_bp.route("/<subject>/<ronly>", methods=["GET", "POST"])
 @auth.authorized_with_valid_token
 @auth.only_for_admin
-def show_user(subject):
+def show_user(subject,ronly):
     if request.method == "POST":
         # cannot change its own role
         if session["userid"] == subject:
@@ -55,56 +56,47 @@ def show_user(subject):
 
     user = dbhelpers.get_user(subject)
     if user is not None:
-        return render_template("user.html", user=user)
+        return render_template("user.html", user=user, ronly=ronly)
     else:
         return render_template(app.config.get("HOME_TEMPLATE"))
 
 
-@users_bp.route("/<subject>/deployments")
+@users_bp.route("/<subject>/deployments", methods=["GET", "POST"])
 @auth.authorized_with_valid_token
 @auth.only_for_admin
 def show_deployments(subject):
-    issuer = app.settings.iam_url
-    if not issuer.endswith("/"):
-        issuer += "/"
 
+    access_token = iam.token["access_token"]
     user = dbhelpers.get_user(subject)
 
     if user is not None:
-        #
-        # retrieve deployments from orchestrator
-        access_token = iam.token["access_token"]
 
-        headers = {"Authorization": "bearer %s" % access_token}
+        issuer = iam.base_url
+        if not issuer.endswith("/"):
+            issuer += "/"
+        show_deleted = "False"
+        if request.method == "POST":
+            show_deleted = request.form.to_dict()["showhdep"]
 
-        url = (
-            app.settings.orchestrator_url
-            + "/deployments?createdBy={}&page={}&size={}".format(
-                "{}@{}".format(subject, issuer), 0, 999999
+        deployments = []
+        try:
+            deployments = app.orchestrator.get_deployments(
+                access_token, created_by="{}@{}".format(subject, issuer)
             )
-        )
-        response = requests.get(url, headers=headers)
+        except Exception as e:
+            flash("Error retrieving deployment list: \n" + str(e), "warning")
 
-        iids = []
-        if response.ok:
-            deporch = response.json()["content"]
-            iids = dbhelpers.updatedeploymentsstatus(deporch, subject)["iids"]
+        if deployments:
+            result = dbhelpers.sanitizedeployments(deployments)
+            deployments = result["deployments"]
+            if (show_deleted == "False"):
+                deployments = filter_status(
+                    deployments,
+                    ["DELETE_COMPLETE", "DELETE_IN_PROGRESS"],
+                    False)
+            app.logger.debug("Deployments: " + str(deployments))
 
-        #
-        # retrieve deployments from DB
-        deployments = dbhelpers.cvdeployments(dbhelpers.get_user_deployments(user.sub))
-        for dep in deployments:
-            newremote = dep.remote
-            if dep.uuid not in iids:
-                if dep.remote == 1:
-                    newremote = 0
-            else:
-                if dep.remote == 0:
-                    newremote = 1
-            if dep.remote != newremote:
-                dbhelpers.update_deployment(dep.uuid, dict(remote=newremote))
-
-        return render_template("dep_user.html", user=user, deployments=deployments)
+        return render_template("dep_user.html", user=user, deployments=deployments, showdepdel=show_deleted)
     else:
         flash("User not found!", "warning")
         users = User.get_users()

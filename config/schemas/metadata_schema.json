@@ -2,49 +2,83 @@
   "METADATA_SCHEMA": {
     "$schema": "http://json-schema.org/draft/2020-12/schema#",
     "type": "object",
-    "properties" : {
-        "services" : { 
-            "type": "array",
-            "items": {
-                "$ref": "#/$defs/service"
-            },
-            "minItems": 1,
-            "uniqueItems": true
-        }
+    "properties": {
+      "services": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/service"
+        },
+        "minItems": 1,
+        "uniqueItems": true
+      },
+      "version": {
+        "type": "string"
+      }
     },
-    "required": ["services"],
+    "required": [
+      "services"
+    ],
     "additionalProperties": false,
     "$defs": {
-        "service": { 
-            "type": "object",
-            "properties": {
-                "description": { "type": "string" },
-                "metadata": { "$ref": "#/$defs/metadata" },
-                "templates": {
-                    "type": "array",
-                    "items": { "$ref": "#/$defs/template" }
-                }
-            },
-            "required": ["description", "metadata", "templates"],
-            "additionalProperties": false
+      "service": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "metadata": {
+            "$ref": "#/$defs/metadata"
+          },
+          "templates": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/template"
+            }
+          }
         },
-        "metadata": {
-            "type": "object",
-            "properties": {
-                "display_name": { "type": "string" },
-                "bookmark_id": { "type": "string" },
-                "guide_url": { "type": "string" },
-                "icon": { "type": "string", "format": "uri" },
-                "visibility": {
-                    "$ref": "#/$defs/visibility"
-                },
-                "authorization_required" : {"$ref": "#/$defs/authorization_required" }
-            },
-            "required": ["display_name", "bookmark_id", "guide_url", "icon", "visibility"],
-            "additionalProperties": false
+        "required": [
+          "description",
+          "metadata",
+          "templates"
+        ],
+        "additionalProperties": false
+      },
+      "metadata": {
+        "type": "object",
+        "properties": {
+          "display_name": {
+            "type": "string"
+          },
+          "bookmark_id": {
+            "type": "string"
+          },
+          "guide_url": {
+            "type": "string"
+          },
+          "icon": {
+            "type": "string",
+            "format": "uri"
+          },
+          "visibility": {
+            "$ref": "#/$defs/visibility"
+          },
+          "authorization_required": {
+            "$ref": "#/$defs/authorization_required"
+          }
         },
-        "visibility": {
-            "type": "object",
+        "required": [
+          "display_name",
+          "bookmark_id",
+          "guide_url",
+          "icon",
+          "visibility"
+        ],
+        "additionalProperties": false
+      },
+      "visibility": {
+        "type": "object",
+        "anyOf": [
+          {
             "oneOf": [
               {
                   "type": "object",
@@ -71,45 +105,106 @@
                 },
                 "required": ["type"]
               }
-            ]  
+            ]
+          },
+          {
+            "anyOf": [
+              {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "groups": {
+                        "type": "array",
+                        "items": { "type": "string"}
+                      }
+                    },
+                    "required": ["groups"]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "groups_regex": { "type": "string", "format": "regex" }
+                    },
+                    "required": ["groups_regex"]
+                  }
+                ]
+              },
+              {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "locked": {
+                        "type": "array",
+                        "items": { "type": "string" }
+                      }
+                    },
+                    "required": ["locked"]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "locked_regex": { "type": "string", "format": "regex"}
+                    },
+                    "required": ["locked_regex"]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "template": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "option": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          }
         },
-        "template": {
-            "type": "object",
-            "properties": {
-                "name": { "type": "string" },
-                "option": { "type": "string" },
-                "description": { "type": "string" }
-            },
-            "additionalProperties": false,
-            "if":
-            {
-                "type": "array",
-                "minItems": 2
-            },
-            "then": {
-                "required": ["name", "option"]
-            },
-            "else": {
-                "required": ["name"]
-            }
+        "additionalProperties": false,
+        "if": {
+          "type": "array",
+          "minItems": 2
         },
-        "authorization_required": {
-          "type": "object",
-          "properties": {
-            "pre_tasks": { 
-              "type": "array", 
-              "items": { 
-                "type": "object",
-                "properties": {
-                  "action": { "type": "string" },
-                  "args": { "type": "object" }
+        "then": {
+          "required": [
+            "name",
+            "option"
+          ]
+        },
+        "else": {
+          "required": [
+            "name"
+          ]
+        }
+      },
+      "authorization_required": {
+        "type": "object",
+        "properties": {
+          "pre_tasks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "action": {
+                  "type": "string"
                 },
-                "additionalProperties": false
-              } 
+                "args": {
+                  "type": "object"
+                }
+              },
+              "additionalProperties": false
             }
           }
         }
+      }
     }
   }
 }
-  
