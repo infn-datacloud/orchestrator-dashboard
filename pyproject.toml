@@ -39,6 +39,7 @@ sshpubkeys = "^3.3.1"
 jsonschema = {extras = ["format"], version = "^4.23.0"}
 werkzeug = "3.0.3"
 gunicorn = "^23.0.0"
+semver = "^3.0.4"
 
 
 [build-system]
