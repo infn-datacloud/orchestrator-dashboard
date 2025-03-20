@@ -49,6 +49,7 @@
 	*/
 	$(document).ready(() => {
 		let arch_type = $('#virtual_node_architecture')
+		let selected = arch_type.val();
 
 		let tab_cluster = $('#tab_interlink_in_cluster')
 		let tab_edge = $('#tab_interlink_edge')
@@ -59,33 +60,35 @@
 		let inputs_tuneled = $("#InterLink-Tunneled").find("input, textarea, select")
 
 		if (arch_type) {
-			// tab_cluster not hidden by default because is the first selected value
-			// tab_cluster?.hide();
-			tab_edge?.hide();
-			tab_tuneled?.hide();
+			show_hide_tabs();
 
 			arch_type.on('change', () => {
-				let selected = arch_type.val();
-
-				tab_edge?.hide();
-				tab_tuneled?.hide();
-				tab_cluster?.hide();
-
-				/* Show / hide tabs and clear all hidden inputs */
-				if (selected === 'in-cluster-k8s') {					
-					tab_cluster?.show();
-					inputs_edge?.val("");
-					inputs_tuneled?.val("");
-				} else if (selected === 'edge') {
-					tab_edge?.show();
-					inputs_cluster?.val("");
-					inputs_tuneled?.val("");
-				} else if (selected === 'tunneled') {
-					tab_tuneled?.show();
-					inputs_cluster?.val("");
-					inputs_edge?.val("");
-				}
+				selected = arch_type.val();
+				show_hide_tabs();
+				
 			})
 		}
+		
+		function show_hide_tabs() {
+			tab_edge?.hide();
+			tab_tuneled?.hide();
+			tab_cluster?.hide();
+	
+			/* Show / hide tabs and clear all hidden inputs */
+			if (selected === 'in-cluster-k8s') {
+				tab_cluster?.show();
+				inputs_edge?.val("");
+				inputs_tuneled?.val("");
+			} else if (selected === 'edge') {
+				tab_edge?.show();
+				inputs_cluster?.val("");
+				inputs_tuneled?.val("");
+			} else if (selected === 'tunneled') {
+				tab_tuneled?.show();
+				inputs_cluster?.val("");
+				inputs_edge?.val("");
+			}
+		}
 	})
+
 </script>
