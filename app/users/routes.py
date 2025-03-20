@@ -43,7 +43,7 @@ def show_users():
 @users_bp.route("/<subject>/<ronly>", methods=["GET", "POST"])
 @auth.authorized_with_valid_token
 @auth.only_for_admin
-def show_user(subject,ronly):
+def show_user(subject, ronly):
     if request.method == "POST":
         # cannot change its own role
         if session["userid"] == subject:
@@ -74,27 +74,30 @@ def show_deployments(subject):
         issuer = iam.base_url
         if not issuer.endswith("/"):
             issuer += "/"
+
         show_deleted = "False"
+        excluded_status = "DELETE_COMPLETE"
+
         if request.method == "POST":
             show_deleted = request.form.to_dict()["showhdep"]
 
         deployments = []
         try:
-            deployments = app.orchestrator.get_deployments(
-                access_token, created_by="{}@{}".format(subject, issuer)
-            )
+            if show_deleted == "False":
+                deployments = app.orchestrator.get_deployments(
+                    access_token, created_by="{}@{}".format(subject, issuer), excluded_status=excluded_status
+                )
+            else:
+                deployments = app.orchestrator.get_deployments(
+                    access_token, created_by="{}@{}".format(subject, issuer)
+                )
         except Exception as e:
             flash("Error retrieving deployment list: \n" + str(e), "warning")
 
         if deployments:
-            result = dbhelpers.sanitizedeployments(deployments)
-            deployments = result["deployments"]
-            if (show_deleted == "False"):
-                deployments = filter_status(
-                    deployments,
-                    ["DELETE_COMPLETE", "DELETE_IN_PROGRESS"],
-                    False)
             app.logger.debug("Deployments: " + str(deployments))
+
+            deployments = dbhelpers.sanitizedeployments(deployments)["deployments"]
 
         return render_template("dep_user.html", user=user, deployments=deployments, showdepdel=show_deleted)
     else:
