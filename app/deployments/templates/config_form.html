@@ -21,15 +21,19 @@
 </ul>
   <!-- end tab creation section -->
 
-<div class="tab-content">
+<div class="tab-content" style="margin-top: 1em;">
   	<!-- inputs -->
     {% for tab in tabs %}
-		<div id={{tab}} class="tab-pane fade show active">
+		{% if loop.first %}
+			<div id={{tab}} class="tab-pane fade show active">
+		{% else %}
+			<div id={{tab}} class="tab-pane fade">
+		{% endif %}
 
 		{% for key, value in inputs.items() %}
-				{% if value.tab == tab or ( tab == tabs[0] and value.tab is not defined) %}
-					{% include 'input_types.html' %}
-				{% endif %}
+			{% if value.tab == tab or ( tab == tabs[0] and value.tab is not defined) %}
+				{% include 'input_types.html' %}
+			{% endif %}
 		{% endfor %}
 		</div>
     {% endfor %}
