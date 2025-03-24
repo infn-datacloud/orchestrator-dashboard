@@ -6,7 +6,7 @@ Create Date: 2020-04-23
 """
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.dialects import mysql
+from app.lib import alembic_helper
 
 # revision identifiers, used by Alembic.
 revision = '98c3d8971d71'
@@ -16,10 +16,12 @@ depends_on = None
 
 
 def upgrade():
-    op.add_column('deployments', sa.Column('deployment_type', sa.String(length=16), nullable=True))
+    if not alembic_helper.column_exists('deployments', 'deployment_type'):
+        op.add_column('deployments', sa.Column('deployment_type', sa.String(length=16), nullable=True))
     # ### end Alembic commands ###
 
 
 def downgrade():
-    op.drop_column('deployments', 'deployment_type')
+    if alembic_helper.column_exists('deployments', 'deployment_type'):
+        op.drop_column('deployments', 'deployment_type')
     # ### end Alembic commands ###

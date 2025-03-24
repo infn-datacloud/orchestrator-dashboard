@@ -36,12 +36,12 @@ YOURLS_API_SIGNATURE_TOKEN=None
 
 ### ADMIN SETTINGS
 SUPPORT_EMAIL = "michele.perniola@ba.infn.it"
-ADMINS = "['Michele.Perniola@ba.infn.it']"
+ADMINS = "['michele.perniola@ba.infn.it']"
 EXTERNAL_LINKS = []
 OVERALL_TIMEOUT = 720
 PROVIDER_TIMEOUT = 720
 LOG_LEVEL = "info"
-UPLOAD_FOLDER = "/tmp"
+UPLOAD_FOLDER = '/opt/uploads'
 
 FEATURE_ADVANCED_MENU = "no"
 FEATURE_UPDATE_DEPLOYMENT = "no"
@@ -59,10 +59,6 @@ S3_IAM_GROUPS = []
 
 SENSITIVE_KEYWORDS = ["password", "token", "passphrase"]
 
-### VAULT INTEGRATION SETTINGS
-VAULT_ROLE = "orchestrator"
-VAULT_OIDC_AUDIENCE = "ff2c57dc-fa09-43c9-984e-9ad8afc3fb56"
-
 #### LOOK AND FEEL SETTINGS
 WELCOME_MESSAGE = "Welcome! This is the PaaS Orchestrator Dashboard"
 NAVBAR_BRAND_TEXT = "Dashboard"
@@ -79,4 +75,3 @@ PORTFOLIO_TEMPLATE = 'portfolio.html'
 MAIL_TEMPLATE = 'email.html'
 FOOTER_TEMPLATE = 'footer.html'
 
-UPLOAD_FOLDER = '/opt/uploads'

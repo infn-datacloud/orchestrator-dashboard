@@ -96,6 +96,7 @@
                     <div class="navbar-left-dropdown">
                         <div class="navbar-left-dropdown-parent">
                             <a class="navbar-left-dropdown-children-item navbar-left-link" href="{{ url_for('home_bp.home') }}" title=Home>
+                                <i class="fas fa-home"></i>
                                 Home
                             </a>
                         </div>
@@ -104,7 +105,10 @@
                     <!-- DEPLOYMENTS -->
                     <div class="navbar-left-dropdown">
                         <div class="navbar-left-dropdown-parent">
-                            <div class="navbar-left-dropdown-parent-text" title="Deployments">Deployments</div>
+
+                            <div class="navbar-left-dropdown-parent-text" title=Deployments>
+                                <i class="fas fa-sitemap" style="padding-right: 6px"></i>Deployments
+                            </div>
                             <div class="navbar-left-dropdown-parent-icon">
                                 <i class="fas fa-caret-down"></i>
                             </div>
@@ -127,7 +131,8 @@
                     {% if config['FEATURE_ADVANCED_MENU']|str2bool or  session['userrole'] == 'admin' %}
                         <div class="navbar-left-dropdown">
                             <div class="navbar-left-dropdown-parent">
-                                <div class="navbar-left-dropdown-parent-text" title="Advanced">Advanced</div>
+                                <div class="navbar-left-dropdown-parent-text" title="Advanced">
+                                 <i class="fas fa-jedi" style="padding-right: 6px"></i>Advanced</div>
                                 <div class="navbar-left-dropdown-parent-icon">
                                     <i class="fas fa-caret-down"></i>
                                 </div>
@@ -153,7 +158,8 @@
                     {% if config['EXTERNAL_LINKS']|length > 0 %}
                         <div class="navbar-left-dropdown">
                             <div class="navbar-left-dropdown-parent">
-                                <div class="navbar-left-dropdown-parent-text" title="External Links">External Links</div>
+                                <div class="navbar-left-dropdown-parent-text" title="External Links">
+                                    <i class="fas fa-external-link-alt" style="padding-right: 6px"></i>External Links</div>
                                 <div class="navbar-left-dropdown-parent-icon">
                                     <i class="fas fa-caret-down"></i>
                                 </div>
@@ -175,7 +181,8 @@
                     {% if session['userrole'] == 'admin' %}
                         <div class="navbar-left-dropdown">
                             <div class="navbar-left-dropdown-parent">
-                                <div class="navbar-left-dropdown-parent-text" title="Admin">Admin</div>
+                                <div class="navbar-left-dropdown-parent-text" title="Admin">
+                                    <i class="fas fa-user-shield" style="padding-right: 6px"></i>Admin</div>
                                 <div class="navbar-left-dropdown-parent-icon">
                                     <i class="fas fa-caret-down"></i>
                                 </div>
@@ -198,6 +205,10 @@
                                         <i class="fas fa-cogs"></i>
                                         Services
                                     </a>
+                                    <a class="navbar-left-dropdown-children-item navbar-left-link" href="{{ url_for('home_bp.show_settings') }}" title="Settings">
+                                        <i class="fas fa-tools"></i>
+                                        Settings
+                                    </a>
                                 </div>
                             </div>
                         </div>
@@ -209,14 +220,14 @@
                 <!-- SETTINGS -->
                 <div class="navbar-left-settings">
                     <div class="navbar-left-settings-item">
-                        <a class="navbar-left-dropdown-children-item navbar-left-link" href="{{ url_for('home_bp.show_settings') }}" title="Settings">
-                            <i class="fas fa-cog"></i>
-                            Settings
+                        <a class="navbar-left-dropdown-children-item navbar-left-link" href="{{ url_for('home_bp.show_info') }}" title="Info">
+                            <i class="fas fa-info-circle"></i>
+                            Info
                         </a>
                     </div>
                     <div class="navbar-left-settings-item">
                         <a class="navbar-left-dropdown-children-item navbar-left-link" href="{{ config['HELP_PAGE_URL'] }}" title="Help & Support">
-                            <i class="fas fa-life-ring"></i>
+                            <i class="fas fa-question-circle"></i>
                             Help
                         </a>
                     </div>

@@ -56,15 +56,33 @@ def show_user_profile():
     return render_template("user_profile.html", sshkey=sshkey)
 
 
+@home_bp.route("/info")
+@auth.authorized_with_valid_token
+def show_info():
+    """
+    Route for displaying the info page.
+    """
+
+    return render_template(
+        "info.html",
+        iam_url=app.settings.iam_url,
+        orchestrator_url=app.settings.orchestrator_url,
+        orchestrator_conf=app.settings.orchestrator_conf,
+        vault_url=app.config.get("VAULT_URL")
+    )
+
+
 @home_bp.route("/settings")
 @auth.authorized_with_valid_token
 def show_settings():
     """
     Route for displaying the settings page.
     """
+    groups = app.settings.iam_groups
     dashboard_last_conf = redis_client.get("last_configuration_info")
     last_settings = json.loads(dashboard_last_conf) if dashboard_last_conf else {}
     _, _, _, tosca_gversion, _ = tosca.get()
+
     return render_template(
         "settings.html",
         iam_url=app.settings.iam_url,
@@ -72,8 +90,25 @@ def show_settings():
         orchestrator_conf=app.settings.orchestrator_conf,
         vault_url=app.config.get("VAULT_URL"),
         tosca_settings=last_settings,
-        tosca_version="{0:c}.{1:c}.{2:c}".format(tosca_gversion[0], tosca_gversion[2], tosca_gversion[4])
+        tosca_version="{0:c}.{1:c}.{2:c}".format(tosca_gversion[0], tosca_gversion[2], tosca_gversion[4]),
+        groups=groups
     )
+
+
+@home_bp.route("/setsettingsgroups", methods=["POST"])
+@auth.authorized_with_valid_token
+def submit_settings_groups():
+    """
+    A function to update settings.
+    It checks the user's role, then updates the current configuration
+    and handles configuration reload.
+    """
+    if request.method == "POST" and session["userrole"].lower() == "admin":
+        groups  =  request.json["groups"]
+        app.settings.set_iam_groups(groups)
+        auth.update_user_info()
+
+    return redirect(url_for("home_bp.home"))
 
 
 @home_bp.route("/setsettings", methods=["POST"])
