@@ -1914,7 +1914,7 @@ def process_openstack_ec2credentials(key: str, inputs: dict, stinputs: dict):
 
                 # Get target provider details
                 provider = fed_reg.get_provider(
-                    _provider["uid"],
+                    uid=_provider["uid"],
                     access_token=iam.token["access_token"],
                     with_conn=True,
                 )
