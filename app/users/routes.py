@@ -1,4 +1,4 @@
-# Copyright (c) Istituto Nazionale di Fisica Nucleare (INFN). 2019-2020
+# Copyright (c) Istituto Nazionale di Fisica Nucleare (INFN). 2019-2025
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,7 +22,6 @@ from flask import (
     request,
 )
 from app.lib import auth, dbhelpers
-from app.lib.dbhelpers import filter_status
 from app.models.User import User
 from app.iam import iam
 
@@ -95,9 +94,8 @@ def show_deployments(subject):
             flash("Error retrieving deployment list: \n" + str(e), "warning")
 
         if deployments:
-            app.logger.debug("Deployments: " + str(deployments))
-
             deployments = dbhelpers.sanitizedeployments(deployments)["deployments"]
+            app.logger.debug("Deployments: " + str(deployments))
 
         return render_template("dep_user.html", user=user, deployments=deployments, showdepdel=show_deleted)
     else:

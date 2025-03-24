@@ -17,6 +17,7 @@ depends_on = None
 
 
 def upgrade():
+    op.drop_table('users', if_exists=True)
     op.create_table('users',
     sa.Column('sub', sa.String(length=36), nullable=False),
     sa.Column('name', sa.String(length=128), nullable=True),
@@ -30,6 +31,7 @@ def upgrade():
     sa.Column('active', sa.Boolean, nullable=False, server_default=sa.sql.True_()),
     sa.PrimaryKeyConstraint('sub')
     )
+    op.drop_table('deployments', if_exists=True)
     op.create_table('deployments',
     sa.Column('uuid', sa.String(length=36), nullable=False),
     sa.Column('creation_time', sa.DateTime(), nullable=True),
@@ -60,6 +62,6 @@ def upgrade():
 
 
 def downgrade():
-    op.drop_table('deployments')
-    op.drop_table('users')
+    op.drop_table('deployments', if_exists=True)
+    op.drop_table('users', if_exists=True)
     # ### end Alembic commands ###
