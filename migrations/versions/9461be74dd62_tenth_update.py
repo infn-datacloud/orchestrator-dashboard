@@ -1,4 +1,4 @@
-"""Add region_name col to deployment
+"""Tenth update - Add region_name col to deployment
 
 Revision ID: 9461be74dd62
 Revises: 514c0e87e61f

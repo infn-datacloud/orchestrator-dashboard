@@ -1,4 +1,4 @@
-"""Third Update.
+"""Third Update - Add stinputs col to deployments
 
 Revision ID: 98c3d8971d6e
 Revises: 98c3d8971d6d

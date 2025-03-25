@@ -1,4 +1,4 @@
-"""Add settings table
+"""Eleventh update - Add settings table
 
 Revision ID: a160bd75dc93
 Revises: 9461be74dd62

@@ -1,4 +1,4 @@
-"""Second Update.
+"""Second Update - Add updatable, keep_last_attempt cols to deployments
 
 Revision ID: 98c3d8971d6d
 Revises: 98c3d8971d6c

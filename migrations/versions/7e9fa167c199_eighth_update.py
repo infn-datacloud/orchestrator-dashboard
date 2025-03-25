@@ -1,4 +1,4 @@
-"""Add user_group column in deployment table
+"""Eighth update - Add user_group col to deployments
 
 Revision ID: 7e9fa167c199
 Revises: a0b6f9dd0342
