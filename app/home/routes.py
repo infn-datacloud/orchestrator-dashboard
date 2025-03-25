@@ -62,7 +62,6 @@ def show_info():
     """
     Route for displaying the info page.
     """
-
     return render_template(
         "info.html",
         iam_url=app.settings.iam_url,
@@ -79,8 +78,7 @@ def show_settings():
     Route for displaying the settings page.
     """
     groups = app.settings.iam_groups
-    dashboard_last_conf = redis_client.get("last_configuration_info")
-    last_settings = json.loads(dashboard_last_conf) if dashboard_last_conf else {}
+    repository_configuration = app.settings.repository_configuration
     _, _, _, tosca_gversion, _ = tosca.get()
 
     return render_template(
@@ -89,7 +87,7 @@ def show_settings():
         orchestrator_url=app.settings.orchestrator_url,
         orchestrator_conf=app.settings.orchestrator_conf,
         vault_url=app.config.get("VAULT_URL"),
-        tosca_settings=last_settings,
+        tosca_settings=repository_configuration,
         tosca_version="{0:c}.{1:c}.{2:c}".format(tosca_gversion[0], tosca_gversion[2], tosca_gversion[4]),
         groups=groups
     )
@@ -120,15 +118,20 @@ def submit_settings():
     and handles configuration reload.
     """
     if request.method == "POST" and session["userrole"].lower() == "admin":
-        current_config = get_current_configuration()
-        _, tosca_update_msg = update_configuration(
-            current_config, "tosca_templates", app.settings.tosca_dir, "Cloning TOSCA templates"
+
+        current_config = app.settings.repository_configuration
+
+        ret1, tosca_update_msg = update_configuration(
+            current_config,
+            "tosca_templates",
+            app.settings.tosca_dir,
+            "Cloning TOSCA templates"
         )
-        _, conf_update_msg = update_configuration(
+        ret2, conf_update_msg = update_configuration(
             current_config,
             "dashboard_configuration",
             app.settings.settings_dir,
-            "Cloning dashboard configuraton",
+            "Cloning dashboard configuraton"
         )
 
         try:
@@ -136,21 +139,10 @@ def submit_settings():
         except Exception as error:
             handle_configuration_reload_error(error)
 
-        handle_configuration_reload(current_config, tosca_update_msg, conf_update_msg)
+        if ret1 and ret2:
+            handle_configuration_reload(current_config, tosca_update_msg, conf_update_msg)
 
     return redirect(url_for("home_bp.show_settings"))
-
-
-def get_current_configuration():
-    """
-    Retrieve the current configuration from the redis client.
-
-    Returns:
-        dict: The current configuration information, deserialized from JSON,
-        or an empty dictionary if no configuration is found.
-    """
-    serialised_value = redis_client.get("last_configuration_info")
-    return json.loads(serialised_value) if serialised_value else {}
 
 
 def update_configuration(current_config, field_prefix, repo_dir, message):
@@ -169,7 +161,9 @@ def update_configuration(current_config, field_prefix, repo_dir, message):
     repo_url = request.form.get(f"{field_prefix}_url")
     tag_or_branch = request.form.get(f"{field_prefix}_tag_or_branch")
 
-    private, username, deploy_token = get_repository_params(field_prefix)
+    private = request.form.get(f"{field_prefix}_private") == "on"
+    username = request.form.get(f"{field_prefix}_username")
+    deploy_token = request.form.get(f"{field_prefix}_token")
 
     ret, message = process_repository(
         repo_dir, repo_url, tag_or_branch, private, username, deploy_token, message
@@ -216,18 +210,6 @@ def process_repository(
     return ret, message
 
 
-def get_repository_params(prefix):
-    """
-    This function takes a prefix as a parameter and retrieves the private flag, username,
-    and deploy token from the request form. It returns the private flag, username, and deploy token.
-    """
-    private = request.form.get(f"{prefix}_private") == "on"
-    username = request.form.get(f"{prefix}_username")
-    deploy_token = request.form.get(f"{prefix}_token")
-
-    return private, username, deploy_token
-
-
 def handle_configuration_reload_error(error):
     """
     Function to handle configuration reload error.
@@ -266,7 +248,7 @@ def handle_configuration_reload(current_config, message1, message2):
 
     now = datetime.now()
     current_config["updated_at"] = now.strftime("%d/%m/%Y %H:%M:%S")
-    redis_client.set("last_configuration_info", json.dumps(current_config))
+    app.settings.set_repository_configuration(current_config)
 
     notify_admins_and_users(message1, message2)
 
@@ -631,6 +613,8 @@ def send_email_notifications(payload):
             "CREATE_FAILED": "Deployment failed",
             "UPDATE_COMPLETE": "Deployment update complete",
             "UPDATE_FAILED": "Deployment update failed",
+            "DELETE_COMPLETE": "Deployment delete complete",
+            "DELETE_FAILED": "Deployment delete failed"
         }
         try:
             email_subject = email_subjects.get(status, "")

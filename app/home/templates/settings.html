@@ -16,9 +16,6 @@
             </div>
 
             <ul class="nav nav-tabs">
-                <!--
-                <li class="nav-item"><a class="nav-link active" data-toggle="tab" href="#conf_endpoints">Infrastructure Endpoints</a></li>
-                -->
 				{% if session['userrole'] == 'admin' %}
                 	<li class="nav-item"><a class="nav-link active" data-toggle="tab" href="#dash_conf">General Configuration</a></li>
                 	<li class="nav-item"><a class="nav-link" data-toggle="tab" href="#groups_conf">Groups Configuration</a></li>
@@ -26,53 +23,6 @@
             </ul>
 
             <div class="tab-content">
-                <!--
-                <div class="tab-pane fade show active" id=conf_endpoints>
-                    <br>
-                    <div class="table-responsive">
-                        <table id="tableServices" class="table table-bordered table-striped" width="100%" cellspacing="0">
-                            <thead>
-                                <tr>
-                                    <th>Service</th>
-                                    <th>Endpoint</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td>Identity and Access Management (IAM)</td>
-                                    <td>{{ iam_url }}</td>
-                                </tr>
-                                <tr>
-                                    <td>PaaS Orchestrator</td>
-                                    <td>{{ orchestrator_url }}</td>
-                                </tr>
-                                <tr>
-                                    <td>Infrastructure Manager (IM)</td>
-                                    <td>{{ orchestrator_conf['im_url'] }}</td>
-                                </tr>
-                                {% if orchestrator_conf['slam_url'] is not none %}
-								<tr>
-                                    <td>SLA Manager (SLAM)</td>
-                                    <td>{{ orchestrator_conf['slam_url'] }}</td>
-                                </tr>
-                                {% endif %}
-                                {% if orchestrator_conf['cmdb_url'] is not none %}
-								<tr>
-                                    <td>Configuration Management DB (CMDB)</td>
-                                    <td>{{ orchestrator_conf['cmdb_url'] }}</td>
-                                </tr>
-                                {% endif %}
-                                {% if orchestrator_conf['fed_reg_url'] is not none %}
-								<tr>
-                                    <td>Federation Registry (Fed-Reg)</td>
-                                    <td>{{ orchestrator_conf['fed_reg_url'] }}</td>
-                                </tr>
-                                {% endif %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-                -->
                 {% if session['userrole'] == 'admin' %}
 					<div class="tab-pane fade show active" id=dash_conf>
 						<br>
@@ -164,7 +114,7 @@
 								<div class="form-row">
 									<div class="form-group col">
 										<label for="notify_email">CC to (optional)</label>
-										<select class="js-example-basic-multiple js-example-tags form-control" id="notify_email" name="notify_email" multiple="multiple"></select>
+										<select class="js-settings-basic-multiple js-settings-tags form-control" id="notify_email" name="notify_email" multiple="multiple"></select>
 									</div>
 								</div>
 								<div class="form-group">
@@ -214,9 +164,6 @@
                                 </div>
                             </div>
                         </div>
-
-
-
                     </div>
                 {% endif %}
             </div>
@@ -235,11 +182,11 @@ $(document).ready(() => {
         $("#privateRepoFields2").toggle(this.checked);
     });
 
-    $('.js-example-basic-multiple').select2({
+    $('.js-settings-basic-multiple').select2({
       	width: '100%' // https://github.com/select2/select2/issues/4220
     });
 
-    $(".js-example-tags").select2({
+    $(".js-settings-tags").select2({
 		tags: true,
 		tokenSeparators: [' '],
 		width: '100%'
