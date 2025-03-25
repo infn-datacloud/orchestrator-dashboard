@@ -53,6 +53,7 @@ class Settings:
         self.tosca_dir = utils.url_path_join(temp_tosca_dir, "/")
         self.tosca_params_dir = utils.url_path_join(temp_settings_dir, "tosca-parameters")
         self.tosca_metadata_dir = utils.url_path_join(temp_settings_dir, "tosca-metadata")
+        self.repository_configuration = None
 
         self.iam_url = app.config.get("IAM_BASE_URL")
         self.iam_client_id = app.config.get("IAM_CLIENT_ID")
@@ -103,6 +104,12 @@ class Settings:
         else:
             self.iam_groups = json.loads(iam_groups.value)
 
+        # repository configuration
+        repository_configuration = dbhelpers.get_setting("REPOSITORY_CONFIGURATION")
+        if not repository_configuration:
+            self.repository_configuration = {}
+        else:
+            self.repository_configuration = json.loads(repository_configuration.value)
 
     def save_setting(self,id,value):
         if dbhelpers.get_setting(id):
@@ -116,5 +123,13 @@ class Settings:
         key = "IAM_GROUP_MEMBERSHIP"
         if iam_groups:
             self.save_setting(key, json.dumps(iam_groups))
+        else:
+            self.save_setting(key, None)
+
+    def set_repository_configuration(self, repository_configuration):
+        self.repository_configuration = repository_configuration
+        key = "REPOSITORY_CONFIGURATION"
+        if repository_configuration:
+            self.save_setting(key, json.dumps(repository_configuration))
         else:
             self.save_setting(key, None)

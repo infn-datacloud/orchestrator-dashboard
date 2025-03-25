@@ -20,6 +20,7 @@ import re
 import urllib.parse
 import secrets
 import shutil
+import stat
 import string
 import subprocess
 import sys
@@ -468,7 +469,7 @@ def backup_directory(directory):
     try:
         backup_path = f"{os.path.normpath(directory)}.bak"
         if os.path.exists(backup_path):
-            shutil.rmtree(backup_path)
+            shutil.rmtree(backup_path, onerror=remove_readonly)
         shutil.copytree(directory, backup_path)
         return backup_path
     except Exception as e:
@@ -489,12 +490,16 @@ def restore_directory(backup_path, target_directory):
     """
     try:
         if os.path.exists(target_directory):
-            shutil.rmtree(target_directory)
+            shutil.rmtree(target_directory, onerror=remove_readonly)
         shutil.copytree(backup_path, target_directory)
         return True
     except Exception as e:
         app.logger.error(f"Error restoring directory: {e}")
         return False
+
+def remove_readonly(func, path, excinfo):
+    os.chmod(path, stat.S_IWRITE)
+    func(path)
 
 
 def download_git_repo(
@@ -531,7 +536,7 @@ def download_git_repo(
                 app.logger.warn(
                     f"Warning: Target directory '{target_directory}' is not empty. Removing existing contents."
                 )
-                shutil.rmtree(target_directory)
+                shutil.rmtree(target_directory, onerror=remove_readonly)
 
             # Clone the repository
             if private and username and deploy_token:
