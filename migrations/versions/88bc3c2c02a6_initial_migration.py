@@ -1,4 +1,4 @@
-"""Initial migration.
+"""Initial migration - Create deployments and users tables
 
 Revision ID: 88bc3c2c02a6
 Revises: 

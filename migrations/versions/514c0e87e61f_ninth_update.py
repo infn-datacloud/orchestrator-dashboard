@@ -1,4 +1,4 @@
-"""Ninth update
+"""Ninth update - add service, users_group and service_access tables
 
 Revision ID: 514c0e87e61f
 Revises: 7e9fa167c199

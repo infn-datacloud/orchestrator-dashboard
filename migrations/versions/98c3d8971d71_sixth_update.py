@@ -1,4 +1,4 @@
-"""Sixth Update.
+"""Sixth Update - Add deployment_type col to deployments
 
 Revision ID: 98c3d8971d71
 Revises: 98c3d8971d70

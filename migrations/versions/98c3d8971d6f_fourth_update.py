@@ -1,4 +1,4 @@
-"""Fourth Update.
+"""Fourth Update - Add selected_template col to deployments
 
 Revision ID: 98c3d8971d6f
 Revises: 98c3d8971d6e
@@ -16,7 +16,7 @@ depends_on = None
 
 
 def upgrade():
-    if alembic_helper.column_exists('deployments', 'selected_template'):
+    if not alembic_helper.column_exists('deployments', 'selected_template'):
         op.add_column('deployments', sa.Column('selected_template', sa.Text, nullable=True))
     # ### end Alembic commands ###
 

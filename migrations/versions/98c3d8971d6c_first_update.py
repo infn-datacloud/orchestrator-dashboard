@@ -1,4 +1,4 @@
-"""First Update.
+"""First Update - Add elastic, sshkey cols to deployments, add users fk
 
 Revision ID: 98c3d8971d6c
 Revises: 88bc3c2c02a6

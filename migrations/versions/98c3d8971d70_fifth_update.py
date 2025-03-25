@@ -1,4 +1,4 @@
-"""Fifth Update.
+"""Fifth Update - Add template_parameters, template_metadata cols to deployments
 
 Revision ID: 98c3d8971d70
 Revises: 98c3d8971d6f

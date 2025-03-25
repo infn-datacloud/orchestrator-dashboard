@@ -1,4 +1,4 @@
-"""Seventh Update
+"""Seventh Update - Add additional_outputs, stoutputs, template_type cols to deployments
 
 Revision ID: a0b6f9dd0342
 Revises: 98c3d8971d71
