@@ -16,62 +16,15 @@
             </div>
 
             <ul class="nav nav-tabs">
-                <li class="nav-item"><a class="nav-link active" data-toggle="tab" href="#conf_endpoints">Configured endpoints</a></li>
-                
 				{% if session['userrole'] == 'admin' %}
-                	<li class="nav-item"><a class="nav-link" data-toggle="tab" href="#dash_conf">Dashboard Configuration</a></li>
+                	<li class="nav-item"><a class="nav-link active" data-toggle="tab" href="#dash_conf">General Configuration</a></li>
+                	<li class="nav-item"><a class="nav-link" data-toggle="tab" href="#groups_conf">Groups Configuration</a></li>
                 {% endif %}
             </ul>
 
             <div class="tab-content">
-                <div class="tab-pane fade show active" id=conf_endpoints>
-                    <br>
-                    <div class="table-responsive">
-                        <table id="tableServices" class="table table-bordered table-striped" width="100%" cellspacing="0">
-                            <thead>
-                                <tr>
-                                    <!-- <th>id</th>-->
-                                    <th>Service</th>
-                                    <th>Endpoint</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td>Identity and Access Management (IAM)</td>
-                                    <td>{{ iam_url }}</td>
-                                </tr>
-                                <tr>
-                                    <td>PaaS Orchestrator</td>
-                                    <td>{{ orchestrator_url }}</td>
-                                </tr>
-                                <tr>
-                                    <td>Infrastructure Manager (IM)</td>
-                                    <td>{{ orchestrator_conf['im_url'] }}</td>
-                                </tr>
-                                {% if orchestrator_conf['slam_url'] is not none %}
-								<tr>
-                                    <td>SLA Manager (SLAM)</td>
-                                    <td>{{ orchestrator_conf['slam_url'] }}</td>
-                                </tr>
-                                {% endif %}
-                                {% if orchestrator_conf['cmdb_url'] is not none %}
-								<tr>
-                                    <td>Configuration Management DB (CMDB)</td>
-                                    <td>{{ orchestrator_conf['cmdb_url'] }}</td>
-                                </tr>
-                                {% endif %}
-                                {% if orchestrator_conf['fed_reg_url'] is not none %}
-								<tr>
-                                    <td>Federation Registry (Fed-Reg)</td>
-                                    <td>{{ orchestrator_conf['fed_reg_url'] }}</td>
-                                </tr>
-                                {% endif %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
                 {% if session['userrole'] == 'admin' %}
-					<div class="tab-pane fade show" id=dash_conf>
+					<div class="tab-pane fade show active" id=dash_conf>
 						<br>
 						<p class="text-success">Last update at: {{ tosca_settings.updated_at }}</p>
 						<form id="settingsform" action="{{ url_for('home_bp.submit_settings')}}" method="post">
@@ -161,7 +114,7 @@
 								<div class="form-row">
 									<div class="form-group col">
 										<label for="notify_email">CC to (optional)</label>
-										<select class="js-example-basic-multiple js-example-tags form-control" id="notify_email" name="notify_email" multiple="multiple"></select>
+										<select class="js-settings-basic-multiple js-settings-tags form-control" id="notify_email" name="notify_email" multiple="multiple"></select>
 									</div>
 								</div>
 								<div class="form-group">
@@ -175,6 +128,43 @@
 							</div>
 						</form>
 					</div>
+					<div class="tab-pane fade show" id=groups_conf>
+						<br>
+                        <div class="container mt-4">
+                            <h3>User Groups</h3>
+                            <ul id="groupList" class="list-group mb-3">
+                                {% for group in groups %}
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    {{ group }}
+                                    <button class="btn btn-danger btn-sm" onclick="this.parentElement.remove()">Remove</button>
+                                </li>
+                                {% endfor %}
+                            </ul>
+							<div class="dashboard-template-buttons-container">
+                                <button class="dashboard-button dashboard-button-primary dashboard-button-lg" onclick="showAddGroupModal();">Add Group</button>
+                                <button class="dashboard-button dashboard-button-primary dashboard-button-lg submitBtn" onclick="saveGroupsList();" style="margin-left: auto;">Apply<i class="fas fa-save"></i></button>
+                            </div>
+                        </div>
+
+                        <!-- Modal per aggiungere un elemento -->
+                        <div class="modal fade" id="addGroupModal" tabindex="-1" aria-hidden="true">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title">Add Group</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <input type="text" id="newGroup" class="form-control" placeholder="Group name">
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                        <button type="button" class="btn btn-primary" onclick="addGroup();">Add Group</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 {% endif %}
             </div>
         </div>
@@ -184,12 +174,24 @@
 <script>
 
 $(document).ready(() => {
-  $("#tosca_templates_private").change(() => {
-    $("#privateRepoFields1").toggle(this.checked);
-  });
-  $("#dashboard_configuration_private").change(() => {
-    $("#privateRepoFields2").toggle(this.checked);
-  });
+    $("#tosca_templates_private").change(() => {
+        $("#privateRepoFields1").toggle(this.checked);
+    });
+
+    $("#dashboard_configuration_private").change(() => {
+        $("#privateRepoFields2").toggle(this.checked);
+    });
+
+    $('.js-settings-basic-multiple').select2({
+      	width: '100%' // https://github.com/select2/select2/issues/4220
+    });
+
+    $(".js-settings-tags").select2({
+		tags: true,
+		tokenSeparators: [' '],
+		width: '100%'
+    });
+
 });
 
 $('#tableServices').dataTable( {
@@ -202,16 +204,55 @@ $('#tableServices').dataTable( {
     "order": [[ 1, "asc" ]]
 });
 
-$(document).ready(() => {
-    $('.js-example-basic-multiple').select2({
-      	width: '100%' // https://github.com/select2/select2/issues/4220
+function showAddGroupModal() {
+    $("#addGroupModal").modal("show");
+};
+
+function addGroup() {
+    let newGroupText = document.getElementById("newGroup").value;
+    if (newGroupText.trim() === "") return;
+
+    let listItem = document.createElement("li");
+    listItem.className = "list-group-item d-flex justify-content-between align-items-center";
+    listItem.textContent = newGroupText;
+
+    let removeButton = document.createElement("button");
+    removeButton.className = "btn btn-danger btn-sm";
+    removeButton.textContent = "Remove";
+    removeButton.onclick = function () {
+        listItem.remove();
+    };
+
+    listItem.appendChild(removeButton);
+    document.getElementById("groupList").appendChild(listItem);
+    document.getElementById("newGroup").value = "";
+
+    $("#addGroupModal").modal("hide");
+};
+
+function saveGroupsList() {
+    let groups = [];
+    document.querySelectorAll("#groupList li").forEach(li => {
+        groups.push(li.childNodes[0].textContent.trim());
     });
-    $(".js-example-tags").select2({
-		tags: true,
-		tokenSeparators: [' '],
-		width: '100%'
-    });
-});
+    set_loading(true);
+    fetch("{{ url_for('home_bp.submit_settings_groups') }}", {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+            'x-csrf-token': '{{csrf_token()}}',
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ groups: groups })
+    }).then(response => {
+        if (response.redirected) {
+            window.location.replace(response.url);
+            return;
+        }
+    })
+      .then(data => alert("Groups list saved!"))
+      .catch(error => alert("Error saving groups list."));
+};
 
 </script>
 

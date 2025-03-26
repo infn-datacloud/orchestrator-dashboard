@@ -1,4 +1,4 @@
-"""Add user_group column in deployment table
+"""Eighth update - Add user_group col to deployments
 
 Revision ID: 7e9fa167c199
 Revises: a0b6f9dd0342
@@ -7,7 +7,7 @@ Create Date: 2021-02-20 19:41:03.825639
 """
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.dialects import mysql
+from app.lib import alembic_helper
 
 # revision identifiers, used by Alembic.
 revision = '7e9fa167c199'
@@ -17,8 +17,10 @@ depends_on = None
 
 
 def upgrade():
-    op.add_column('deployments', sa.Column('user_group', sa.String(length=256), nullable=True))
+    if not alembic_helper.column_exists('deployments', 'user_group'):
+        op.add_column('deployments', sa.Column('user_group', sa.String(length=256), nullable=True))
 
 
 def downgrade():
-    op.drop_column('deployments', 'user_group')
+    if alembic_helper.column_exists('deployments', 'user_group'):
+        op.drop_column('deployments', 'user_group')

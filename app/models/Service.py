@@ -1,4 +1,4 @@
-# Copyright (c) Istituto Nazionale di Fisica Nucleare (INFN). 2019-2022
+# Copyright (c) Istituto Nazionale di Fisica Nucleare (INFN). 2019-2025
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,7 +13,7 @@
 # limitations under the License.
 import enum
 from datetime import datetime
-
+from app.models import UsersGroup, ServiceAccess
 from sqlalchemy.orm import backref, relationship
 
 from app.extensions import db
@@ -47,16 +47,3 @@ class Service(db.Model):
         return [g.name for g in self.groups]
 
 
-class UsersGroup(db.Model):
-    __tablename__ = "users_group"
-    name = db.Column(db.String(128), primary_key=True)
-    # services = relationship("Service", secondary="service_access")
-
-
-class ServiceAccess(db.Model):
-    __tablename__ = "service_access"
-    id = db.Column(db.Integer, primary_key=True)
-    service_id = db.Column(db.Integer, db.ForeignKey("service.id", ondelete="cascade"))
-    group_id = db.Column(
-        db.String(128), db.ForeignKey("users_group.name", ondelete="cascade")
-    )

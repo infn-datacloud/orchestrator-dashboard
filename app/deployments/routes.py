@@ -44,7 +44,7 @@ from app.iam import iam
 from app.lib import auth, dbhelpers, fed_reg, providers, s3, utils
 from app.lib import openstack as keystone
 from app.lib import tosca_info as tosca_helpers
-from app.lib.dbhelpers import filter_status, filter_provider, filter_group
+from app.lib.dbhelpers import filter_provider, filter_group
 from app.lib.ldap_user import LdapUserManager
 from app.models.Deployment import Deployment
 
@@ -82,6 +82,8 @@ def showdeploymentsingroup():
 def showdeployments(show_back="False"):
     access_token = iam.token["access_token"]
     show_deleted="False"
+    excluded_status = "DELETE_COMPLETE"
+
     if request.method == "POST":
         show_deleted = request.form.to_dict()["showhdep"]
         show_back =  request.form.to_dict()["showback"]
@@ -92,21 +94,20 @@ def showdeployments(show_back="False"):
 
     deployments = []
     try:
-        deployments = app.orchestrator.get_deployments(
-            access_token, created_by="me", user_group=group
-        )
+        if show_deleted == "False":
+            deployments = app.orchestrator.get_deployments(
+                access_token, created_by="me", user_group=group, excluded_status=excluded_status
+            )
+        else:
+            deployments = app.orchestrator.get_deployments(
+                access_token, created_by="me", user_group=group
+            )
     except Exception as e:
         flash("Error retrieving deployment list: \n" + str(e), "warning")
 
     if deployments:
-        sanitized = dbhelpers.sanitizedeployments(deployments)
-        if (show_deleted == "False"):
-            deployments = filter_status(
-                sanitized["deployments"],
-                ["DELETE_COMPLETE"],
-                False)
-        else:
-            deployments = sanitized["deployments"]
+        deployments = dbhelpers.sanitizedeployments(deployments)["deployments"]
+
         app.logger.debug("Deployments: " + str(deployments))
 
     return render_template("deployments.html", deployments=deployments, showdepdel=show_deleted, showback=show_back)
@@ -116,7 +117,9 @@ def showdeployments(show_back="False"):
 def showalldeployments(show_back="False"):
     access_token = iam.token["access_token"]
     show_deleted="False"
+    excluded_status = "DELETE_COMPLETE"
     group = "None"
+
     if request.method == "POST":
         show_deleted = request.form.to_dict()["showhdep"]
         show_back =  request.form.to_dict()["showback"]
@@ -127,27 +130,25 @@ def showalldeployments(show_back="False"):
 
     deployments = []
     try:
-        deployments = app.orchestrator.get_deployments(
-            access_token, user_group=group
-        )
+        if show_deleted == "False":
+            deployments = app.orchestrator.get_deployments(
+                access_token, user_group=group, excluded_status=excluded_status
+            )
+        else:
+            deployments = app.orchestrator.get_deployments(
+                access_token, user_group=group
+            )
     except Exception as e:
         flash("Error retrieving deployment list: \n" + str(e), "warning")
 
     if deployments:
-        sanitized = dbhelpers.sanitizedeployments(deployments)
-        if (show_deleted == "False"):
-            deployments = filter_status(
-                sanitized["deployments"],
-                ["DELETE_COMPLETE"],
-                False)
-        else:
-            deployments = sanitized["deployments"]
+        deployments = dbhelpers.sanitizedeployments(deployments)["deployments"]
 
         groups = ["UNKNOWN"]
 
         for dep in deployments:
             status = dep.status or "UNKNOWN"
-            if (show_deleted == True or (status not in ["DELETE_COMPLETE"])):
+            if (show_deleted == True or (status not in list(excluded_status))):
                 user_group = dep.user_group or "UNKNOWN"
                 if not user_group in groups:
                     groups.append(user_group)
@@ -171,16 +172,34 @@ def showalldeployments(show_back="False"):
 @deployments_bp.route("/overview")
 @auth.authorized_with_valid_token
 def showdeploymentsoverview():
+
+    access_token = iam.token["access_token"]
+    show_deleted="False"
+    only_remote = True
+    excluded_status = "DELETE_COMPLETE"
+
     # refresh deployment list
     try:
         dbhelpers.update_deployments(session["userid"])
     except Exception as e:
         flash("Error retrieving deployment list: \n" + str(e), "warning")
 
-    only_remote = True
-    show_deleted = False
 
-    deps = dbhelpers.get_user_deployments(session["userid"])
+    deployments = []
+    try:
+        if show_deleted == "False":
+            deployments = app.orchestrator.get_deployments(
+                access_token, created_by="me", excluded_status=excluded_status
+            )
+        else:
+            deployments = app.orchestrator.get_deployments(
+                access_token, created_by="me"
+            )
+    except Exception as e:
+        flash("Error retrieving deployment list: \n" + str(e), "warning")
+
+    if deployments:
+        deployments = dbhelpers.sanitizedeployments(deployments)["deployments"]
 
     # Initialize dictionaries for status, projects, and providers
     statuses = {"UNKNOWN": 0}
@@ -190,10 +209,9 @@ def showdeploymentsoverview():
     providers_to_split = app.config.get("PROVIDER_NAMES_TO_SPLIT", None)
     if providers_to_split:
         providers_to_split = providers_to_split.lower()
-    for dep in deps:
+    for dep in deployments:
         status = dep.status or "UNKNOWN"
-        if (show_deleted == True or status != "DELETE_COMPLETE") and \
-            (only_remote == False or dep.remote == 1):
+        if (only_remote == False or dep.remote == 1):
             statuses[status] = statuses.get(status, 0) + 1
 
             user_group = dep.user_group or "UNKNOWN"
@@ -241,7 +259,7 @@ def showdeploymentstats():
     only_remote = True
     only_effective = True
     show_deleted = "False"
-    filter_statuses = ["DELETE_COMPLETE", "DELETE_IN_PROGRESS", "CREATE_FAILED", "DELETE_FAILED"]
+    excluded_status = "DELETE_COMPLETE,DELETE_IN_PROGRESS,CREATE_FAILED,DELETE_FAILED"
 
     group = "None"
     provider = "None"
@@ -258,22 +276,20 @@ def showdeploymentstats():
 
     deployments = []
     try:
-        deployments = app.orchestrator.get_deployments(
-            access_token
+        if show_deleted == "False":
+            deployments = app.orchestrator.get_deployments(
+                access_token, excluded_status=excluded_status
+        )
+        else:
+            deployments = app.orchestrator.get_deployments(
+                access_token
         )
     except Exception as e:
         flash("Error retrieving deployment list: \n" + str(e), "warning")
 
     # sanitize data and filter undesired states
     if deployments:
-        sanitized = dbhelpers.sanitizedeployments(deployments)
-        if (show_deleted == "False"):
-            deployments = filter_status(
-                sanitized["deployments"],
-                filter_statuses,
-                False)
-        else:
-            deployments = sanitized["deployments"]
+        deployments = dbhelpers.sanitizedeployments(deployments)["deployments"]
 
     # Initialize dictionaries for status, projects, and providers
     statuses = {"UNKNOWN": 0}
@@ -358,12 +374,6 @@ def showdeploymentstats():
         providers.pop("UNKNOWN")
     if templates["UNKNOWN"] == 0:
         templates.pop("UNKNOWN")
-
-    # add local groups if missing
-    #supported_usergroups = session["supported_usergroups"]
-    #for g in supported_usergroups:
-    #    if not g in groups_labels:
-    #        groups_labels.append(g)
 
     return render_template(
         "depstatistics.html",

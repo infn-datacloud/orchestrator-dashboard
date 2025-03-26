@@ -1,4 +1,4 @@
-# Copyright (c) Istituto Nazionale di Fisica Nucleare (INFN). 2019-2020
+# Copyright (c) Istituto Nazionale di Fisica Nucleare (INFN). 2019-2025
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,13 +22,21 @@ from flask import json
 
 from app.extensions import db
 from app.iam import iam
+
 from app.models.Deployment import Deployment
-from app.models.Service import Service, UsersGroup
+from app.models.Service import Service
+from app.models.UsersGroup import UsersGroup
 from app.models.User import User
+from app.models.Setting import Setting
 
 
 def add_object(object):
     db.session.add(object)
+    db.session.commit()
+
+
+def remove_object(object):
+    db.session.remove(object)
     db.session.commit()
 
 
@@ -200,6 +208,7 @@ def sanitizedeployments(deployments):
                 #check user existence
                 subject = dep_json["createdBy"]["subject"]
                 user = get_user(subject)
+                #create inactive unknown user if not exists
                 if user is None:
                     user = User(
                         sub=subject,
@@ -309,30 +318,23 @@ def cvdeployment(d):
         status=d.status,
         status_reason=d.status_reason,
         outputs=json.loads(d.outputs.replace("\n", "\\n"))
-        if (d.outputs is not None and d.outputs != "")
-        else "",
+        if (d.outputs is not None and d.outputs != "") else "",
         stoutputs=json.loads(d.stoutputs.replace("\n", "\\n"))
-        if (d.stoutputs is not None and d.stoutputs != "")
-        else "",
+        if (d.stoutputs is not None and d.stoutputs != "") else "",
         task=d.task,
         links=json.loads(d.links.replace("\n", "\\n"))
-        if (d.links is not None and d.links != "")
-        else "",
+        if (d.links is not None and d.links != "") else "",
         sub=d.sub,
         template=d.template,
         template_parameters=d.template_parameters
-        if d.template_parameters is not None
-        else "",
+        if d.template_parameters is not None else "",
         template_metadata=d.template_metadata
-        if d.template_metadata is not None
-        else "",
+        if d.template_metadata is not None else "",
         selected_template=d.selected_template,
         inputs=json.loads(d.inputs.replace("\n", "\\n"))
-        if (d.inputs is not None and d.inputs != "")
-        else "",
+        if (d.inputs is not None and d.inputs != "") else "",
         stinputs=json.loads(d.stinputs.replace("\n", "\\n"))
-        if (d.stinputs is not None and d.stinputs != "")
-        else "",
+        if (d.stinputs is not None and d.stinputs != "") else "",
         params=d.params,
         deployment_type=d.deployment_type,
         provider_name="" if d.provider_name is None else d.provider_name,
@@ -422,7 +424,7 @@ def __update_service(s, data):
 
     if s.visibility == "private":
         for g in data.get("groups"):
-            group = UsersGroup.query.filter_by(name=g).first()
+            group = get_usergroup(g)
             if not group:
                 group = UsersGroup()
                 group.name = g
@@ -446,4 +448,25 @@ def add_service(data):
     s = Service()
     __update_service(s, data)
     db.session.add(s)
+    db.session.commit()
+
+
+def get_usergroup(name):
+    return UsersGroup.query.get(name)
+
+
+def get_usergroups():
+    return UsersGroup.query.all()
+
+
+def get_setting(id):
+    return Setting.query.get(id)
+
+
+def get_settings():
+    return Setting.query.all()
+
+
+def update_setting(id, data):
+    Setting.query.filter_by(id=id).update(data)
     db.session.commit()

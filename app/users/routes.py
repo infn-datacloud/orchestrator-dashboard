@@ -1,4 +1,4 @@
-# Copyright (c) Istituto Nazionale di Fisica Nucleare (INFN). 2019-2020
+# Copyright (c) Istituto Nazionale di Fisica Nucleare (INFN). 2019-2025
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,7 +22,6 @@ from flask import (
     request,
 )
 from app.lib import auth, dbhelpers
-from app.lib.dbhelpers import filter_status
 from app.models.User import User
 from app.iam import iam
 
@@ -43,7 +42,7 @@ def show_users():
 @users_bp.route("/<subject>/<ronly>", methods=["GET", "POST"])
 @auth.authorized_with_valid_token
 @auth.only_for_admin
-def show_user(subject,ronly):
+def show_user(subject, ronly):
     if request.method == "POST":
         # cannot change its own role
         if session["userid"] == subject:
@@ -74,26 +73,28 @@ def show_deployments(subject):
         issuer = iam.base_url
         if not issuer.endswith("/"):
             issuer += "/"
+
         show_deleted = "False"
+        excluded_status = "DELETE_COMPLETE"
+
         if request.method == "POST":
             show_deleted = request.form.to_dict()["showhdep"]
 
         deployments = []
         try:
-            deployments = app.orchestrator.get_deployments(
-                access_token, created_by="{}@{}".format(subject, issuer)
-            )
+            if show_deleted == "False":
+                deployments = app.orchestrator.get_deployments(
+                    access_token, created_by="{}@{}".format(subject, issuer), excluded_status=excluded_status
+                )
+            else:
+                deployments = app.orchestrator.get_deployments(
+                    access_token, created_by="{}@{}".format(subject, issuer)
+                )
         except Exception as e:
             flash("Error retrieving deployment list: \n" + str(e), "warning")
 
         if deployments:
-            result = dbhelpers.sanitizedeployments(deployments)
-            deployments = result["deployments"]
-            if (show_deleted == "False"):
-                deployments = filter_status(
-                    deployments,
-                    ["DELETE_COMPLETE", "DELETE_IN_PROGRESS"],
-                    False)
+            deployments = dbhelpers.sanitizedeployments(deployments)["deployments"]
             app.logger.debug("Deployments: " + str(deployments))
 
         return render_template("dep_user.html", user=user, deployments=deployments, showdepdel=show_deleted)

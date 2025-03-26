@@ -1,4 +1,4 @@
-# Copyright (c) Istituto Nazionale di Fisica Nucleare (INFN). 2019-2020
+# Copyright (c) Istituto Nazionale di Fisica Nucleare (INFN). 2019-2025
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -34,6 +34,7 @@ def get_all_results(url, timeout=60, headers={}, params={}, results=[]):
 
 
 class Orchestrator:
+
     def __init__(self, orchestrator_url, timeout=60):
         self.orchestrator_url = orchestrator_url
         self.timeout = timeout
@@ -42,7 +43,8 @@ class Orchestrator:
         self,
         access_token,
         created_by=None,
-        user_group=None
+        user_group=None,
+        excluded_status=None
     ):
 
         headers = {"Authorization": "Bearer %s" % access_token}
@@ -52,12 +54,14 @@ class Orchestrator:
             params.append("createdBy={}".format(created_by))
         if user_group:
             params.append("userGroup={}".format(user_group))
+        if excluded_status:
+            params.append("excludedStatus={}".format(excluded_status))
 
         str_params = ""
         if params:
             str_params = "?{}".format("&".join(params))
 
-        url = self.orchestrator_url + "/deployments" + str_params
+        url = f"{self.orchestrator_url}/deployments{str_params}"
 
         deployments = []
 
@@ -74,7 +78,7 @@ class Orchestrator:
     ) -> str:
 
         headers = {"Authorization": "Bearer %s" % access_token}
-        url = self.orchestrator_url + "/deployments/" + deployment_uuid + "/template"
+        url = f"{self.orchestrator_url}/deployments/{deployment_uuid}/template"
 
         response = requests.get(url, headers=headers, timeout=self.timeout)
 
@@ -93,7 +97,7 @@ class Orchestrator:
     ) -> str:
 
         headers = {"Authorization": "Bearer %s" % access_token}
-        url = self.orchestrator_url + "/deployments/" + deployment_uuid + "/log"
+        url = f"{self.orchestrator_url}/deployments/{deployment_uuid}/log"
 
         response = requests.get(url, headers=headers, timeout=self.timeout)
 
@@ -110,7 +114,7 @@ class Orchestrator:
     ) -> str:
 
         headers = {"Authorization": "Bearer %s" % access_token}
-        url = self.orchestrator_url + "/deployments/" + deployment_uuid + "/extrainfo"
+        url = f"{self.orchestrator_url}/deployments/{deployment_uuid}/extrainfo"
 
         response = requests.get(url, headers=headers, timeout=self.timeout)
 
@@ -204,7 +208,8 @@ class Orchestrator:
         timeout_mins,
         callback,
     ):
-        url = self.orchestrator_url + "/deployments/"
+        url = f"{self.orchestrator_url}/deployments/"
+
         headers = {
             "Content-Type": "application/json",
             "Authorization": "bearer %s" % access_token,
@@ -239,7 +244,8 @@ class Orchestrator:
         timeout_mins,
         callback,
     ):
-        url = self.orchestrator_url + "/deployments/" + deployment_uuid
+        url = f"{self.orchestrator_url}/deployments/{deployment_uuid}"
+
         headers = {
             "Content-Type": "application/json",
             "Authorization": "bearer %s" % access_token,
@@ -278,7 +284,8 @@ class Orchestrator:
         if params:
             str_params = "?{}".format("&".join(params))
 
-        url = self.orchestrator_url + "/deployments/" + deployment_uuid + str_params
+        url = f"{self.orchestrator_url}/deployments/{deployment_uuid}{str_params}"
+
 
         response = requests.delete(url, timeout=self.timeout, json = params, headers=headers)
         if not response.ok:
@@ -291,7 +298,8 @@ class Orchestrator:
             "Content-Type": "application/json",
             "Authorization": "bearer %s" % access_token,
         }
-        url = self.orchestrator_url + "/deployments/" + deployment_uuid
+        url = f"{self.orchestrator_url}/deployments/{deployment_uuid}"
+
         payload = {"status": status}
         response = requests.patch(url, timeout=self.timeout, json=payload, headers=headers)
         if not response.status_code == 204:
