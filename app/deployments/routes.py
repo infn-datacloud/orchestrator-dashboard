@@ -1496,11 +1496,11 @@ def configure_form():
             "extra_opts.selectedSLA"
         )
         if selected_sla:
-            selected_sla, region_name = selected_sla.split("_")
+            sla_id, region_name = selected_sla.split("_")
             template = patch_template(
                 access_token=access_token,
                 template=template,
-                sla_id=selected_sla,
+                sla_id=sla_id,
                 region_name=region_name,
             )
     else:
@@ -1700,15 +1700,7 @@ def remove_sla_from_template(template):
 
 def add_sla_to_template(template, sla):
     # Add or replace the placement policy
-    sla_id = ""
-    sla_region = ""
-    sla_split = sla.split("_")
-
-    if sla_split[0]:
-        sla_id = sla_split[0]
-
-    if len(sla_split) > 1 and sla_split[1]:
-        sla_region = sla_split[1]
+    sla_id, sla_region = sla.split("_")
 
     tosca_sla_placement_type = "tosca.policies.indigo.SlaPlacement"
     if "topology_template" in template:
@@ -1924,7 +1916,7 @@ def process_openstack_ec2credentials(key: str, inputs: dict, stinputs: dict):
 
                 # Get target provider details
                 provider = fed_reg.get_provider(
-                    _provider["uid"],
+                    uid=_provider["uid"],
                     access_token=iam.token["access_token"],
                     with_conn=True,
                 )
