@@ -514,23 +514,29 @@ def process_deployment_data(dep):
     outputs: The processed outputs.
     stoutputs: The processed stoutputs.
     """
+
+
     try:
-        i = json.loads(dep.inputs.strip('"')) if dep.inputs else {}
+        i = dep.inputs.strip('"') if dep.inputs else None
+        i = json.loads(i) if (i and i != '') else {}
     except:
         i = {}
 
     try:
-        stinputs = json.loads(dep.stinputs.strip('"')) if dep.stinputs else {}
+        stinputs = dep.stinputs.strip('"') if dep.stinputs else None
+        stinputs = json.loads(stinputs) if (stinputs and stinputs != '') else {}
     except:
         stinputs = {}
 
     try:
-        outputs = json.loads(dep.outputs.strip('"')) if dep.outputs else {}
+        outputs = dep.outputs.strip('"') if dep.outputs else None
+        outputs = json.loads(outputs) if (outputs and outputs != '') else {}
     except:
         outputs = {}
 
     try:
-        stoutputs = json.loads(dep.stoutputs.strip('"')) if dep.stoutputs else {}
+        stoutputs = dep.stoutputs.strip('"') if dep.stoutputs else None
+        stoutputs = json.loads(stoutputs) if (stoutputs and stoutputs != '') else {}
     except:
         stoutputs = {}
 
