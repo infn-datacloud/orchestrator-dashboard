@@ -237,6 +237,13 @@
 					class="form-control" id="{{key}}" name="{{key}}" value="{{value.default}}" aria-describedby="help{{key}}" 
 					{% if value.required %}data-required=true required{%endif%} {{mode}} 
 				/>
+				<script>
+					$(document).ready(() => {
+						{% if 'bucket_name' in key %}
+						check_s3_bucket_name('{{key}}');
+						{% endif %}
+					});
+				</script>
 			{% endif %}
 		{% endif %}  <!-- end tag type existence if -->
 
