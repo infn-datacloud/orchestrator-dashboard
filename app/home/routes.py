@@ -206,7 +206,9 @@ def process_repository(
             deploy_token,
         )
         flash(message, "success" if ret else "danger")
-
+    else:
+        ret = True
+        message = "Url not specified for repository"
     return ret, message
 
 
