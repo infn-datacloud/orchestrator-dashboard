@@ -136,6 +136,7 @@ def create_app():
         client_secret=app.config["IAM_CLIENT_SECRET"],
         base_url=app.config["IAM_BASE_URL"],
         redirect_to="home_bp.home",
+        scope=app.config["IAM_SCOPE"],
     )
 
     # initialize jinja filters
