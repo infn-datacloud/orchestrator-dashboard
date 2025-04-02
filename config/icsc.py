@@ -3,7 +3,7 @@ WELCOME_MESSAGE = "Welcome to the ICSC Dashboard!"
 NAVBAR_BRAND_TEXT = "Dashboard"
 NAVBAR_BRAND_ICON = "/static/home/images/icsc/icsc-logo-md.png"
 FAVICON_PATH = "/static/home/images/icsc/icsc-logo-sm.ico"
-HELP_PAGE_URL = "https://servicedesk.infn.it"
+HELP_PAGE_URL = "https://servicedesk.infn.it/plugins/servlet/desk/portal/50"
 BRAND_COLOR_1 = "#bdb1b5"
 BRAND_COLOR_2 = "#0010a0"
 
