@@ -237,7 +237,8 @@ def filter_resources(
     """
     filtered = []
     for resource in resources:
-        for service in resource["services"]:
+        services = resource.get("services", resource.get("service", []))
+        for service in services:
             if (
                 service["region"]["provider"]["uid"] == provider_uid
                 and (region_name is None or service["region"]["name"] == region_name)
