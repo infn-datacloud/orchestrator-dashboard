@@ -237,13 +237,17 @@ def filter_resources(
     """
     filtered = []
     for resource in resources:
-        services = resource.get("services", [resource.get("service")])
+        services = resource.get("services", None)
+        if services is None:
+            service = resource.get("service", None)
+            services = [] if services is None else [service]
         for service in services:
             if (
                 service["region"]["provider"]["uid"] == provider_uid
                 and (region_name is None or service["region"]["name"] == region_name)
                 and (
-                    resource["is_public"]
+                    resource.get("is_public", False)
+                    or resource.get("is_shared", False)
                     or project_uid in [i["uid"] for i in resource["projects"]]
                 )
             ):
