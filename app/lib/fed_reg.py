@@ -248,7 +248,7 @@ def filter_resources(
                 and (
                     resource.get("is_public", False)
                     or resource.get("is_shared", False)
-                    or project_uid in [i["uid"] for i in resource["projects"]]
+                    or project_uid in [i["uid"] for i in resource.get("projects", [])]
                 )
             ):
                 filtered.append(resource)
