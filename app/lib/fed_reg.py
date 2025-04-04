@@ -240,7 +240,7 @@ def filter_resources(
         services = resource.get("services", None)
         if services is None:
             service = resource.get("service", None)
-            services = [] if services is None else [service]
+            services = [] if service is None else [service]
         for service in services:
             if (
                 service["region"]["provider"]["uid"] == provider_uid
