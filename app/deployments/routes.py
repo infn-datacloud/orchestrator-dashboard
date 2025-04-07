@@ -1633,6 +1633,10 @@ def patch_template(
                         template["inputs"][k_flavors]["constraints"] = flavors
                     if "group_overrides" in v:
                         del template["inputs"][k_flavors]["group_overrides"]
+                elif "group_overrides" in v and user_group["name"] in v["group_overrides"]:
+                    overrides = v["group_overrides"][user_group["name"]]
+                    template["inputs"][k] = {**v, **overrides}
+                    del template["inputs"][k]["group_overrides"]
         else:
             # Manage possible overrides
             for k, v in list(template["inputs"].items()):
@@ -1657,6 +1661,10 @@ def patch_template(
                     template["inputs"][k_images]["constraints"] = images
                     if "group_overrides" in v:
                         del template["inputs"][k_images]["group_overrides"]
+                elif "group_overrides" in v and user_group["name"] in v["group_overrides"]:
+                    overrides = v["group_overrides"][user_group["name"]]
+                    template["inputs"][k] = {**v, **overrides}
+                    del template["inputs"][k]["group_overrides"]
         else:
             # Manage possible overrides
             for k, v in list(template["inputs"].items()):
