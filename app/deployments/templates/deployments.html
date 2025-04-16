@@ -117,7 +117,7 @@
 												    <span class="fas fa-edit mr-2 grey-text"></span>Edit</a>
 											    <a class="dropdown-item" href="{{ url_for('deployments_bp.deptemplate', depid=deployment.uuid) }}"><span class="fas fa-search mr-2 grey-text"></span>Show template</a>
                                             {% endif %}
-											{% if deployment.deployment_type == "CLOUD" %}
+											{% if deployment.deployment_type == "CLOUD" and deployment.status != 'DELETE_COMPLETE'%}
 												<a class="dropdown-item {% if deployment.physicalId is not defined %}disabled{% endif %}" href="{{ url_for('deployments_bp.deplog', depid=deployment.uuid) }}">
 													<span class="fas fa-file-alt mr-2 grey-text"></span>Log
 												</a>
@@ -125,7 +125,6 @@
 													<!-- <a class="dropdown-item" data-toggle="modal" data-target="#requestPorts" data-id="{{ deployment.uuid }}" data-action="{{ url_for('deployments_bp.sendportsrequest') }}" >
 														<span class="fas fa-ticket-alt mr-2 grey-text"></span>Request Ports
 													</a> -->
-
 													<a class="dropdown-item {% if deployment.physicalId is not defined %}disabled{% endif %}" href="{{ url_for('deployments_bp.security_groups', depid=deployment.uuid, depProvider=deployment.provider_name) }}">
 														<span class="fas fa-shield-alt mr-2 grey-text"></span>Manage Ports
 													</a>
