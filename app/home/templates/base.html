@@ -250,7 +250,7 @@
 
                             <!-- ROLE -->
                             {% if session['active_usergroup'] != None and 'gets3creds' not in request.path and 'overview' not in request.path %}   
-                                <div class="navbar-left-user-profile-role" title="Role" {% if session['supported_usergroups']|length < 1 or 'configure' in request.path %} style="cursor: default; color: var(--color-secondary)" {% endif %}>
+                                <div class="navbar-left-user-profile-role" title="Role" {% if session['supported_usergroups']|length <= 1 or 'configure' in request.path %} style="cursor: default; color: var(--color-secondary)" {% endif %}>
                                     <div class="navbar-left-dropdown-parent-text">{{ session['active_usergroup'] }}</div>
                                     {% if session['supported_usergroups']|length > 1 and 'configure' not in request.path %}
                                         <div class="navbar-left-dropdown-parent-icon">
