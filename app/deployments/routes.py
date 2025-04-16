@@ -1426,7 +1426,7 @@ def configure():
 
         if len(templates) == 1:
             selected_tosca = templates[0]["name"]
-            return select_scheduling(selected_tosca, False)
+            return configure_select_scheduling(selected_tosca, False)
 
         items = []
         for template in templates:
@@ -1444,9 +1444,9 @@ def configure():
     return redirect(url_for(SHOW_HOME_ROUTE))
 
 
-@deployments_bp.route("/select_scheduling", methods=["GET"])
+@deployments_bp.route("/configure_select_scheduling", methods=["GET"])
 @auth.authorized_with_valid_token
-def select_scheduling(selected_tosca=None, multi_templates=True):
+def configure_select_scheduling(selected_tosca=None, multi_templates=True):
     access_token = iam.token["access_token"]
 
     steps = {"current": 1, "total": 3}
