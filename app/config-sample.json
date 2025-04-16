@@ -30,7 +30,7 @@
   "FEATURE_DEPLOYMENT_SORT_COLUMN": "3, 'desc'",
   "FEATURE_HIDDEN_ADMIN_DEPLOYMENT_COLUMNS": "5, 7",
   "FEATURE_HIDDEN_DEPLOYMENT_SORT_COLUMN": "4, 'desc'",
-  "FEATURE_VAULT_INTEGRATION": "yes"
+  "FEATURE_VAULT_INTEGRATION": "yes",
   "EXTERNAL_LINKS": [ { "url": "https://paas-pre.cloud.infn.it/status-page", "menu_item_name": "Services status" } ],
   "LOG_LEVEL": "info"
 }
