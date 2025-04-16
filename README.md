@@ -112,6 +112,7 @@ If you want to run the application outside the docker image provided in the repo
 | IAM_CLIENT_ID | ID of the client registered in IAM | yes | 
 | IAM_CLIENT_SECRET | Secret of the client registered in IAM | yes |
 | IAM_BASE_URL | IAM url | yes |
+| IAM_SCOPE | IAM allowed scopes | yes |
 | ORCHESTRATOR_URL | Orchestrator service URL | no |
 | SLAM_URL | SLAM service URL | yes |
 | CMDB_URL | CMDB service URL | no |
