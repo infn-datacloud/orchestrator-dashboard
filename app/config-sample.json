@@ -2,6 +2,12 @@
     "IAM_CLIENT_ID": "my_client_id",
     "IAM_CLIENT_SECRET": "my_client_secret",
     "IAM_BASE_URL": "https://iam-test.cloud.infn.it",
+    "IAM_SCOPE": [
+        "openid",
+        "profile",
+        "email",
+        "offline_access"
+    ],
     "ADMINS": "['myadmin@infn.it']",
     "SQLALCHEMY_DATABASE_URI": "mysql+pymysql://orchestrator:DEV12345678#@localhost/orchestrator_dashboard",
     "SECRET_KEY": "ac166b0f-63ec-4e41-9368-1ddc864fb22e",
