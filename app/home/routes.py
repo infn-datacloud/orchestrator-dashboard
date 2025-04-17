@@ -139,7 +139,7 @@ def submit_settings():
         except Exception as error:
             handle_configuration_reload_error(error)
 
-        if ret1 and ret2:
+        if ret1 or ret2:
             handle_configuration_reload(current_config, tosca_update_msg, conf_update_msg)
 
     return redirect(url_for("home_bp.show_settings"))
@@ -207,7 +207,6 @@ def process_repository(
         )
         flash(message, "success" if ret else "danger")
     else:
-        ret = True
         message = "Url not specified for repository"
     return ret, message
 

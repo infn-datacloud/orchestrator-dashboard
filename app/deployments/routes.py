@@ -129,6 +129,7 @@ def showalldeployments(show_back="False"):
         group = None
 
     deployments = []
+    groups = []
     try:
         if show_deleted == "False":
             deployments = app.orchestrator.get_deployments(
@@ -143,8 +144,6 @@ def showalldeployments(show_back="False"):
 
     if deployments:
         deployments = dbhelpers.sanitizedeployments(deployments)["deployments"]
-
-        groups = ["UNKNOWN"]
 
         for dep in deployments:
             status = dep.status or "UNKNOWN"
