@@ -361,16 +361,18 @@ def make_flavor_label(
 
 def sort_and_prepare_flavors(flavors: dict[str, dict]) -> list[dict]:
     """Sort flavors and return a list of dict with filtered values for the dashboard."""
-    outputs = []
+    all = []
+    no_gpu = []
+    with_gpu = []
     sorted_flavors = dict(
         sorted(
             flavors.items(),
-            key=lambda x: (
+            key=lambda x: [
                 x[1]["cpu"],
                 x[1]["ram"],
                 x[1]["gpus"],
                 x[1]["disk"],
-            ),
+            ],
         )
     )
     for i, v in enumerate(sorted_flavors.values()):
@@ -392,8 +394,12 @@ def sort_and_prepare_flavors(flavors: dict[str, dict]) -> list[dict]:
                 "enable_gpu": "{}".format(v["enable_gpu"]),
             },
         }
-        outputs.append(flavor)
-    return outputs
+        all.append(flavor)
+        if v["enable_gpu"] == True:
+            with_gpu.append(flavor)
+        else:
+            no_gpu.append(flavor)
+    return all, no_gpu, with_gpu
 
 
 def sort_and_prepare_images(images: dict[str, dict]) -> list[dict]:
@@ -467,12 +473,12 @@ def retrieve_active_user_group_resources(
                     resources=fed_reg_images,
                 )
 
-    # Handle flavos and images list: get useful fields and remove duplicates
+    # Handle flavors and images list: get useful fields and remove duplicates
     temp_flavors = remap_flavors(project_flavors)
     temp_images = remap_images(project_images)
 
     # Sort flavors and images
-    sorted_flavors = sort_and_prepare_flavors(temp_flavors)
+    sorted_flavors, sorted_nogpu_flavors, sorted_gpu_flavors = sort_and_prepare_flavors(temp_flavors)
     sorted_images = sort_and_prepare_images(temp_images)
 
-    return sorted_flavors, sorted_images
+    return sorted_flavors, sorted_nogpu_flavors, sorted_gpu_flavors, sorted_images
