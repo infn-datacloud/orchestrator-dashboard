@@ -113,7 +113,7 @@
                                             {% if deployment.status != 'DELETE_COMPLETE' %}
 											    <a class="dropdown-item" href="{{ url_for('deployments_bp.deptemplate', depid=deployment.uuid) }}"><span class="fas fa-search mr-2 grey-text"></span>Show template</a>
                                             {% endif %}
-											{% if deployment.deployment_type == "CLOUD" %}
+											{% if deployment.deployment_type == "CLOUD" and deployment.status != 'DELETE_COMPLETE'%}
 												<a class="dropdown-item {% if deployment.physicalId is not defined %}disabled{% endif %}" href="{{ url_for('deployments_bp.deplog', depid=deployment.uuid) }}">
 													<span class="fas fa-file-alt mr-2 grey-text"></span>Log
 												</a>
@@ -126,6 +126,9 @@
 														<span class="fas fa-shield-alt mr-2 grey-text"></span>Manage Ports
 													</a>
 												{% endif %}
+											{% endif %}
+
+											{% if deployment.deployment_type == "CLOUD" %}
 												<a class="dropdown-item {% if deployment.physicalId is not defined %}disabled{% endif %}" href="{{ url_for('deployments_bp.depinfradetails', depid=deployment.uuid) }}">
                                                     {% if deployment.status != 'DELETE_COMPLETE' %}
 													    <span class="fas fa-desktop mr-2 grey-text"></span>Manage Nodes

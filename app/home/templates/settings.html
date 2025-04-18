@@ -32,11 +32,7 @@
 							<fieldset>
 								<br>
 								<div class="dashboard-text"><h5>TOSCA templates</h5></div>
-								<p class="text-success">Metadata version:
-									{% if tosca_version %}
-										{{ tosca_version }}
-									{% else %} Not Available{% endif %}
-								</p>
+								<p class="text-muted">the repo containing the folder "tosca-templates"</p>
 								<p class="text-success">Current settings:
 									{% if tosca_settings.tosca_templates_url %}
 										{{ tosca_settings.tosca_templates_url }} (branch/tag: {{ tosca_settings.tosca_templates_tag_or_branch }})
@@ -72,6 +68,11 @@
 								<br><br>
 								<div class="dashboard-text"><h5>Dashboard configuration</h5></div>
 								<p class="text-muted">the repo containing the folders "tosca-parameters" and "tosca-metadata"</p>
+								<p class="text-success">Metadata version:
+									{% if tosca_version %}
+										{{ tosca_version }}
+									{% else %} Not Available{% endif %}
+								</p>
 								<p class="text-success">Current settings:
 									{% if tosca_settings.dashboard_configuration_url %}
 										{{ tosca_settings.dashboard_configuration_url }} (branch/tag: {{ tosca_settings.dashboard_configuration_tag_or_branch }})
