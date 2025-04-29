@@ -1,15 +1,18 @@
 CONFIGURATION_PROFILE = "default"
 
 ### IAM SETTINGS
-IAM_CLIENT_ID = "XXX-XXX-XXX-XXX-XXX"
-IAM_CLIENT_SECRET = "************"
-IAM_BASE_URL = "https://iam.example.com"
-ORCHESTRATOR_URL = "https://orchestrator.example.com"
-CALLBACK_URL = "https://dashboard.example.com/home/callback"
+IAM_CLIENT_ID = "8f319311-9aa8-4dbe-9d31-b2e0f034ad2e"
+IAM_CLIENT_SECRET = "OJZq-oTUCoNmUzdVJcMkE2lEIPRI2sR_aDvT-gwEsGT0idPsTOWIZpduo9tM0Zl2hmJbuFtccylfSEYHgh3xbA"
+IAM_BASE_URL = "https://iam.cloud.infn.it"
+ORCHESTRATOR_URL = "http://mp-recas.ba.infn.it:8080"
+CALLBACK_URL = "https://mp-recas.ba.infn.it:8443/callback"
 
 ### TOSCA-related SETTINGS
-TOSCA_TEMPLATES_DIR = "/opt/tosca-templates"
-SETTINGS_DIR = "/opt/dashboard-configuration"
+TOSCA_TEMPLATES_DIR = "/Users/michele/OneDrive/Documenti/Infn-Datacloud/tosca-templates"
+SETTINGS_DIR = "/Users/michele/OneDrive/Documenti/Infn-Datacloud/dashboard-configuration"
+
+###"SLAM_URL": "https://paas-dev.cloud.infn.it:8443",
+###"CMDB_URL": "https://paas-dev.cloud.infn.it/cmdb",
 
 ### DB SETTINGS
 SQLALCHEMY_DATABASE_URI = "mysql+pymysql://dashboard:dashboard@localhost/orchestrator_dashboard"
@@ -32,17 +35,20 @@ YOURLS_SITE = None
 YOURLS_API_SIGNATURE_TOKEN=None
 
 ### ADMIN SETTINGS
-SUPPORT_EMAIL = "marica.antonacci@ba.infn.it"
-ADMINS = "['marica.antonacci@ba.infn.it']"
+SUPPORT_EMAIL = "michele.perniola@ba.infn.it"
+ADMINS = "['michele.perniola@ba.infn.it']"
 EXTERNAL_LINKS = []
 OVERALL_TIMEOUT = 720
 PROVIDER_TIMEOUT = 720
 LOG_LEVEL = "info"
-UPLOAD_FOLDER = "/tmp"
+UPLOAD_FOLDER = '/opt/uploads'
 
 FEATURE_ADVANCED_MENU = "no"
 FEATURE_UPDATE_DEPLOYMENT = "no"
-FEATURE_HIDDEN_DEPLOYMENT_COLUMNS = "4, 5, 7"
+FEATURE_HIDDEN_DEPLOYMENT_COLUMNS = "4, 5, 6"
+FEATURE_DEPLOYMENT_SORT_COLUMN = "3, 'desc'"
+FEATURE_HIDDEN_ADMIN_DEPLOYMENT_COLUMNS = "5, 6, 7"
+FEATURE_HIDDEN_DEPLOYMENT_SORT_COLUMN = "4, 'desc'"
 FEATURE_VAULT_INTEGRATION = "no"
 FEATURE_REQUIRE_USER_SSH_PUBKEY = "no"
 FEATURE_PORTS_REQUEST = "no"
@@ -54,10 +60,6 @@ NOT_GRANTED_ACCESS_TAG = "LOCKED"
 S3_IAM_GROUPS = []
 
 SENSITIVE_KEYWORDS = ["password", "token", "passphrase"]
-
-### VAULT INTEGRATION SETTINGS
-VAULT_ROLE = "orchestrator"
-VAULT_OIDC_AUDIENCE = "ff2c57dc-fa09-43c9-984e-9ad8afc3fb56"
 
 #### LOOK AND FEEL SETTINGS
 WELCOME_MESSAGE = "Welcome! This is the PaaS Orchestrator Dashboard"
@@ -75,4 +77,3 @@ PORTFOLIO_TEMPLATE = 'portfolio.html'
 MAIL_TEMPLATE = 'email.html'
 FOOTER_TEMPLATE = 'footer.html'
 
-UPLOAD_FOLDER = '/opt/uploads'

@@ -15,10 +15,10 @@
 from flask import g
 from flask_dance.consumer import OAuth2ConsumerBlueprint
 from werkzeug.local import LocalProxy
-
+import requests
 
 def make_iam_blueprint(
-    client_id=None, client_secret=None, base_url=None, redirect_to=None
+    client_id=None, client_secret=None, base_url=None, redirect_to=None, scope=[]
 ):
     """
     Create an OAuth2 blueprint for integrating with an IAM service.
@@ -41,16 +41,29 @@ def make_iam_blueprint(
     Returns:
         OAuth2ConsumerBlueprint: A Flask-Dance OAuth2 blueprint for IAM integration.
     """
+
+    # get iam token and authorization url
+    response = requests.get(base_url + "/.well-known/openid-configuration")
+    
+    if response.status_code != 200:
+        token_url = base_url + "/token"
+        authorization_url = base_url + "/authorize"
+    else:
+        token_url = response.json().get("token_endpoint", base_url + "/token")
+        authorization_url = response.json().get("authorization_endpoint", base_url + "/authorization")
+
+    # initialize the OAuth2 blueprint
     iam_bp = OAuth2ConsumerBlueprint(
         "iam",
         __name__,
         client_id=client_id,
         client_secret=client_secret,
         base_url=base_url,
-        token_url=base_url + "/token",
-        auto_refresh_url=base_url + "/token",
-        authorization_url=base_url + "/authorize",
+        token_url=token_url,
+        auto_refresh_url=token_url,
+        authorization_url=authorization_url,
         redirect_to=redirect_to,
+        scope=scope,
     )
 
     @iam_bp.before_app_request

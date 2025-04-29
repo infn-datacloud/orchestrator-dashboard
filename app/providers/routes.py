@@ -16,7 +16,7 @@ import requests
 from flask import current_app as app, Blueprint, render_template, flash, request
 from app.providers import sla
 from app.iam import iam
-from app.lib import auth, fed_reg
+from app.lib import auth, fed_reg, providers
 
 
 providers_bp = Blueprint(
@@ -27,30 +27,7 @@ providers_bp = Blueprint(
 @providers_bp.route("/slas")
 @auth.authorized_with_valid_token
 def getslas():
-    slas = []
-    access_token = iam.token["access_token"]
-
-    # Fed-Reg
-    app.logger.debug("FED_REG_URL: {}".format(app.settings.fed_reg_url))
-    if app.settings.fed_reg_url is not None:
-        slas = fed_reg.retrieve_slas_from_specific_user_group(access_token=access_token)
-
-    # SLAM
-    elif app.settings.orchestrator_conf.get("slam_url", None) is not None:
-        try:
-            app.logger.debug(
-                "SLAM_URL: {}".format(app.settings.orchestrator_conf["slam_url"])
-            )
-            slas = sla.get_slas(
-                access_token,
-                app.settings.orchestrator_conf["slam_url"],
-                app.settings.orchestrator_conf["cmdb_url"],
-            )
-            app.logger.debug("SLAs: {}".format(slas))
-
-        except Exception as e:
-            flash("Error retrieving SLAs list: \n" + str(e), "warning")
-
+    slas = providers.getslas(access_token=iam.token["access_token"])
     return render_template("sla.html", slas=slas)
 
 

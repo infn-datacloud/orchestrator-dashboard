@@ -1,0 +1,235 @@
+{% extends "base.html" %}
+{% block content %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.6.2/dist/chart.min.js"></script>
+
+<div class="container-fluid">
+	{% set ar = namespace(found=false) %}
+  	<br>
+    <div class="card shadow mb-4">    
+        <div class="card-body">
+            <div class="dashboard-template-header">
+                <div class="dashboard-template-image">
+                    <i class="fas fa-chart-pie"></i>
+                </div>
+                <div class="dashboard-template-title">
+                    Deployments Overview
+                    {% if group or privider%}
+                        &nbsp;for
+                    {% endif %}
+                    {% if group %}
+                        &nbsp;group: {{group}}
+                    {% endif %}
+                    {% if provider %}
+                        &nbsp;provider: {{provider}}
+                    {% endif %}
+                    <br/>
+                </div>
+                <div class="dashboard-template-header-buttons">
+
+					<button type="button" id="refreshbutton" class="dashboard-button dashboard-button-outline-no-border" onclick='postMain();'>
+						<i class="fas fa-sync-alt"></i>&nbsp;Refresh
+					</button>
+                    &nbsp;
+                    <div>
+                        <button type="button" id="providerbutton" class="dashboard-button dashboard-button-small dashboard-button-primary dropdown-toggle dropdown-toggle-split" data-toggle="dropdown">
+                            <span class='fas fa-list mr-2'></span>Provider&nbsp;
+                        </button>
+                        <div class="dropdown-menu">
+                            <a class="dropdown-item" href="javascript:;" onclick="processProviderSelect(''); return true;">
+                                all
+                            </a>
+                            {% for user_provider in providers_labels %}
+                                {% if user_provider != "UNKNOWN" %}
+                                    <a class="dropdown-item" href="javascript:;" onclick="processProviderSelect('{{user_provider}}'); return true;">
+                                        {{user_provider}}
+                                    </a>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                    &nbsp;&nbsp;
+                    <div>
+                        <button type="button" id="groupbutton" class="dashboard-button dashboard-button-small dashboard-button-primary dropdown-toggle dropdown-toggle-split" data-toggle="dropdown">
+                            <span class='fas fa-list mr-2'></span>Group&nbsp;
+                        </button>
+                        <div class="dropdown-menu">
+                            <a class="dropdown-item" href="javascript:;" onclick="processGroupSelect(''); return true;">
+                                all
+                            </a>
+                            {% for user_group in groups_labels %}
+                                {% if user_group != "UNKNOWN" %}
+                                    <a class="dropdown-item" href="javascript:;" onclick="processGroupSelect('{{user_group}}'); return true;">
+                                        {{user_group}}
+                                    </a>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <form id="tableform" action="{{ url_for('deployments_bp.showdeploymentstats') }}" method="post">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" id="showhdep" name="showhdep" value={{ showdepdel }}>
+                <input type="hidden" id="group" name="group" value={{ group }}>
+                <input type="hidden" id="provider" name="provider" value={{ provider }}>
+            </form>
+            <div class="row">
+                <div class="col-1">
+                </div>
+                <div class="col">
+                    <canvas id="status_chart" width="210" height="350" style="max-width:210px;max-height:350px"></canvas>
+                </div>
+                <div class="col">
+                    <canvas id="projects_chart" width="210" height="350" style="max-width:210px;max-height:350px"></canvas>
+                </div>
+                <div class="col">
+                    <canvas id="providers_chart" width="210" height="350" style="max-width:210px;max-height:350px"></canvas>
+                </div>
+            </div>
+            <br><br>
+            <div class="row">
+                <div class="dashboard-template-image">
+                    <i class="fas fa-file-invoice"></i>
+                </div>
+                <div class="dashboard-template-title">
+                    Templates Usage
+                    {% if group or privider%}
+                        &nbsp;for
+                    {% endif %}
+                    {% if group %}
+                        &nbsp;group: {{group}}
+                    {% endif %}
+                    {% if provider %}
+                        &nbsp;provider: {{provider}}
+                    {% endif %}
+                    <br/>
+                </div>
+            </div>
+            <div>
+                <!--Table-->
+                <div class="table-responsive">
+                <table id="tableStats" class="table table-bordered table-striped" width="100%" cellspacing="0">
+                <!--Table head-->
+                  <thead>
+                    <tr>
+                      <th>Template name</th>
+                      <th>Instances</th>
+                    </tr>
+                  </thead>
+                  <!--Table head-->
+                  <!--Table body-->
+                  <tbody>
+                    {% for key, value in d_templates.items()%}
+                        {% if key != "UNKNOWN"  %}
+                        <tr>
+                            <td>{{key}}</td>
+                            <td>{{value}}</td>
+                        </tr>
+                        {% endif %}
+                    {% endfor %}
+                  </tbody>
+                  <!--Table body-->
+                </table>
+                </div>
+                <!--Table-->
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+
+function postMain() {
+    $( "#tableform" ).submit();
+    return true;
+}
+
+function processGroupSelect(group) {
+    document.getElementById("group").value = group;
+    postMain();
+}
+
+function processProviderSelect(provider) {
+    document.getElementById("provider").value = provider;
+    postMain();
+}
+
+$('#tableStats').dataTable( {
+    "stateSave": true,
+    "stateSaveCallback": function (settings, data) {
+        localStorage.setItem(
+            'tableStats_' + settings.sInstance,
+            JSON.stringify(data)
+        );
+    },
+    "stateLoadCallback": function (settings) {
+        return JSON.parse(localStorage.getItem('tableStats_' + settings.sInstance));
+    },
+    "responsive": true,
+    "columnDefs": [ {
+      "targets"  : 'no-sort',
+      "orderable": false,
+    }],
+    "order": [[ 1, "desc" ]]
+});
+
+
+function drawchart(chartid, title, subtitle, labels, values, colors) {
+  var ctx = document.getElementById(chartid).getContext("2d");
+  var chart = new Chart(ctx, {
+    type: 'pie',
+    data: {
+        labels: labels,
+        datasets: [{
+            data: values,
+            backgroundColor: colors,
+            borderWidth: 1
+        }]
+    },
+
+    // Configuration options go here
+    options: {
+        responsive: true,
+        plugins: {
+            title: {
+              display: true,
+              text: title ,
+              font: {
+                size: 18
+              },
+              color: "#162D4D",
+              padding : {
+                bottom: 8
+              }
+            },
+            subtitle: {
+              display: true,
+              text: subtitle,
+              color: '#162D4D80',
+              padding : {
+                bottom: 8
+              }
+            },
+            legend: {
+                position: "bottom",
+                align: "center",
+            }
+        }
+    }
+ });
+}
+
+console.log("{{s_text}}");
+drawchart("status_chart", "{{s_title}}", "", {{ s_labels | safe}}, {{ s_values }}, {{s_colors | safe}});
+drawchart("projects_chart", "{{p_title}}", "deployments distribution per group",  {{ p_labels | safe}}, {{ p_values }}, {{p_colors | safe}});
+drawchart("providers_chart", "{{pr_title}}", "deployments distribution per provider", {{ pr_labels | safe}}, {{ pr_values }}, {{pr_colors | safe}});
+
+</script>
+
+{% if ar.found %}
+	<script>setTimeout(function(){postMain();},30000);</script>
+{% endif %}
+
+{% endblock %}
+

@@ -1,0 +1,48 @@
+[tool.poetry]
+name = "orchestrator-dashboard"
+version = "0.1.0"
+description = ""
+authors = ["Giovanni Savarese <giovanni.savarese@lnl.infn.it>"]
+readme = "README.md"
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.10"
+flask = "3.0.2"
+flask-caching = "2.1.0"
+flask-dance = "7.0.1"
+flask-mail = "0.9.1"
+flask-redis = "0.4.0"
+pyyaml = "^6.0.2"
+python-dateutil = "^2.9.0.post0"
+requests = "^2.32.3"
+cryptography = "^43.0.1"
+packaging = "^24.1"
+sqlalchemy-utils = "0.41.1"
+flask-sqlalchemy = "3.1.1"
+flask-migrate = "4.0.5"
+flask-alembic = "3.0.0"
+flask-script = "2.0.6"
+flask-wtf = "1.2.1"
+tzlocal = "^5.2"
+pymysql = "^1.1.1"
+python-swiftclient = "^4.6.0"
+python-keystoneclient = "^5.5.0"
+pycryptodomex = "^3.20.0"
+hvac = "2.1.0"
+markupsafe = "^2.1.5"
+boto3 = "^1.35.14"
+openstacksdk = "^4.0.0"
+python-ldap = "^3.4.4"
+randomcolor = "^0.4.4.6"
+sshpubkeys = "^3.3.1"
+jsonschema = {extras = ["format"], version = "^4.23.0"}
+werkzeug = "3.0.3"
+gunicorn = "^23.0.0"
+semver = "^3.0.4"
+alembic = "1.13.3"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

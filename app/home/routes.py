@@ -14,6 +14,7 @@
 
 import json
 import re
+from semver.version import Version
 from datetime import datetime
 
 from flask import (
@@ -55,22 +56,57 @@ def show_user_profile():
     return render_template("user_profile.html", sshkey=sshkey)
 
 
+@home_bp.route("/info")
+@auth.authorized_with_valid_token
+def show_info():
+    """
+    Route for displaying the info page.
+    """
+    return render_template(
+        "info.html",
+        iam_url=app.settings.iam_url,
+        orchestrator_url=app.settings.orchestrator_url,
+        orchestrator_conf=app.settings.orchestrator_conf,
+        vault_url=app.config.get("VAULT_URL")
+    )
+
+
 @home_bp.route("/settings")
 @auth.authorized_with_valid_token
 def show_settings():
     """
     Route for displaying the settings page.
     """
-    dashboard_last_conf = redis_client.get("last_configuration_info")
-    last_settings = json.loads(dashboard_last_conf) if dashboard_last_conf else {}
+    groups = app.settings.iam_groups
+    repository_configuration = app.settings.repository_configuration
+    _, _, _, tosca_gversion, _ = tosca.get()
+
     return render_template(
         "settings.html",
         iam_url=app.settings.iam_url,
         orchestrator_url=app.settings.orchestrator_url,
         orchestrator_conf=app.settings.orchestrator_conf,
         vault_url=app.config.get("VAULT_URL"),
-        tosca_settings=last_settings,
+        tosca_settings=repository_configuration,
+        tosca_version="{0:c}.{1:c}.{2:c}".format(tosca_gversion[0], tosca_gversion[2], tosca_gversion[4]),
+        groups=groups
     )
+
+
+@home_bp.route("/setsettingsgroups", methods=["POST"])
+@auth.authorized_with_valid_token
+def submit_settings_groups():
+    """
+    A function to update settings.
+    It checks the user's role, then updates the current configuration
+    and handles configuration reload.
+    """
+    if request.method == "POST" and session["userrole"].lower() == "admin":
+        groups  =  request.json["groups"]
+        app.settings.set_iam_groups(groups)
+        auth.update_user_info()
+
+    return redirect(url_for("home_bp.home"))
 
 
 @home_bp.route("/setsettings", methods=["POST"])
@@ -82,15 +118,20 @@ def submit_settings():
     and handles configuration reload.
     """
     if request.method == "POST" and session["userrole"].lower() == "admin":
-        current_config = get_current_configuration()
-        _, tosca_update_msg = update_configuration(
-            current_config, "tosca_templates", app.settings.tosca_dir, "Cloning TOSCA templates"
+
+        current_config = app.settings.repository_configuration
+
+        ret1, tosca_update_msg = update_configuration(
+            current_config,
+            "tosca_templates",
+            app.settings.tosca_dir,
+            "Cloning TOSCA templates"
         )
-        _, conf_update_msg = update_configuration(
+        ret2, conf_update_msg = update_configuration(
             current_config,
             "dashboard_configuration",
             app.settings.settings_dir,
-            "Cloning dashboard configuraton",
+            "Cloning dashboard configuraton"
         )
 
         try:
@@ -98,21 +139,10 @@ def submit_settings():
         except Exception as error:
             handle_configuration_reload_error(error)
 
-        handle_configuration_reload(current_config, tosca_update_msg, conf_update_msg)
+        if ret1 or ret2:
+            handle_configuration_reload(current_config, tosca_update_msg, conf_update_msg)
 
     return redirect(url_for("home_bp.show_settings"))
-
-
-def get_current_configuration():
-    """
-    Retrieve the current configuration from the redis client.
-
-    Returns:
-        dict: The current configuration information, deserialized from JSON,
-        or an empty dictionary if no configuration is found.
-    """
-    serialised_value = redis_client.get("last_configuration_info")
-    return json.loads(serialised_value) if serialised_value else {}
 
 
 def update_configuration(current_config, field_prefix, repo_dir, message):
@@ -131,7 +161,9 @@ def update_configuration(current_config, field_prefix, repo_dir, message):
     repo_url = request.form.get(f"{field_prefix}_url")
     tag_or_branch = request.form.get(f"{field_prefix}_tag_or_branch")
 
-    private, username, deploy_token = get_repository_params(field_prefix)
+    private = request.form.get(f"{field_prefix}_private") == "on"
+    username = request.form.get(f"{field_prefix}_username")
+    deploy_token = request.form.get(f"{field_prefix}_token")
 
     ret, message = process_repository(
         repo_dir, repo_url, tag_or_branch, private, username, deploy_token, message
@@ -174,20 +206,9 @@ def process_repository(
             deploy_token,
         )
         flash(message, "success" if ret else "danger")
-
+    else:
+        message = "Url not specified for repository"
     return ret, message
-
-
-def get_repository_params(prefix):
-    """
-    This function takes a prefix as a parameter and retrieves the private flag, username,
-    and deploy token from the request form. It returns the private flag, username, and deploy token.
-    """
-    private = request.form.get(f"{prefix}_private") == "on"
-    username = request.form.get(f"{prefix}_username")
-    deploy_token = request.form.get(f"{prefix}_token")
-
-    return private, username, deploy_token
 
 
 def handle_configuration_reload_error(error):
@@ -228,7 +249,7 @@ def handle_configuration_reload(current_config, message1, message2):
 
     now = datetime.now()
     current_config["updated_at"] = now.strftime("%d/%m/%Y %H:%M:%S")
-    redis_client.set("last_configuration_info", json.dumps(current_config))
+    app.settings.set_repository_configuration(current_config)
 
     notify_admins_and_users(message1, message2)
 
@@ -285,29 +306,42 @@ def login():
     return render_template(app.config.get("HOME_TEMPLATE"))
 
 
-def set_template_access(tosca, user_groups, active_group):
+def set_template_access(tosca, tosca_gversion, user_groups, active_group):
     """
     Set template access based on user groups and active group.
     """
     info = {}
 
-    for k, v in tosca.items():
-        metadata = v.get("metadata", {})
-        visibility = metadata.get("visibility", {"type": "public"})
+    version = Version.parse(tosca_gversion)
 
-        if not active_group and visibility["type"] != "private":
-            metadata["access_locked"] = True
-            info[k] = v
-        elif active_group:
-            is_locked = is_access_locked(visibility, active_group)
-            if not (visibility["type"] == "private" and is_locked):
-                metadata["access_locked"] = is_locked
+    # handle legacy version of metadata
+    if version < "1.1.0":
+        for k, v in tosca.items():
+            metadata = v.get("metadata", {})
+            visibility = metadata.get("visibility", {"type": "public"})
+            if not active_group and visibility["type"] != "private":
+                metadata["access_locked"] = True
                 info[k] = v
+            elif active_group:
+                is_locked = not is_template_owned(visibility, active_group)
+                if not (visibility["type"] == "private" and is_locked):
+                    metadata["access_locked"] = is_locked
+                    info[k] = v
+    else:
+        if active_group:
+            for k, v in tosca.items():
+                metadata = v.get("metadata", {})
+                visibility = metadata.get("visibility")
+                if is_template_owned(visibility, active_group):
+                    info[k] = v
+                elif is_template_locked(visibility, active_group):
+                    metadata["access_locked"] = True
+                    info[k] = v
 
     return info
 
 
-def is_access_locked(visibility, active_group):
+def is_template_owned(visibility, active_group):
     """
     Check if access is locked based on visibility and active group.
 
@@ -317,10 +351,26 @@ def is_access_locked(visibility, active_group):
     """
     regex = "groups_regex" in visibility
     if regex:
-        return not re.match(visibility["groups_regex"], active_group)
+        return re.match(visibility["groups_regex"], active_group)
     else:
         allowed_groups = visibility.get("groups", [])
-        return active_group not in allowed_groups
+        return active_group in allowed_groups
+
+
+def is_template_locked(visibility, active_group):
+    """
+    Check if access is locked based on visibility and active group.
+
+    :param visibility: dict, visibility settings
+    :param active_group: str, the active group
+    :return: bool, whether access is locked
+    """
+    regex = "locked_regex" in visibility
+    if regex:
+        return re.match(visibility["locked_regex"], active_group)
+    else:
+        locked_groups = visibility.get("locked", [])
+        return active_group in locked_groups
 
 
 def check_template_access(user_groups, active_group):
@@ -335,11 +385,11 @@ def check_template_access(user_groups, active_group):
     - templates_info: information about the accessible templates
     - enable_template_groups: a boolean indicating whether template groups are enabled
     """
-    tosca_info, _, tosca_gmetadata = tosca.get()
+    tosca_info, _, tosca_gmetadata, tosca_gversion, _ = tosca.get()
     templates_data = tosca_gmetadata if tosca_gmetadata else tosca_info
     enable_template_groups = bool(tosca_gmetadata)
 
-    templates_info = set_template_access(templates_data, user_groups, active_group)
+    templates_info = set_template_access(templates_data, tosca_gversion, user_groups, active_group)
 
     return templates_info, enable_template_groups
 
@@ -367,18 +417,19 @@ def portfolio():
     and renders the portfolio template with the retrieved data.
     If the user is not logged in, it redirects to the login page.
     """
-    
+
     if session.get("userid"):
         # check database
         # if user not found, insert
-        user = dbhelpers.get_user(session["userid"])
+        subject = session["userid"]
+        email = session["useremail"]
+        user = dbhelpers.get_user(subject)
         if user is None:
-            email = session["useremail"]
             admins = json.dumps(app.config["ADMINS"])
             role = "admin" if email in admins else "user"
 
             user = User(
-                sub=session["userid"],
+                sub=subject,
                 name=session["username"],
                 username=session["preferred_username"],
                 given_name=session["given_name"],
@@ -390,6 +441,17 @@ def portfolio():
                 active=1,
             )
             dbhelpers.add_object(user)
+        else:
+            # update user data but role
+            dbhelpers.update_user(subject, dict(
+                name=session["username"],
+                username=session["preferred_username"],
+                given_name=session["given_name"],
+                family_name=session["family_name"],
+                email=email,
+                organisation_name=session["organisation_name"],
+                picture=utils.avatar(email, 26),
+                active=1))
 
         session["userrole"] = user.role  # role
 
@@ -552,6 +614,8 @@ def send_email_notifications(payload):
             "CREATE_FAILED": "Deployment failed",
             "UPDATE_COMPLETE": "Deployment update complete",
             "UPDATE_FAILED": "Deployment update failed",
+            "DELETE_COMPLETE": "Deployment delete complete",
+            "DELETE_FAILED": "Deployment delete failed"
         }
         try:
             email_subject = email_subjects.get(status, "")

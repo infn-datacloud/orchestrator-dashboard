@@ -1,4 +1,4 @@
-# Copyright (c) Istituto Nazionale di Fisica Nucleare (INFN). 2019-2020
+# Copyright (c) Istituto Nazionale di Fisica Nucleare (INFN). 2019-2025
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,10 +39,10 @@ def show_users():
     return render_template("users.html", users=users)
 
 
-@users_bp.route("/<subject>", methods=["GET", "POST"])
+@users_bp.route("/<subject>/<ronly>", methods=["GET", "POST"])
 @auth.authorized_with_valid_token
 @auth.only_for_admin
-def show_user(subject):
+def show_user(subject, ronly):
     if request.method == "POST":
         # cannot change its own role
         if session["userid"] == subject:
@@ -55,56 +55,49 @@ def show_user(subject):
 
     user = dbhelpers.get_user(subject)
     if user is not None:
-        return render_template("user.html", user=user)
+        return render_template("user.html", user=user, ronly=ronly)
     else:
         return render_template(app.config.get("HOME_TEMPLATE"))
 
 
-@users_bp.route("/<subject>/deployments")
+@users_bp.route("/<subject>/deployments", methods=["GET", "POST"])
 @auth.authorized_with_valid_token
 @auth.only_for_admin
 def show_deployments(subject):
-    issuer = app.settings.iam_url
-    if not issuer.endswith("/"):
-        issuer += "/"
 
+    access_token = iam.token["access_token"]
     user = dbhelpers.get_user(subject)
 
     if user is not None:
-        #
-        # retrieve deployments from orchestrator
-        access_token = iam.token["access_token"]
 
-        headers = {"Authorization": "bearer %s" % access_token}
+        issuer = iam.base_url
+        if not issuer.endswith("/"):
+            issuer += "/"
 
-        url = (
-            app.settings.orchestrator_url
-            + "/deployments?createdBy={}&page={}&size={}".format(
-                "{}@{}".format(subject, issuer), 0, 999999
-            )
-        )
-        response = requests.get(url, headers=headers)
+        show_deleted = "False"
+        excluded_status = "DELETE_COMPLETE"
 
-        iids = []
-        if response.ok:
-            deporch = response.json()["content"]
-            iids = dbhelpers.updatedeploymentsstatus(deporch, subject)["iids"]
+        if request.method == "POST":
+            show_deleted = request.form.to_dict()["showhdep"]
 
-        #
-        # retrieve deployments from DB
-        deployments = dbhelpers.cvdeployments(dbhelpers.get_user_deployments(user.sub))
-        for dep in deployments:
-            newremote = dep.remote
-            if dep.uuid not in iids:
-                if dep.remote == 1:
-                    newremote = 0
+        deployments = []
+        try:
+            if show_deleted == "False":
+                deployments = app.orchestrator.get_deployments(
+                    access_token, created_by="{}@{}".format(subject, issuer), excluded_status=excluded_status
+                )
             else:
-                if dep.remote == 0:
-                    newremote = 1
-            if dep.remote != newremote:
-                dbhelpers.update_deployment(dep.uuid, dict(remote=newremote))
+                deployments = app.orchestrator.get_deployments(
+                    access_token, created_by="{}@{}".format(subject, issuer)
+                )
+        except Exception as e:
+            flash("Error retrieving deployment list: \n" + str(e), "warning")
 
-        return render_template("dep_user.html", user=user, deployments=deployments)
+        if deployments:
+            deployments = dbhelpers.sanitizedeployments(deployments)["deployments"]
+            app.logger.debug("Deployments: " + str(deployments))
+
+        return render_template("dep_user.html", user=user, deployments=deployments, showdepdel=show_deleted)
     else:
         flash("User not found!", "warning")
         users = User.get_users()

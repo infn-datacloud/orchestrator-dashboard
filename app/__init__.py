@@ -1,4 +1,4 @@
-# Copyright (c) Istituto Nazionale di Fisica Nucleare (INFN). 2019-2020
+# Copyright (c) Istituto Nazionale di Fisica Nucleare (INFN). 2019-2025
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -53,60 +53,78 @@ def create_app():
     app = Flask(__name__, instance_relative_config=True)
     app.wsgi_app = ProxyFix(app.wsgi_app)
 
+    # load hierarchical configuration
+
+    # 1 - from config/default.py definition
     app.config.from_object("config.default")
     app.config.from_file("../config/schemas/metadata_schema.json", json.load)
 
+    # 2 - from json configuration file
     if os.environ.get("TESTING", "").lower() == "true":
         app.config.from_file("../tests/resources/config.json", json.load)
     else:
         app.config.from_file("config.json", json.load)
         app.config.from_prefixed_env()
 
-    app.secret_key = app.config["SECRET_KEY"]
-
-    csrf.init_app(app)
-
-    settings = Settings(app)
-    app.settings = settings  # attach the Settings object to the app
-
-    orchestrator = Orchestrator(settings.orchestrator_url)
-    app.orchestrator = orchestrator
-
-    cmdb = Cmdb(app.settings.orchestrator_conf["cmdb_url"])
-    app.cmdb = cmdb
-
-    app.config["MAX_CONTENT_LENGTH"] = 1024 * 100  # put in the config.py
-
-    if app.config.get("FEATURE_VAULT_INTEGRATION") == "yes":
-        app.config.from_file("vault-config.json", json.load)
-
-    if app.config.get("FEATURE_S3CREDS_MENU") == "yes":
-        app.config.from_file("s3-config.json", json.load)
-
+    # 3 - from user profile
     profile = app.config.get("CONFIGURATION_PROFILE")
+    # load custom configuration profile if one defined
     if profile is not None and profile != "default":
         app.config.from_object("config." + profile)
 
+    # some static
+    app.config["MAX_CONTENT_LENGTH"] = 1024 * 100  # put in the config.py
+
+    # additional vault configuration file
+    if app.config.get("FEATURE_VAULT_INTEGRATION") == "yes":
+        app.config.from_file("vault-config.json", json.load)
+
+    # additional S3 configuration file
+    if app.config.get("FEATURE_S3CREDS_MENU") == "yes":
+        app.config.from_file("s3-config.json", json.load)
+
+    # initialize CSRF
+    app.secret_key = app.config["SECRET_KEY"]
+    csrf.init_app(app)
+
+    # initialize database
     db.init_app(app)
     migrate.init_app(app, db, compare_server_default=True, compare_type=True)
-
+    # apply schema upgrades
     with app.app_context():
         upgrade(directory="migrations", revision="head")
 
+    # generate Settings object from config
+    settings = Settings(app)
+    # attach the Settings object to the app
+    app.settings = settings
+
+    # align configuration with database
+    with app.app_context():
+        settings.align_db(app)
+
+    # create orchestrator object
+    orchestrator = Orchestrator(settings.orchestrator_url)
+    app.orchestrator = orchestrator
+
+    app.cmdb = Cmdb(app.settings.cmdb_url)
+
+    # initialize Redis Cache Server
     app.config["CACHE_TYPE"] = "RedisCache"
     app.config["CACHE_REDIS_URL"] = app.config.get("REDIS_URL")
-
     redis_kwargs = {
         "socket_timeout": app.config["REDIS_SOCKET_TIMEOUT"],
     }
     redis_client.init_app(app, **redis_kwargs)
-    redis_client.ping()
-
+    if not redis_client.ping():
+        raise Exception("Redis server not responding!")
     cache.init_app(app)
 
+    # initialize VAULT if present
     if app.config.get("FEATURE_VAULT_INTEGRATION") == "yes":
         vaultservice.init_app(app)
 
+    # initialize mail subsystem
     mail.init_app(app)
 
     # initialize ToscaInfo
@@ -118,8 +136,10 @@ def create_app():
         client_secret=app.config["IAM_CLIENT_SECRET"],
         base_url=app.config["IAM_BASE_URL"],
         redirect_to="home_bp.home",
+        scope=app.config["IAM_SCOPE"],
     )
 
+    # initialize jinja filters
     app.jinja_env.filters["tojson_pretty"] = utils.to_pretty_json
     app.jinja_env.filters["extract_netinterface_ips"] = utils.extract_netinterface_ips
     app.jinja_env.filters["intersect"] = utils.intersect

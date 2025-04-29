@@ -18,9 +18,10 @@ import os
 import random
 import re
 import string
-from typing import Optional
 import uuid as uuid_generator
+from typing import Optional
 from urllib.parse import urlparse
+from distutils.util import strtobool
 
 import openstack
 import openstack.connection
@@ -40,23 +41,25 @@ from werkzeug.exceptions import Forbidden
 
 from app.extensions import tosca, vaultservice
 from app.iam import iam
-from app.lib import auth, dbhelpers, fed_reg, s3, utils
+from app.lib import auth, dbhelpers, fed_reg, providers, s3, utils
 from app.lib import openstack as keystone
 from app.lib import tosca_info as tosca_helpers
+from app.lib.dbhelpers import filter_provider, filter_group
 from app.lib.ldap_user import LdapUserManager
 from app.models.Deployment import Deployment
-from app.providers import sla
 
 # Initialize and turn on debug logging
 openstack.enable_logging(debug=True)
-
 
 deployments_bp = Blueprint(
     "deployments_bp", __name__, template_folder="templates", static_folder="static"
 )
 
+SHOW_HOME_ROUTE = "home_bp.portfolio"
 SHOW_DEPLOYMENTS_ROUTE = "deployments_bp.showdeployments"
+SHOW_ALLDEPLOYMENTS_ROUTE = "deployments_bp.showalldeployments"
 MANAGE_RULES_ROUTE = "deployments_bp.manage_rules"
+LOGIN_ROUTE = "home_bp.login"
 
 
 class InputValidationError(Exception):
@@ -70,14 +73,20 @@ class InputValidationError(Exception):
 def showdeploymentsingroup():
     group = request.args["group"]
     session["active_usergroup"] = group
-    flash("Project set to {}".format(group), "info")
-    return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
+    flash("Group set to {}".format(group), "info")
+    return showdeployments("True")
 
 
-@deployments_bp.route("/list")
+@deployments_bp.route("/list", methods=["GET", "POST"])
 @auth.authorized_with_valid_token
-def showdeployments():
+def showdeployments(show_back="False"):
     access_token = iam.token["access_token"]
+    show_deleted="False"
+    excluded_status = "DELETE_COMPLETE"
+
+    if request.method == "POST":
+        show_deleted = request.form.to_dict()["showhdep"]
+        show_back =  request.form.to_dict()["showback"]
 
     group = None
     if "active_usergroup" in session and session["active_usergroup"] is not None:
@@ -85,48 +94,143 @@ def showdeployments():
 
     deployments = []
     try:
-        deployments = app.orchestrator.get_deployments(
-            access_token, created_by="me", user_group=group
-        )
+        if show_deleted == "False":
+            deployments = app.orchestrator.get_deployments(
+                access_token, created_by="me", user_group=group, excluded_status=excluded_status
+            )
+        else:
+            deployments = app.orchestrator.get_deployments(
+                access_token, created_by="me", user_group=group
+            )
     except Exception as e:
         flash("Error retrieving deployment list: \n" + str(e), "warning")
 
     if deployments:
-        result = dbhelpers.updatedeploymentsstatus(deployments, session["userid"])
-        deployments = result["deployments"]
+        deployments = dbhelpers.sanitizedeployments(deployments)["deployments"]
+
         app.logger.debug("Deployments: " + str(deployments))
 
-        deployments_uuid_array = result["iids"]
-        session["deployments_uuid_array"] = deployments_uuid_array
+    return render_template("deployments.html", deployments=deployments, showdepdel=show_deleted, showback=show_back)
 
-    return render_template("deployments.html", deployments=deployments)
+@deployments_bp.route("/listall", methods=["GET", "POST"])
+@auth.authorized_with_valid_token
+def showalldeployments(show_back="False"):
+    access_token = iam.token["access_token"]
+    show_deleted="False"
+    excluded_status = "DELETE_COMPLETE"
+    group = "None"
+
+    if request.method == "POST":
+        show_deleted = request.form.to_dict()["showhdep"]
+        show_back =  request.form.to_dict()["showback"]
+        group =  request.form.to_dict()["group"]
+
+    if (group == "None"):
+        group = None
+
+    deployments = []
+    groups = []
+    try:
+        if show_deleted == "False":
+            deployments = app.orchestrator.get_deployments(
+                access_token, user_group=group, excluded_status=excluded_status
+            )
+        else:
+            deployments = app.orchestrator.get_deployments(
+                access_token, user_group=group
+            )
+    except Exception as e:
+        flash("Error retrieving deployment list: \n" + str(e), "warning")
+
+    if deployments:
+        deployments = dbhelpers.sanitizedeployments(deployments)["deployments"]
+
+        for dep in deployments:
+            status = dep.status or "UNKNOWN"
+            if (show_deleted == True or (status not in list(excluded_status))):
+                user_group = dep.user_group or "UNKNOWN"
+                if not user_group in groups:
+                    groups.append(user_group)
+
+        # add local groups if missing
+        supported_usergroups = session["supported_usergroups"]
+        for g in supported_usergroups:
+            if not g in groups:
+                groups.append(g)
+
+        app.logger.debug("Deployments: " + str(deployments))
+
+    return render_template("deploymentsall.html",
+                           deployments=deployments,
+                           group=group,
+                           showdepdel=show_deleted,
+                           showback=show_back,
+                           groups=groups)
 
 
 @deployments_bp.route("/overview")
 @auth.authorized_with_valid_token
 def showdeploymentsoverview():
+
+    access_token = iam.token["access_token"]
+    show_deleted="False"
+    only_remote = True
+    excluded_status = "DELETE_COMPLETE"
+
     # refresh deployment list
     try:
         dbhelpers.update_deployments(session["userid"])
     except Exception as e:
         flash("Error retrieving deployment list: \n" + str(e), "warning")
 
-    deps = dbhelpers.get_user_deployments(session["userid"])
+
+    deployments = []
+    try:
+        if show_deleted == "False":
+            deployments = app.orchestrator.get_deployments(
+                access_token, created_by="me", excluded_status=excluded_status
+            )
+        else:
+            deployments = app.orchestrator.get_deployments(
+                access_token, created_by="me"
+            )
+    except Exception as e:
+        flash("Error retrieving deployment list: \n" + str(e), "warning")
+
+    if deployments:
+        deployments = dbhelpers.sanitizedeployments(deployments)["deployments"]
+
     # Initialize dictionaries for status, projects, and providers
     statuses = {"UNKNOWN": 0}
-    projects = {"UNKNOWN": 0}
+    groups = {"UNKNOWN": 0}
     providers = {"UNKNOWN": 0}
 
-    for dep in deps:
+    providers_to_split = app.config.get("PROVIDER_NAMES_TO_SPLIT", None)
+    if providers_to_split:
+        providers_to_split = providers_to_split.lower()
+    for dep in deployments:
         status = dep.status or "UNKNOWN"
-        if status != "DELETE_COMPLETE" and dep.remote == 1:
+        if (only_remote == False or dep.remote == 1):
             statuses[status] = statuses.get(status, 0) + 1
 
-            project = dep.user_group or "UNKNOWN"
-            projects[project] = projects.get(project, 0) + 1
+            user_group = dep.user_group or "UNKNOWN"
+            groups[user_group] = groups.get(user_group, 0) + 1
 
             provider = dep.provider_name or "UNKNOWN"
+            if dep.region_name:
+                provider_ext = (provider + "-" + dep.region_name).lower()
+                if  providers_to_split and provider_ext in providers_to_split:
+                    provider = provider + "-" + dep.region_name.lower()
+
             providers[provider] = providers.get(provider, 0) + 1
+
+    # remove unused UNKNOWN entries
+    if groups["UNKNOWN"] == 0:
+        groups.pop("UNKNOWN")
+    if statuses["UNKNOWN"] == 0:
+        statuses.pop("UNKNOWN")
+    if providers["UNKNOWN"] == 0:
+        providers.pop("UNKNOWN")
 
     return render_template(
         "depoverview.html",
@@ -134,14 +238,162 @@ def showdeploymentsoverview():
         s_labels=list(statuses.keys()),
         s_values=list(statuses.values()),
         s_colors=utils.genstatuscolors(statuses),
-        p_title="Projects",
-        p_labels=list(projects.keys()),
-        p_values=list(projects.values()),
-        p_colors=utils.gencolors("blue", len(projects)),
+        p_title="Groups",
+        p_labels=list(groups.keys()),
+        p_values=list(groups.values()),
+        p_colors=utils.gencolors("blue", len(groups)),
+        pr_title="Providers",
+        pr_labels=list(providers.keys()),
+        pr_values=list(providers.values()),
+        pr_colors=utils.gencolors("green", len(providers))
+    )
+
+
+@deployments_bp.route("/depstats", methods=["GET", "POST"])
+@auth.authorized_with_valid_token
+def showdeploymentstats():
+
+    access_token = iam.token["access_token"]
+
+    only_remote = True
+    only_effective = True
+    show_deleted = "False"
+    excluded_status = "DELETE_COMPLETE,DELETE_IN_PROGRESS,CREATE_FAILED,DELETE_FAILED"
+
+    group = "None"
+    provider = "None"
+    if request.method == "POST":
+        show_deleted = request.form.to_dict()["showhdep"]
+        group =  request.form.to_dict()["group"]
+        provider = request.form.to_dict()["provider"]
+
+    if (group == "None"):
+        group = None
+
+    if (provider == "None"):
+        provider = None
+
+    deployments = []
+    try:
+        if show_deleted == "False":
+            deployments = app.orchestrator.get_deployments(
+                access_token, excluded_status=excluded_status
+        )
+        else:
+            deployments = app.orchestrator.get_deployments(
+                access_token
+        )
+    except Exception as e:
+        flash("Error retrieving deployment list: \n" + str(e), "warning")
+
+    # sanitize data and filter undesired states
+    if deployments:
+        deployments = dbhelpers.sanitizedeployments(deployments)["deployments"]
+
+    # Initialize dictionaries for status, projects, and providers
+    statuses = {"UNKNOWN": 0}
+    groups = {"UNKNOWN": 0}
+    providers = {"UNKNOWN": 0}
+    templates = {"UNKNOWN": 0}
+
+    t_info, _, _, _, _ = tosca.get()
+
+    for info in t_info:
+        templates[info] = 0
+
+    providers_to_split = app.config.get("PROVIDER_NAMES_TO_SPLIT", None)
+    if providers_to_split:
+        providers_to_split = providers_to_split.lower()
+
+    groups_labels = []
+    providers_labels = []
+
+    # first round, load labels (names)
+    for dep in deployments:
+        if only_remote == False or dep.remote == True:
+
+            user_group = dep.user_group or "UNKNOWN"
+            if user_group and user_group not in groups_labels:
+                groups_labels.append(user_group)
+
+            dep_provider = dep.provider_name or "UNKNOWN"
+            if dep.region_name:
+                provider_ext = (dep_provider + "-" + dep.region_name).lower()
+                if  providers_to_split and provider_ext in providers_to_split:
+                    dep_provider = dep_provider + "-" + dep.region_name.lower()
+            if dep_provider and dep_provider not in providers_labels:
+                providers_labels.append(dep_provider)
+
+    #filter eventually provider
+    providers_to_filter = []
+    if provider:
+        providers_to_filter.append(provider)
+        deployments = filter_provider(
+                deployments,
+                providers_to_filter,
+                True,
+                providers_to_split)
+
+    #filter eventually group
+    groups_to_filter = []
+    if group:
+        groups_to_filter.append(group)
+        deployments = filter_group(
+                deployments,
+                groups_to_filter,
+                True)
+
+    # second round, count instances
+    for dep in deployments:
+        status = dep.status or "UNKNOWN"
+        if (only_remote == False or dep.remote == True) and \
+                (only_effective == False or dep.selected_template):
+            statuses[status] = statuses.get(status, 0) + 1
+
+            user_group = dep.user_group or "UNKNOWN"
+            groups[user_group] = groups.get(user_group, 0) + 1
+
+            dep_provider = dep.provider_name or "UNKNOWN"
+            if dep.region_name:
+                provider_ext = (dep_provider + "-" + dep.region_name).lower()
+                if  providers_to_split and provider_ext in providers_to_split:
+                    dep_provider = dep_provider + "-" + dep.region_name.lower()
+
+            providers[dep_provider] = providers.get(dep_provider, 0) + 1
+
+            template = dep.selected_template or "UNKNOWN"
+            templates[template] = templates.get(template, 0) + 1
+
+    # remove unused UNKNOWN entries
+    if groups["UNKNOWN"] == 0:
+        groups.pop("UNKNOWN")
+    if statuses["UNKNOWN"] == 0:
+        statuses.pop("UNKNOWN")
+    if providers["UNKNOWN"] == 0:
+        providers.pop("UNKNOWN")
+    if templates["UNKNOWN"] == 0:
+        templates.pop("UNKNOWN")
+
+    return render_template(
+        "depstatistics.html",
+        s_title="Deployments status",
+        s_labels=list(statuses.keys()),
+        s_values=list(statuses.values()),
+        s_colors=utils.genstatuscolors(statuses),
+        p_title="Groups",
+        p_labels=list(groups.keys()),
+        p_values=list(groups.values()),
+        p_colors=utils.gencolors("blue", len(groups)),
         pr_title="Providers",
         pr_labels=list(providers.keys()),
         pr_values=list(providers.values()),
         pr_colors=utils.gencolors("green", len(providers)),
+        d_templates=templates,
+        groups_labels=groups_labels,
+        providers_labels=providers_labels,
+        group=group,
+        provider=provider,
+        showdepdel=show_deleted
     )
 
 
@@ -220,13 +472,6 @@ def depoutput(depid=None):
     Returns:
     - rendered template with deployment details, inputs, outputs, and structured outputs
     """
-    if (
-        session["userrole"].lower() != "admin"
-        and depid not in session["deployments_uuid_array"]
-    ):
-        flash("You are not allowed to browse this page!", "danger")
-        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
-
     # retrieve deployment from DB
     dep = dbhelpers.get_deployment(depid)
     if dep is None:
@@ -268,10 +513,31 @@ def process_deployment_data(dep):
     outputs: The processed outputs.
     stoutputs: The processed stoutputs.
     """
-    i = json.loads(dep.inputs.strip('"')) if dep.inputs else {}
-    stinputs = json.loads(dep.stinputs.strip('"')) if dep.stinputs else {}
-    outputs = json.loads(dep.outputs.strip('"')) if dep.outputs else {}
-    stoutputs = json.loads(dep.stoutputs.strip('"')) if dep.stoutputs else {}
+
+
+    try:
+        i = dep.inputs.strip('"') if dep.inputs else None
+        i = json.loads(i) if (i and i != '') else {}
+    except:
+        i = {}
+
+    try:
+        stinputs = dep.stinputs.strip('"') if dep.stinputs else None
+        stinputs = json.loads(stinputs) if (stinputs and stinputs != '') else {}
+    except:
+        stinputs = {}
+
+    try:
+        outputs = dep.outputs.strip('"') if dep.outputs else None
+        outputs = json.loads(outputs) if (outputs and outputs != '') else {}
+    except:
+        outputs = {}
+
+    try:
+        stoutputs = dep.stoutputs.strip('"') if dep.stoutputs else None
+        stoutputs = json.loads(stoutputs) if (stoutputs and stoutputs != '') else {}
+    except:
+        stoutputs = {}
 
     inputs = {k: v for k, v in i.items() if is_input_printable(stinputs, k)}
 
@@ -281,9 +547,8 @@ def process_deployment_data(dep):
 
 
 @deployments_bp.route("/<depid>/templatedb")
+@auth.authorized_with_valid_token
 def deptemplatedb(depid):
-    if not iam.authorized:
-        return redirect(url_for("home_bp.login"))
     # retrieve deployment from DB
     dep = dbhelpers.get_deployment(depid)
     if dep is None:
@@ -324,15 +589,18 @@ def extract_vm_details(depid, resources):
 def process_tosca_info(dep):
     template = dep.template
     tosca_info = tosca.extracttoscainfo(yaml.full_load(io.StringIO(template)), None)
-    inputs = json.loads(dep.inputs.strip('"')) if dep.inputs else {}
-    stinputs = json.loads(dep.stinputs.strip('"')) if dep.stinputs else {}
+    inputs = dep.inputs.strip('"') if dep.inputs else None
+    inputs = json.loads(inputs) if (inputs and inputs != '') else {}
+    stinputs = dep.stinputs.strip('"') if dep.stinputs else None
+    stinputs = json.loads(stinputs) if (stinputs and stinputs != '') else {}
     tosca_info["inputs"] = {**tosca_info["inputs"], **stinputs}
 
     for k, v in tosca_info["inputs"].items():
         if k in inputs and "default" in tosca_info["inputs"][k]:
             tosca_info["inputs"][k]["default"] = inputs[k]
 
-    stoutputs = json.loads(dep.stoutputs.strip('"')) if dep.stoutputs else {}
+    stoutputs = dep.stoutputs.strip('"') if dep.stoutputs else None
+    stoutputs = json.loads(stoutputs) if (stoutputs and stoutputs != '') else {}
     tosca_info["outputs"] = {**tosca_info["outputs"], **stoutputs}
     return tosca_info
 
@@ -377,7 +645,7 @@ def get_openstack_connection(
     conn = None
 
     # Fed-Reg
-    if app.settings.fed_reg_url is not None:
+    if app.settings.use_fed_reg:
         # Find target provider
         providers = fed_reg.get_providers(
             access_token=iam.token["access_token"],
@@ -385,12 +653,12 @@ def get_openstack_connection(
             name=provider_name,
             type=provider_type,
         )
-        assert (
-            len(providers) < 2
-        ), f"Found multiple providers with name '{provider_name}' and type '{provider_type}'"
-        assert (
-            len(providers) > 0
-        ), f"Provider with name '{provider_name}' and type '{provider_type}' not found"
+        assert len(providers) < 2, (
+            f"Found multiple providers with name '{provider_name}' and type '{provider_type}'"
+        )
+        assert len(providers) > 0, (
+            f"Provider with name '{provider_name}' and type '{provider_type}' not found"
+        )
         provider = providers[0]
 
         # Retrieve the authentication details matching the current identity provider
@@ -445,7 +713,7 @@ def get_openstack_connection(
             auth_type="v3oidcaccesstoken",
         )
     # SLAM
-    elif app.settings.orchestrator_conf.get("slam_url", None) is not None:
+    elif app.settings.slam_url is not None:
         service = app.cmdb.get_service_by_endpoint(
             iam.token["access_token"], endpoint, provider_name, False
         )
@@ -747,7 +1015,7 @@ def create_rule(depid=None, sec_group_id=None):
             else "0.0.0.0/0",
         }
 
-    try:        
+    try:
         conn = get_openstack_connection(
             endpoint=vm_info["vm_endpoint"],
             provider_name=provider,
@@ -838,7 +1106,7 @@ def delnode(depid):
             node = next((res for res in resources if res.get("uuid") == vm_id), None)
             node_name = node.get("toscaNodeName")
             # current count -1 --> remove one node
-            filtered = list(filter(lambda res: res.get("toscaNodeName") == node_name))
+            filtered = list(filter(lambda res: res.get("toscaNodeName") == node_name, resources))
             count = len(filtered) - 1
 
             app.logger.debug(f"Resource details: {resource}")
@@ -899,28 +1167,35 @@ def depqcgdetails(depid=None):
     return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
 
 
-@deployments_bp.route("/<depid>/delete")
+@deployments_bp.route("/<depid>/<mode>/<force>/delete")
 @auth.authorized_with_valid_token
-def depdel(depid=None):
+def depdel(depid=None, mode="user", force="false"):
     access_token = iam.token["access_token"]
 
     dep = dbhelpers.get_deployment(depid)
+    # should happen as a callback on the cancellation message from the orchestrator
     if dep is not None and dep.storage_encryption == 1:
         secret_path = session["userid"] + "/" + dep.vault_secret_uuid
         delete_secret_from_vault(access_token, secret_path)
+    ##
 
     try:
-        app.orchestrator.delete(access_token, depid)
+        app.orchestrator.delete(
+            access_token,
+            depid,
+            force)
+
     except Exception as e:
         flash(str(e), "danger")
 
-    return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
+    return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE if mode == "user" else SHOW_ALLDEPLOYMENTS_ROUTE))
 
-@deployments_bp.route("/<depid>/reset")
+
+@deployments_bp.route("/<depid>/<mode>/reset")
 @auth.authorized_with_valid_token
-def depreset(depid=None):
+def depreset(depid=None, mode="user"):
     access_token = iam.token["access_token"]
-
+    # add check last update time to ensure stuck state
     dep = dbhelpers.get_deployment(depid)
     if dep is not None and dep.status == "DELETE_IN_PROGRESS":
         try:
@@ -928,7 +1203,7 @@ def depreset(depid=None):
         except Exception as e:
             flash(str(e), "danger")
 
-    return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
+    return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE if mode == "user" else SHOW_ALLDEPLOYMENTS_ROUTE))
 
 
 @deployments_bp.route("/depupdate/<depid>")
@@ -958,24 +1233,9 @@ def depupdate(depid=None):
 
     sla_id = tosca_helpers.getslapolicy(tosca_info)
 
-    slas = []
-    # Fed-Reg
-    app.logger.debug("FED_REG_URL: {}".format(app.settings.fed_reg_url))
-    if app.settings.fed_reg_url is not None:
-        slas = fed_reg.retrieve_slas_from_specific_user_group(
-            access_token=access_token,
-            service_type="compute",
-            deployment_type=dep.deployment_type,
-        )
-
-    # SLAM
-    elif app.settings.orchestrator_conf.get("slam_url", None) is not None:
-        slas = sla.get_slas(
-            access_token,
-            app.settings.orchestrator_conf["slam_url"],
-            app.settings.orchestrator_conf["cmdb_url"],
-            dep.deployment_type,
-        )
+    slas = providers.getslasdt(
+        access_token=access_token, deployment_type=dep.deployment_type
+    )
 
     ssh_pub_key = dbhelpers.get_ssh_pub_key(session["userid"])
 
@@ -1083,19 +1343,17 @@ def updatedep():
     app.logger.debug(yaml.dump(template, default_flow_style=False))
 
     stinputs = json.loads(dep.stinputs.strip('"')) if dep.stinputs else {}
-    
-    inputs = {}
-    for k, v in form_data.items():
-        # Skip keys starting with "extra_opts." or equal to "_depid"
-        if k.startswith("extra_opts.") or k == "_depid":
-            continue
-
-        # Ensure the key exists in `stinputs` and is updatable
-        if k not in stinputs or not stinputs[k].get("updatable"):
-            continue
-
-        # Add to the result if all conditions are met
-        inputs[k] = v
+    inputs = {
+        k: v
+        for (k, v) in form_data.items()
+        if not k.startswith("extra_opts.")
+        and k != "_depid"
+        and (
+            k in stinputs
+            and "updatable" in stinputs[k]
+            and stinputs[k]["updatable"] is True
+        )
+    }
 
     app.logger.debug("Parameters: " + json.dumps(inputs))
 
@@ -1104,9 +1362,13 @@ def updatedep():
     app.logger.debug(f"[Deployment Update] inputs: {json.dumps(inputs)}")
     app.logger.debug(f"[Deployment Update] Template: {template_text}")
 
-    keep_last_attempt = 1 if "extra_opts.keepLastAttempt" in form_data else dep.keep_last_attempt
-    feedback_required = 1 if "extra_opts.sendEmailFeedback" in form_data else dep.feedback_required
-    
+    keep_last_attempt = (
+        1 if "extra_opts.keepLastAttempt" in form_data else dep.keep_last_attempt
+    )
+    feedback_required = (
+        1 if "extra_opts.sendEmailFeedback" in form_data else dep.feedback_required
+    )
+
     provider_timeout_mins = (
         form_data["extra_opts.providerTimeout"]
         if "extra_opts.providerTimeoutSet" in form_data
@@ -1142,146 +1404,345 @@ def updatedep():
 @deployments_bp.route("/configure", methods=["GET"])
 @auth.authorized_with_valid_token
 def configure():
-    steps = {"current": 1, "total": 2}
-    tosca_info, _, tosca_gmetadata = tosca.get()
+    _, _, tosca_gmetadata, _, _ = tosca.get()
 
-    selected_tosca = None
-
-    if "selected_tosca" in request.args:
-        selected_tosca = request.args["selected_tosca"]
-
-    if "selected_group" in request.args:
-        templates = tosca_gmetadata[request.args["selected_group"]]["templates"]
+    selected_group = request.args.get("selected_group", None)
+    
+    ssh_pub_key = dbhelpers.get_ssh_pub_key(session["userid"])
+    if not ssh_pub_key and app.config.get("FEATURE_REQUIRE_USER_SSH_PUBKEY") == "yes":
+        flash(
+            "Warning! You will not be able to deploy your service \
+                as no Public SSH key has been uploaded.",
+            "danger",
+        )
+    
+    if selected_group is None:
+        selected_group = session['selected_group']
+    
+    if selected_group is not None:
+        session["selected_group"] = selected_group
+        templates = tosca_gmetadata[selected_group]["templates"]
 
         if len(templates) == 1:
             selected_tosca = templates[0]["name"]
-        else:
-            return render_template("choosedep.html", templates=templates)
+            return configure_select_scheduling(selected_tosca, False)
 
-    return prepare_configure_form(selected_tosca, tosca_info, steps)
-
-
-@deployments_bp.route("/configure", methods=["POST"])
-@auth.authorized_with_valid_token
-def configure_post():
-    check_data = 0
-    steps = {"current": 1, "total": 2}
-
-    tosca_info, _, _ = tosca.get()
-
-    selected_tosca = None
-
-    selected_tosca = request.form.get("selected_tosca")
-
-    if "check_data" in request.args:
-        check_data = int(request.args["check_data"])
-
-    if check_data == 1:  # from choose
-        steps["total"] = 3
-        steps["current"] = 2
-
-    return prepare_configure_form(selected_tosca, tosca_info, steps)
-
-
-def prepare_configure_form(selected_tosca, tosca_info, steps):
-    access_token = iam.token["access_token"]
-    if selected_tosca:
-        template = copy.deepcopy(tosca_info[os.path.normpath(selected_tosca)])
-        # Manage eventual overrides
-        for k, v in list(template["inputs"].items()):
-            if (
-                "group_overrides" in v
-                and session["active_usergroup"] in v["group_overrides"]
-            ):
-                overrides = v["group_overrides"][session["active_usergroup"]]
-                template["inputs"][k] = {**v, **overrides}
-                del template["inputs"][k]["group_overrides"]
-
-        sla_id = tosca_helpers.getslapolicy(template)
-
-        slas = []
-        # Fed-Reg
-        app.logger.debug("FED_REG_URL: {}".format(app.settings.fed_reg_url))
-        if app.settings.fed_reg_url is not None:
-            slas = fed_reg.retrieve_slas_from_specific_user_group(
-                access_token=access_token,
-                service_type="compute",
-                deployment_type=template["deployment_type"],
-            )
-
-        # SLAM
-        elif app.settings.orchestrator_conf.get("slam_url", None) is not None:
-            slas = sla.get_slas(
-                access_token,
-                app.settings.orchestrator_conf["slam_url"],
-                app.settings.orchestrator_conf["cmdb_url"],
-                template["deployment_type"],
-            )
-
-        ssh_pub_key = dbhelpers.get_ssh_pub_key(session["userid"])
-
-        if (
-            not ssh_pub_key
-            and app.config.get("FEATURE_REQUIRE_USER_SSH_PUBKEY") == "yes"
-        ):
-            flash(
-                "Warning! You will not be able to deploy your service \
-                    as no Public SSH key has been uploaded.",
-                "danger",
-            )
-
+        items = []
+        for template in templates:
+            item = {
+                "name": template.get("name", ""),
+                "description": template.get("description", ""),
+                "option": template.get("option", ""),
+            }
+            items.append(item)
         return render_template(
-            "createdep.html",
-            template=template,
-            template_inputs=json.dumps(template["inputs"], ensure_ascii=False),
-            feedback_required=True,
-            keep_last_attempt=False,
-            provider_timeout=app.config["PROVIDER_TIMEOUT"],
-            selectedTemplate=selected_tosca,
-            ssh_pub_key=ssh_pub_key,
-            slas=slas,
-            steps=steps,
-            sla_id=sla_id,
-            update=False,
+            "choosedep.html", templates=templates, ssh_pub_key=ssh_pub_key
         )
+
+    flash("Error getting selected_group (not found)", "danger")
+    return redirect(url_for(SHOW_HOME_ROUTE))
+
+
+@deployments_bp.route("/configure_select_scheduling", methods=["GET"])
+@auth.authorized_with_valid_token
+def configure_select_scheduling(selected_tosca=None, multi_templates=True):
+    access_token = iam.token["access_token"]
+
+    steps = {"current": 1, "total": 3}
+    if multi_templates:
+        steps = {"current": 2, "total": 4}
+
+    # If not only one tosca template, read the chosen tosca from query parameters
+    if not selected_tosca:
+        selected_tosca = request.args.get("selected_tosca")  # Changed from form to args
+
+    tosca_info, _, _, _, _ = tosca.get()
+    template = tosca_info.get(os.path.normpath(selected_tosca), None)
+    if template is None:
+        flash("Error getting template (not found)", "danger")
+        return redirect(url_for(SHOW_HOME_ROUTE))
+
+    slas = providers.getslasdt(
+        access_token=access_token, deployment_type=template["deployment_type"]
+    )
+    # TODO: Consider saving this list in Redis for caching?)
+    
+    ssh_pub_key = dbhelpers.get_ssh_pub_key(session["userid"])
+    
+    return render_template(
+        "chooseprovider.html",
+        slas=slas,
+        selected_tosca=selected_tosca,
+        steps=steps,
+        ssh_pub_key=ssh_pub_key,
+    )
+
+
+@deployments_bp.route("/configure_form", methods=["GET"])
+@auth.authorized_with_valid_token
+def configure_form():
+    access_token = iam.token["access_token"]
+    steps = {
+        "current": int(request.args.get("steps_current", 0)) + 1,
+        "total": int(request.args.get("steps_total", 0)),
+    }
+    selected_sla = None
+
+    selected_tosca = request.args.get("selected_tosca")
+    if selected_tosca is None:
+        flash("Error getting template (not found)", "danger")
+        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
+
+    tosca_info, _, _, _, _ = tosca.get()
+    template = copy.deepcopy(tosca_info[os.path.normpath(selected_tosca)])
+
+    sched_type = request.args.get(
+        "extra_opts.schedtype", "auto"
+    )
+    if sched_type == "man":
+        selected_sla = request.args.get(
+            "extra_opts.selectedSLA"
+        )
+        if selected_sla:
+            sla_id, region_name = selected_sla.split("_")
+            template = patch_template(
+                access_token=access_token,
+                template=template,
+                sla_id=sla_id,
+                region_name=region_name,
+            )
+    else:
+        template = patch_template(access_token=access_token, template=template)
+
+    ssh_pub_key = dbhelpers.get_ssh_pub_key(session["userid"])
+
+    return render_template(
+        "createdep.html",
+        template=template,
+        template_inputs=json.dumps(template["inputs"], ensure_ascii=False),
+        feedback_required=True,
+        keep_last_attempt=False,
+        provider_timeout=app.config["PROVIDER_TIMEOUT"],
+        selectedTemplate=selected_tosca,
+        ssh_pub_key=ssh_pub_key,
+        steps=steps,
+        update=False,
+        sched_type=sched_type,
+        selected_sla=selected_sla,
+    )
+
+
+def patch_template(
+    *,
+    access_token: str,
+    template: dict,
+    sla_id: Optional[str] = None,
+    region_name: Optional[str] = None,
+):
+    if app.settings.use_fed_reg:
+        user_group = fed_reg.retrieve_active_user_group(access_token=access_token)
+        if user_group is None:
+            flash("Error getting user_group (not found)", "danger")
+            return redirect(url_for(SHOW_HOME_ROUTE))
+
+        # Manage group overrides
+        for k, v in list(template["inputs"].items()):
+            #skip images override
+            x = re.search("operating_system", k)
+            if not x and "group_overrides" in v:
+                if user_group["name"] in v["group_overrides"]:
+                    overrides = v["group_overrides"][user_group["name"]]
+                    template["inputs"][k] = {**v, **overrides}
+                    del template["inputs"][k]["group_overrides"]
+
+        # flavor patterns
+        pattern = r"^(?=.*flavor)(?!.*partition).*"
+
+        flavors, nogpu_flavors, gpu_flavors, images = fed_reg.retrieve_active_user_group_resources(
+            access_token=access_token, user_group=user_group, sla_id=sla_id, region_name=region_name
+        )
+
+        # patch flavors
+        if flavors:
+            for k in template["inputs"].keys():
+                if  bool(re.match(pattern, k)):
+                    if re.search("gpu", k):
+                        flavors = nogpu_flavors
+                        break
+
+            # override template flavors with provider flavors
+            for k, v in list(template["inputs"].items()):
+                # search for flavors key and rename if needed
+                x = bool(re.match(pattern, k))
+                if x is True and "constraints" in v:
+                    k_flavors = k
+                    k_cpu = None
+                    k_mem = None
+                    k_disk = None
+                    k_gpus = None
+                    k_gpu_model = None
+                    # search for cpu key
+                    for ff in v["constraints"]:
+                        if k_cpu:
+                            break
+                        for fk in ff["set"].keys():
+                            x = re.search("num_cpus", fk)
+                            if x is not None:
+                                k_cpu = fk
+                                break
+                    # search for mem key
+                    for ff in v["constraints"]:
+                        if k_mem:
+                            break
+                        for fk in ff["set"].keys():
+                            x = re.search("mem_size", fk)
+                            if x is not None:
+                                k_mem = fk
+                                break
+                    # search for disk key
+                    for ff in v["constraints"]:
+                        if k_disk:
+                            break
+                        for fk in ff["set"].keys():
+                            x = re.search("disk_size", fk)
+                            if x is not None:
+                                k_disk = fk
+                                break
+                    # search for gpu key
+                    for ff in v["constraints"]:
+                        if k_gpus:
+                            break
+                        for fk in ff["set"].keys():
+                            x = re.search("num_gpus", fk)
+                            if x is not None:
+                                k_gpus = fk
+                                break
+                    # search for gpu model key
+                    for ff in v["constraints"]:
+                        if k_gpu_model:
+                            break
+                        for fk in ff["set"].keys():
+                            x = re.search("gpu_model", fk)
+                            if x is not None:
+                                k_gpu_model = fk
+                                break
+                    # if renaming needed
+                    if k_mem or k_cpu or k_disk or k_gpus or k_gpu_model:
+                        if not k_mem:
+                            k_mem = "mem_size"
+                        if not k_cpu:
+                            k_cpu = "num_cpus"
+                        if not k_disk:
+                            k_disk = "disk_size"
+                        if not k_gpus:
+                            k_gpus = "num_gpus"
+                        if not k_gpu_model:
+                            k_gpu_model = "gpu_model"
+                        rflavors = []
+                        if re.search("gpu", k_flavors):
+                            ff = gpu_flavors
+                        else:
+                            ff = flavors
+                        for f in ff:
+                            flavor = {
+                                "value": f["value"],
+                                "label": f["label"],
+                                "set": {
+                                    k_cpu: "{}".format(f["set"]["num_cpus"]),
+                                    k_mem: "{}".format(f["set"]["mem_size"]),
+                                    k_disk: "{}".format(f["set"]["disk_size"]),
+                                    k_gpus: "{}".format(f["set"]["num_gpus"]),
+                                    k_gpu_model: "{}".format(f["set"]["gpu_model"]),
+                                },
+                            }
+                            rflavors.append(flavor)
+                        template["inputs"][k_flavors]["constraints"] = rflavors
+                    else:
+                        if re.search("gpu", k_flavors):
+                            template["inputs"][k_flavors]["constraints"] = gpu_flavors
+                        else:
+                            template["inputs"][k_flavors]["constraints"] = flavors
+                    if "group_overrides" in v:
+                        del template["inputs"][k_flavors]["group_overrides"]
+
+        # patch images
+        if images:
+            # override template flavors with provider flavors
+            for k, v in list(template["inputs"].items()):
+                # search for flavors key and rename if needed
+                x = re.search("operating_system", k)
+                if x is not None and "constraints" in v:
+                    k_images = k
+                    template["inputs"][k_images]["constraints"] = images
+                    if "group_overrides" in v:
+                        del template["inputs"][k_images]["group_overrides"]
+        else:
+            # Manage possible overrides
+            for k, v in list(template["inputs"].items()):
+                x = re.search("operating_system", k)
+                if (
+                    x is not None
+                    and "group_overrides" in v
+                    and user_group["name"] in v["group_overrides"]
+                ):
+                    overrides = v["group_overrides"][user_group["name"]]
+                    template["inputs"][k] = {**v, **overrides}
+                    del template["inputs"][k]["group_overrides"]
+
+    return template
 
 
 def remove_sla_from_template(template):
-    if "policies" in template["topology_template"]:
-        for policy in template["topology_template"]["policies"]:
-            for k, v in policy.items():
-                if "type" in v and (
-                    v["type"] == "tosca.policies.indigo.SlaPlacement"
-                    or v["type"] == "tosca.policies.Placement"
-                ):
-                    template["topology_template"]["policies"].remove(policy)
-                    break
-        if len(template["topology_template"]["policies"]) == 0:
-            del template["topology_template"]["policies"]
+    if "topology_template" in template:
+        if "policies" in template["topology_template"]:
+            for policy in template["topology_template"]["policies"]:
+                for k, v in policy.items():
+                    if "type" in v and (
+                        v["type"] == "tosca.policies.indigo.SlaPlacement"
+                        or v["type"] == "tosca.policies.Placement"
+                    ):
+                        template["topology_template"]["policies"].remove(policy)
+                        break
+            if len(template["topology_template"]["policies"]) == 0:
+                del template["topology_template"]["policies"]
+    else:
+        if "policies" in template:
+            for policy in template["policies"]:
+                for k, v in policy.items():
+                    if "type" in v and (
+                        v["type"] == "tosca.policies.indigo.SlaPlacement"
+                        or v["type"] == "tosca.policies.Placement"
+                    ):
+                        template["policies"].remove(policy)
+                        break
+            if len(template["policies"]) == 0:
+                del template["policies"]
+    return template
 
 
 def add_sla_to_template(template, sla):
     # Add or replace the placement policy
-    sla_id = ""
-    sla_region = ""
-    sla_split = sla.split("_")
-    
-    if sla_split[0]:
-        sla_id = sla_split[0]
-    
-    if sla_split[1]:
-        sla_region = sla_split[1]
+    sla_id, sla_region = sla.split("_")
 
     tosca_sla_placement_type = "tosca.policies.indigo.SlaPlacement"
-    template["topology_template"]["policies"] = [
-        {
-            "deploy_on_specific_site": {
-                "type": tosca_sla_placement_type,
-                "properties": {"sla_id": sla_id, "region": sla_region},
+    if "topology_template" in template:
+        template["topology_template"]["policies"] = [
+            {
+                "deploy_on_specific_site": {
+                    "type": tosca_sla_placement_type,
+                    "properties": {"sla_id": sla_id, "region": sla_region},
+                }
             }
-        }
-    ]
-
+        ]
+    else:
+        template["policies"] = [
+            {
+                "deploy_on_specific_site": {
+                    "type": tosca_sla_placement_type,
+                    "properties": {"sla_id": sla_id, "region": sla_region},
+                }
+            }
+        ]
     return template
 
 
@@ -1436,19 +1897,19 @@ def process_openstack_ec2credentials(key: str, inputs: dict, stinputs: dict):
             s3_url = value["url"]
 
             # Fed-Reg
-            if app.settings.fed_reg_url is not None:
+            if app.settings.use_fed_reg:
                 user_groups = fed_reg.get_user_groups(
                     access_token=iam.token["access_token"],
                     with_conn=True,
                     name=session["active_usergroup"],
                     idp_endpoint=session["iss"],
                 )
-                assert (
-                    len(user_groups) < 2
-                ), f"Found multiple user groups with name '{session['active_usergroup']}' and issuer '{session['iss']}'"
-                assert (
-                    len(user_groups) > 0
-                ), f"User group with name '{session['active_usergroup']}' and issuer '{session['iss']}' not found"
+                assert len(user_groups) < 2, (
+                    f"Found multiple user groups with name '{session['active_usergroup']}' and issuer '{session['iss']}'"
+                )
+                assert len(user_groups) > 0, (
+                    f"User group with name '{session['active_usergroup']}' and issuer '{session['iss']}' not found"
+                )
                 user_group = user_groups[0]
 
                 # Find project, provider and region matching service url
@@ -1474,10 +1935,10 @@ def process_openstack_ec2credentials(key: str, inputs: dict, stinputs: dict):
                         break
                 if not found:
                     raise Exception("Unable to get EC2 credentials")
-                
+
                 # Get target provider details
                 provider = fed_reg.get_provider(
-                    _provider["uid"],
+                    uid=_provider["uid"],
                     access_token=iam.token["access_token"],
                     with_conn=True,
                 )
@@ -1500,7 +1961,7 @@ def process_openstack_ec2credentials(key: str, inputs: dict, stinputs: dict):
                 )
 
                 # Retrieve EC2 access and secret
-                access,secret = keystone.get_or_create_ec2_creds(
+                access, secret = keystone.get_or_create_ec2_creds(
                     access_token=iam.token["access_token"],
                     project=project["name"],
                     auth_url=identity_service["endpoint"].rstrip("/v3"),
@@ -1508,7 +1969,7 @@ def process_openstack_ec2credentials(key: str, inputs: dict, stinputs: dict):
                     protocol=auth_method["protocol"],
                 )
             # SLAM
-            elif app.settings.orchestrator_conf.get("slam_url", None) is not None:
+            elif app.settings.slam_url is not None:
                 service = app.cmdb.get_service_by_endpoint(
                     iam.token["access_token"], s3_url
                 )
@@ -1829,14 +2290,18 @@ def create_deployment(
 @deployments_bp.route("/submit", methods=["POST"])
 @auth.authorized_with_valid_token
 def createdep():
-    tosca_info, _, _ = tosca.get()
+    tosca_info, _, _, _, tosca_text = tosca.get()
+    access_token = iam.token["access_token"]
     # validate input
-    request_template = os.path.normpath(request.args.get("template"))
+    request_template = os.path.normpath(request.args.get("selectedTemplate"))
     if request_template not in tosca_info.keys():
         raise ValueError("Template path invalid (not found in current configuration")
 
     selected_template = request_template
-    source_template = tosca_info[selected_template]
+    source_template = patch_template(
+        access_token=access_token, template=copy.deepcopy(tosca_info[selected_template])
+    )
+
     form_data = request.form.to_dict()
     additionaldescription = form_data["additional_description"]
 
@@ -1871,7 +2336,7 @@ def retrydep(depid=None):
     Parameters:
     - depid: str, the ID of the deployment
     """
-    tosca_info, _, _ = tosca.get()
+    tosca_info, _, _, _, _ = tosca.get()
     
     try:
         access_token = iam.token["access_token"]
@@ -1889,7 +2354,7 @@ def retrydep(depid=None):
         return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
 
     inputs = process_deployment_data(dep)
-    
+
     if len(inputs) > 0:
         inputs = inputs[0]
 
@@ -1897,7 +2362,7 @@ def retrydep(depid=None):
     max_num_retry = 0
     str_retry = " retry_"
     tmp_name = ""
-    
+
     if len(dep.description.split(str_retry)) > 0:
         tmp_name = dep.description.split(str_retry)[0]
 
@@ -1914,12 +2379,9 @@ def retrydep(depid=None):
         flash("Error retrieving deployment list: \n" + str(e), "danger")
 
     if deployments:
-        result = dbhelpers.updatedeploymentsstatus(deployments, session["userid"])
+        result = dbhelpers.sanitizedeployments(deployments)
         deployments = result["deployments"]
         app.logger.debug("Deployments: " + str(deployments))
-
-        deployments_uuid_array = result["iids"]
-        session["deployments_uuid_array"] = deployments_uuid_array
 
         for tmp_dep in deployments:
             if (
@@ -1928,7 +2390,7 @@ def retrydep(depid=None):
             ):
                 num_retry = 0
                 split_desc = tmp_dep.description.split(str_retry)
-                
+
                 if len(split_desc) > 1:
                     num_retry = int(split_desc[1])
 
@@ -2151,6 +2613,7 @@ def add_storage_encryption(access_token, inputs):
 
 
 @deployments_bp.route("/sendportsreq", methods=["POST"])
+@auth.authorized_with_valid_token
 def sendportsrequest():
     form_data = request.form.to_dict()
 

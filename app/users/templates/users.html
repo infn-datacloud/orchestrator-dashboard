@@ -27,63 +27,70 @@
 
     <div class="card shadow mb-4">
         <div class="card-body">
+            <div class="dashboard-template-header">
+                <div class="dashboard-template-image">
+                    <i class="fas fa-users"></i>
+                </div>
+                <div class="dashboard-template-title">
+                    Users
+                </div>
+            </div>
 
-          <div class="dashboard-template-header">
-            <div class="dashboard-template-image">
-                <i class="fas fa-users"></i>
+            <!--Table-->
+            <div class="table-responsive">
+                <table id="tableUsers" class="table table-bordered table-striped" width="100%" cellspacing="0">
+                <!--Table head-->
+                  <thead>
+                    <tr>
+                      <th>sub</th>
+                      <th>Username</th>
+                      <th>First Name</th>
+                      <th>Last Name</th>
+                      <th>Organisation</th>
+                      <th>e-mail</th>
+                      <th>Role</th>
+                      <th class="no-sort"></th>
+                      <th class="no-sort"></th>
+                    </tr>
+                  </thead>
+                  <!--Table head-->
+                  <!--Table body-->
+                  <tbody>
+                    {% for user in users%}
+                    <tr>
+                        <td scope="row">{{user.sub}}</td>
+                        <td>{{user.username}}</td>
+                        <td>{{user.given_name}}</td>
+                        <td>{{user.family_name}}</td>
+                        <td>{{user.organisation_name}}</td>
+                        <td>{{user.email}}</td>
+                        <td>{{user.role}}</td>
+                        <td style="text-align:center"><button class="btn" onclick="set_loading(true); location.href='{{ url_for('users_bp.show_user', subject=user.sub, ronly=False) }}'"><i class="fas fa-edit mr-2 grey-text" aria-hidden="true"></i>Details</button></td>
+                        <td style="text-align:center"><button class="btn" onclick="set_loading(true); location.href='{{ url_for('users_bp.show_deployments', subject=user.sub) }}'"><i class="fas fa-server mr-2 grey-text" aria-hidden="true"></i>Deployments</button></td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                  <!--Table body-->
+                </table>
             </div>
-        
-            <div class="dashboard-template-title">
-                Users
-            </div>
+            <!--Table-->
         </div>
-
-<!--Table-->
-<div class="table-responsive">
-<table id="tableUsers" class="table table-bordered table-striped" width="100%" cellspacing="0">
-<!--Table head-->
-  <thead>
-    <tr>
-      <th>sub</th>
-      <th>Username</th>
-      <th>First Name</th>
-      <th>Last Name</th>
-      <th>Organisation</th>
-      <th>e-mail</th>
-      <th>Role</th>
-      <th class="no-sort"></th>
-      <th class="no-sort"></th>
-    </tr>
-  </thead>
-  <!--Table head-->
-  <!--Table body-->
-  <tbody>
-    {% for user in users%}
-    <tr>
-        <td scope="row">{{user.sub}}</td>
-        <td>{{user.username}}</td>
-        <td>{{user.given_name}}</td>
-        <td>{{user.family_name}}</td>
-        <td>{{user.organisation_name}}</td>
-        <td>{{user.email}}</td>
-        <td>{{user.role}}</td>
-        <td style="text-align:center"><button class="btn" onclick="set_loading(true); location.href='{{ url_for('users_bp.show_user', subject=user.sub) }}'"><i class="fas fa-edit mr-2 grey-text" aria-hidden="true"></i>Details</button></td>
-        <td style="text-align:center"><button class="btn" onclick="set_loading(true); location.href='{{ url_for('users_bp.show_deployments', subject=user.sub) }}'"><i class="fas fa-server mr-2 grey-text" aria-hidden="true"></i>Deployments</button></td>
-    </tr>
-    {% endfor %}
-  </tbody>
-  <!--Table body-->
-</table>
-</div>
-<!--Table-->
-</div>
-</div>
+    </div>
 </div>
 
 <script>
     $('#tableUsers').dataTable( {
+        "stateSave": true,
+        "stateSaveCallback": function (settings, data) {
+            localStorage.setItem(
+                'tableUsers_' + settings.sInstance,
+                JSON.stringify(data)
+            );
+        },
+        "stateLoadCallback": function (settings) {
+            return JSON.parse(localStorage.getItem('tableUsers_' + settings.sInstance));
+        },
         "responsive": true,
-        "order": [],
         "columnDefs": [ {
           "targets"  : 'no-sort',
           "orderable": false,

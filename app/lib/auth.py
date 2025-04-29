@@ -26,17 +26,7 @@ from app.lib import utils
 def set_user_info():
     account_info = iam.get("/userinfo")
     account_info_json = account_info.json()
-    user_groups = account_info_json["groups"]
     user_id = account_info_json["sub"]
-
-    supported_groups = []
-    if app.settings.iam_groups:
-        supported_groups = list(set(app.settings.iam_groups) & set(user_groups))
-        if len(supported_groups) == 0:
-            app.logger.warning(
-                "The user {} does not belong to any supported user group".format(user_id)
-            )
-
     session["userid"] = user_id
     session["username"] = account_info_json["name"]
     session["preferred_username"] = account_info_json["preferred_username"]
@@ -46,10 +36,20 @@ def set_user_info():
     session["userrole"] = "user"
     session["gravatar"] = utils.avatar(account_info_json["email"], 26)
     session["organisation_name"] = account_info_json["organisation_name"]
+
+    user_groups = account_info_json["groups"]
+    supported_groups = []
+    if app.settings.iam_groups:
+        supported_groups = list(set(app.settings.iam_groups) & set(user_groups))
+        if len(supported_groups) == 0:
+            app.logger.warning(
+                "The user {} does not belong to any supported user group".format(user_id)
+            )
     session["usergroups"] = user_groups
     session["supported_usergroups"] = supported_groups
     if "active_usergroup" not in session:
         session["active_usergroup"] = next(iter(supported_groups), None)
+
 
     iam_configuration = iam.get(".well-known/openid-configuration").json()
     session["iss"] = iam_configuration["issuer"]
@@ -58,9 +58,9 @@ def set_user_info():
 def update_user_info():
     account_info = iam.get("/userinfo")
     account_info_json = account_info.json()
-    user_groups = account_info_json["groups"]
     user_id = account_info_json["sub"]
 
+    user_groups = account_info_json["groups"]
     supported_groups = []
     if app.settings.iam_groups:
         supported_groups = list(set(app.settings.iam_groups) & set(user_groups))
@@ -68,7 +68,6 @@ def update_user_info():
             app.logger.warning(
                 "The user {} does not belong to any supported user group".format(user_id)
             )
-
     session["usergroups"] = user_groups
     session["supported_usergroups"] = supported_groups
     if "active_usergroup" not in session:

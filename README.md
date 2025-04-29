@@ -112,6 +112,7 @@ If you want to run the application outside the docker image provided in the repo
 | IAM_CLIENT_ID | ID of the client registered in IAM | yes | 
 | IAM_CLIENT_SECRET | Secret of the client registered in IAM | yes |
 | IAM_BASE_URL | IAM url | yes |
+| IAM_SCOPE | IAM allowed scopes | yes |
 | ORCHESTRATOR_URL | Orchestrator service URL | no |
 | SLAM_URL | SLAM service URL | yes |
 | CMDB_URL | CMDB service URL | no |
@@ -130,6 +131,10 @@ If you want to run the application outside the docker image provided in the repo
 | SETTINGS_DIR | Path to the dashboard-configuration repository. If it has already been cloned it will upload its content, otherwise its the name of the target folder where to place repository content. | no |
 | UPLOAD_FOLDER | Path to the folder where uploaded files will be saved. If the folder does not exist, the service will create it as soon as the first item is created. | no |
 | FEATURE_ADVANCED_MENU | Enable deployment scheduling and other advanced settings. | no |
+| FEATURE_HIDDEN_DEPLOYMENT_COLUMNS | List of columns to hide in deployments list (user view) | no |
+| FEATURE_DEPLOYMENT_SORT_COLUMN | Initial column used for sorting deployments list (user view) | no |
+| FEATURE_HIDDEN_ADMIN_DEPLOYMENT_COLUMNS | List of columns to hide in deployments list (admin view) | no |
+| FEATURE_HIDDEN_DEPLOYMENT_SORT_COLUMN | Initial column used for sorting deployments list (admin view) | no |
 | FEATURE_UPDATE_DEPLOYMENT | Enable update/remove advanced option when updating deployments (**DEPRECATED** - Related graphic is not up to date). | no |
 | FEATURE_VAULT_INTEGRATION | Enable vault integration. | no |
 | FEATURE_REQUIRE_USER_SSH_PUBKEY | Enable section to add user's SSH public key. _Depends on `FEATURE_VAULT_INTEGRATION` since SSH public keys are stored in the vault._ **This is mandatory to submit any deployment.** | no |

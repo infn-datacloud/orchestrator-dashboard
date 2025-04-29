@@ -4,36 +4,6 @@
 <div class="container">
   	<br>
 
-    {% if config['FEATURE_VAULT_INTEGRATION']|str2bool and template['metadata']['require_ssh_key'] and ssh_pub_key is none  %}
-    	<!-- Modal -->
-        <div class="modal fade" id="sshPopupModal" tabindex="-1" role="dialog" aria-labelledby="sshPopupModalLabel" aria-hidden="true">
-			<div class="modal-dialog" role="document">
-				<div class="modal-content">
-				<div class="modal-header">
-					<h5 class="modal-title" id="sshPopupModalLabel">No SSH public key provided</h5>
-					<button type="button" class="close" data-dismiss="modal" aria-label="Close">
-					<span aria-hidden="true">&times;</span>
-					</button>
-				</div>
-				<div class="modal-body">
-				<p>SSH keys allow you to establish a secure connection between your computer and your virtual machine. At least one public key has to be provided.</p>
-				<br>
-				<p>To create a new ssh key pair or upload your public key, please go <a target="_blank" href="{{ url_for("home_bp.show_user_profile") }}">here</a></p>
-				{% if user_documentation_url is defined %}
-				<p>For more information, please visit our <a href="{{ user_documentation_url }}" target="_blank">documentation site</a>.</p>
-				{% endif %}
-				</div>
-				{% if require_ssh_pubkey=='no' %}
-				<div class="d-flex flex-grow-1 justify-content-start custom-control custom-checkbox">
-					<input type="checkbox" class="custom-control-input" id="popupMaintenanceCheckbox" name="checkbox-maintenance"/>
-					<label class="custom-control-label checkbox-maintenance" for="popupMaintenanceCheckbox">Don't show me again</label>
-				</div>
-				{% endif %}
-				</div>
-			</div>
-        </div>
-    {% endif  %}
-
     <div class="card shadow mb-4">
         <div class="card-body">
             <div class="dashboard-template-header">
@@ -57,9 +27,11 @@
 				</span>
             </div>
             {% endif %}
-
-            <form id="depSubmit" action="{{ url_for('deployments_bp.createdep', template=selectedTemplate) }}" method="post" autocomplete="off" enctype="multipart/form-data">
+ 
+			<form id="depSubmit" action="{{ url_for('deployments_bp.createdep', selectedTemplate=selectedTemplate) }}" method="post" autocomplete="off" enctype="multipart/form-data">
 				<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+				<input type="hidden" name="extra_opts.schedtype" value="{{ sched_type }}">
+				<input type="hidden" name="extra_opts.selectedSLA" value="{{ selected_sla }}">
 				<div class="form-group">
 					<label for="additional_description">Deployment description</label>
 					<input type="text" class="form-control" id="additional_description" name="additional_description" placeholder="Description" value="" maxlength="50" required>
@@ -75,11 +47,9 @@
 						Cancel&nbsp;<i class="fas fa-ban"></i>
 					</button>
 
-					{% if steps['current'] > 1 %}
-						<button type="button" class="dashboard-button dashboard-button-outline-no-border" title="Back" onclick="history.back()" style="margin-left: auto; margin-right: 4px;">
-							<i class="fas fa-arrow-left"></i>&nbsp;Back
-						</button>
-					{% endif %}
+					<button type="button" class="dashboard-button dashboard-button-outline-no-border" title="Back" onclick="history.back()" style="margin-left: auto; margin-right: 4px;">
+						<i class="fas fa-arrow-left"></i>&nbsp;Back
+					</button>
 
 					<button id="continue_btn" type="button" class="dashboard-button dashboard-button-lg dashboard-button-primary" title="Continue">
 						Continue&nbsp;<i class="fas fa-arrow-right"></i>
@@ -112,14 +82,6 @@
         </div>
     </div>
 </div>
-
-<style>
-
-#manschedConf {
-  display: none;
-}
-
-</style>
 
 <script>
 /**
@@ -481,24 +443,6 @@ $(document).ready(function () {
     });
 });
 
-
-$(document).ready(function () {
-	function hideSelectSla() {
-		if ($("#mansched").is(":checked")){
-			$('#manschedConf').show();
-		}
-		else {
-			$('#manschedConf').hide();
-		}
-	}
-
-	$("input[name='extra_opts.schedtype']").click(function() {
-		hideSelectSla();
-	});
-
-  	hideSelectSla();
-});
-
 $(document).ready(function () {
 	$("input[name='extra_opts.providerTimeoutSet']").click(function() {
 		if ($("#providerTimeoutSet").is(":checked")){
@@ -566,21 +510,5 @@ $(document).ready( () => {
 });
 
 </script>
-
-{% if config['FEATURE_VAULT_INTEGRATION']|str2bool  and ssh_pub_key is none  %}
-	<script type="text/javascript">
-		if (!localStorage.DoNotShowMessageAgain || localStorage.DoNotShowMessageAgain != "true") {
-			$(window).on('load',() => {
-				$('#sshPopupModal').modal('show');
-			});
-		};
-
-		$('#popupMaintenanceCheckbox').click(() => {
-			if ($('#popupMaintenanceCheckbox').attr('checked', true)) {
-				localStorage.DoNotShowMessageAgain = "true";
-			}
-		});
-	</script>
-{% endif  %}
 
 {% endblock %}

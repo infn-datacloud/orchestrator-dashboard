@@ -17,8 +17,10 @@ import json
 import linecache
 import os
 import re
+import urllib.parse
 import secrets
 import shutil
+import stat
 import string
 import subprocess
 import sys
@@ -467,7 +469,7 @@ def backup_directory(directory):
     try:
         backup_path = f"{os.path.normpath(directory)}.bak"
         if os.path.exists(backup_path):
-            shutil.rmtree(backup_path)
+            shutil.rmtree(backup_path, onerror=remove_readonly)
         shutil.copytree(directory, backup_path)
         return backup_path
     except Exception as e:
@@ -488,12 +490,16 @@ def restore_directory(backup_path, target_directory):
     """
     try:
         if os.path.exists(target_directory):
-            shutil.rmtree(target_directory)
+            shutil.rmtree(target_directory, onerror=remove_readonly)
         shutil.copytree(backup_path, target_directory)
         return True
     except Exception as e:
         app.logger.error(f"Error restoring directory: {e}")
         return False
+
+def remove_readonly(func, path, excinfo):
+    os.chmod(path, stat.S_IWRITE)
+    func(path)
 
 
 def download_git_repo(
@@ -530,7 +536,7 @@ def download_git_repo(
                 app.logger.warn(
                     f"Warning: Target directory '{target_directory}' is not empty. Removing existing contents."
                 )
-                shutil.rmtree(target_directory)
+                shutil.rmtree(target_directory, onerror=remove_readonly)
 
             # Clone the repository
             if private and username and deploy_token:
@@ -575,3 +581,30 @@ def download_git_repo(
     except Exception as e:
         app.logger.error(f"An error occurred: {e}")
         return False, f"An error occurred: {e}"
+
+def url_path_join(
+    base_url,
+    *paths
+):
+    """
+       Parse and join url parts into a well-formed URL.
+
+       Args:
+           base_url (str): The base URL to join.
+           *paths (str,): Parts of the path to join.
+
+       Returns:
+           str: A well-formed URL.
+    """
+    parsed_url = urllib.parse.urlsplit(base_url)
+    base_path = re.sub('/+', '/', parsed_url.path)
+    if paths:
+        if len(base_path) and base_path[-1] != '/':
+            base_path += '/'
+        for path in paths[:-1]:
+            path = re.sub('/+', '/', path).lstrip('/') + '/'
+            base_path = urllib.parse.urljoin(base_path, path)
+        path = paths[-1]
+        path = re.sub('/+', '/', path).lstrip('/')
+        base_path = urllib.parse.urljoin(base_path, path)
+    return urllib.parse.urlunsplit(parsed_url._replace(path=base_path))
