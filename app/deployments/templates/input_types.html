@@ -47,14 +47,14 @@
 
 		<!-- number types -->
 		{% elif value.type == "integer" %}
-			<input type="number" min="0" class="form-control" data-type="{{value.type}}" id="{{key}}" name="{{key}}" value="{{value.default}}" {{ value.function }} {{ value.function_params }} aria-describedby="help{{key}}" placeholder="{{value.placeholder}}" {% if value.required %}data-required=true required{%endif%} {{mode}} />
+			<input type="number" min="0" class="form-control trigc" data-type="{{value.type}}" id="{{key}}" name="{{key}}" value="{{value.default}}" {{ value.function }} {{ value.function_params }} aria-describedby="help{{key}}" placeholder="{{value.placeholder}}" {% if value.required %}data-required=true required{%endif%} {{mode}} />
 		{% elif value.type == "float" %}
 			<input type="number" step="any" class="form-control" data-type="{{value.type}}" id="{{key}}" name="{{key}}" value="{{value.default}}" aria-describedby="help{{key}}" placeholder="{{value.placeholder}}" {% if value.required %}data-required=true required{%endif%} {{mode}} />
 		<!-- end number types -->
 
 		<!-- boolean type -->
 		{% elif value.type == "boolean" %}
-			<select class="js-example-basic-single js-states form-control" data-type="{{value.type}}" id="{{key}}" name="{{key}}" {{mode}} {{ value.function }} {{ value.function_params }}>
+			<select class="js-example-basic-single js-states form-control trigc" data-type="{{value.type}}" id="{{key}}" name="{{key}}" {{mode}} {{ value.function }} {{ value.function_params }}>
 				<option value="true" {% if value.default|lower =="true" %}selected="selected"{% endif %}>true</option>
 				<option value="false" {% if value.default|lower =="false" %}selected="selected"{% endif %}>false</option>
 			</select>
@@ -224,7 +224,7 @@
 			{% set constraints = value.constraints | selectattr('valid_values') | map(attribute='valid_values') | list  %}
 			
 			{% if constraints %}
-				<select class="js-example-basic-single js-states form-control" data-type="{{value.type}}" id="{{key}}" name="{{key}}" {{mode}} {{ value.function }} {{ value.function_params }}>
+				<select class="js-example-basic-single js-states form-control trigc" data-type="{{value.type}}" id="{{key}}" name="{{key}}" {{mode}} {{ value.function }} {{ value.function_params }}>
 					{% for val in constraints[0] %}
 						<option value="{{val}}" {% if val==value.default %}selected="selected"{% endif %}>{{val}}</option>
 					{% endfor %}
@@ -255,7 +255,7 @@
 						<summary>
 							<span id="rule_title_{{key}}">Naming rules</span>
 							<span id="icon_correct_{{key}}" style="color: green; display: none;"><i class="fas fa-check-circle"></i></span>
-							<span id="icon_error_{{key}}" style="color: red; display: none;"><i class="fas fa-exclamation-triangle"></i></i></span>
+							<span id="icon_error_{{key}}" style="color: red; display: none;"><i class="fas fa-exclamation-triangle"></i></span>
 						</summary>
 						<ul style="font-size: .8em;">
 							<li id="rule_0_{{key}}">Bucket names must be between 1 and 27 characters long.</li>
@@ -295,6 +295,7 @@ $(document).ready(() => {
 	$('.js-example-basic-multiple').select2({
 	  	width: '100%' // https://github.com/select2/select2/issues/4220
 	});
+     $("input[class~='trigc']").trigger('change');
 });
 
 function check_s3_bucket_name(elem_id) {
