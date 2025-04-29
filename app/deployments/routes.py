@@ -1545,12 +1545,31 @@ def patch_template(
             flash("Error getting user_group (not found)", "danger")
             return redirect(url_for(SHOW_HOME_ROUTE))
 
-        flavors, images = fed_reg.retrieve_active_user_group_resources(
+        # Manage group overrides
+        for k, v in list(template["inputs"].items()):
+            #skip images override
+            x = re.search("operating_system", k)
+            if not x and "group_overrides" in v:
+                if user_group["name"] in v["group_overrides"]:
+                    overrides = v["group_overrides"][user_group["name"]]
+                    template["inputs"][k] = {**v, **overrides}
+                    del template["inputs"][k]["group_overrides"]
+
+        # flavor patterns
+        pattern = r"^(?=.*flavor)(?!.*partition).*"
+
+        flavors, nogpu_flavors, gpu_flavors, images = fed_reg.retrieve_active_user_group_resources(
             access_token=access_token, user_group=user_group, sla_id=sla_id, region_name=region_name
         )
-        pattern = r"^(?=.*flavor)(?!.*partition).*"
+
         # patch flavors
         if flavors:
+            for k in template["inputs"].keys():
+                if  bool(re.match(pattern, k)):
+                    if re.search("gpu", k):
+                        flavors = nogpu_flavors
+                        break
+
             # override template flavors with provider flavors
             for k, v in list(template["inputs"].items()):
                 # search for flavors key and rename if needed
@@ -1620,7 +1639,11 @@ def patch_template(
                         if not k_gpu_model:
                             k_gpu_model = "gpu_model"
                         rflavors = []
-                        for f in flavors:
+                        if re.search("gpu", k_flavors):
+                            ff = gpu_flavors
+                        else:
+                            ff = flavors
+                        for f in ff:
                             flavor = {
                                 "value": f["value"],
                                 "label": f["label"],
@@ -1635,21 +1658,12 @@ def patch_template(
                             rflavors.append(flavor)
                         template["inputs"][k_flavors]["constraints"] = rflavors
                     else:
-                        template["inputs"][k_flavors]["constraints"] = flavors
+                        if re.search("gpu", k_flavors):
+                            template["inputs"][k_flavors]["constraints"] = gpu_flavors
+                        else:
+                            template["inputs"][k_flavors]["constraints"] = flavors
                     if "group_overrides" in v:
                         del template["inputs"][k_flavors]["group_overrides"]
-        else:
-            # Manage possible overrides
-            for k, v in list(template["inputs"].items()):
-                x = bool(re.match(pattern, k))
-                if (
-                    x
-                    and "group_overrides" in v
-                    and user_group["name"] in v["group_overrides"]
-                ):
-                    overrides = v["group_overrides"][user_group["name"]]
-                    template["inputs"][k] = {**v, **overrides}
-                    del template["inputs"][k]["group_overrides"]
 
         # patch images
         if images:
