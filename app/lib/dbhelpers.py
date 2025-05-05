@@ -179,6 +179,7 @@ def sanitizedeployments(deployments):
                 dep.task = dep_json["task"]
                 dep.links = json.dumps(dep_json["links"])
                 dep.remote = 1
+                dep.sub = dep_json["createdBy"]["subject"]
                 dep.provider_name = providername
                 dep.provider_type = provider_type
                 dep.region_name = region_name
