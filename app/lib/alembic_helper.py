@@ -12,8 +12,8 @@ def fk_exists(table_name, destination_table, column_names, referred_column_names
     insp = inspect(bind)
     foreign_keys = insp.get_foreign_keys(table_name)
     for kf in foreign_keys:
-        if kf.referred_table == destination_table and \
-            set(column_names).intersection(kf.column_names) == set(column_names) and \
-                set(referred_column_names).intersection(kf.referred_column_names) == set(referred_column_names):
-            return True
-    return False
+        if kf['referred_table'] == destination_table and \
+            set(column_names).intersection(kf['constrained_columns']) == set(column_names) and \
+                set(referred_column_names).intersection(kf['referred_columns']) == set(referred_column_names):
+            return kf['name']
+    return None

@@ -56,8 +56,7 @@ class Deployment(db.Model):
     vault_secret_key = db.Column(db.String(36), nullable=True)
     elastic = db.Column(db.Boolean, nullable=True, default=0)
     updatable = db.Column(db.Boolean, nullable=True, default=0)
-    sub = db.Column(db.String(36), ForeignKey("users.sub"))
-    user = relationship("User", back_populates="deployments")
+    sub = db.Column(db.String(36), nullable=False)
 
     def __repr__(self):
         return "<Deployment {}>".format(self.uuid)

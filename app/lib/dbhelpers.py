@@ -19,6 +19,7 @@ from typing import Any, Optional
 from dateutil import parser
 from flask import current_app as app
 from flask import json
+from flask import session
 
 from app.extensions import db
 from app.iam import iam
@@ -159,7 +160,7 @@ def sanitizedeployments(deployments):
         provider_type = get_provider_type(dep_json)
         max_length = 65535
         status_reason = dep_json.get("statusReason", "")[:max_length]
-
+        subject = dep_json["createdBy"]["subject"]
         vphid = dep_json["physicalId"] if "physicalId" in dep_json else ""
 
         dep = get_deployment(uuid)
@@ -171,6 +172,7 @@ def sanitizedeployments(deployments):
                 or dep.provider_type != provider_type
                 or dep.region_name != region_name
                 or str(dep.status_reason or "") != status_reason
+                or dep.sub != subject
             ):
                 dep.update_time = update_time
                 dep.physicalId = vphid
@@ -179,14 +181,13 @@ def sanitizedeployments(deployments):
                 dep.task = dep_json["task"]
                 dep.links = json.dumps(dep_json["links"])
                 dep.remote = 1
-                dep.sub = dep_json["createdBy"]["subject"]
+                dep.sub = subject
                 dep.provider_name = providername
                 dep.provider_type = provider_type
                 dep.region_name = region_name
                 dep.status_reason = status_reason
 
-                db.session.add(dep)
-                db.session.commit()
+                add_object(dep)
 
             deps.append(dep)
         else:
@@ -207,21 +208,21 @@ def sanitizedeployments(deployments):
 
             try:
                 #check user existence
-                subject = dep_json["createdBy"]["subject"]
                 user = get_user(subject)
                 #create inactive unknown user if not exists
                 if user is None:
                     user = User(
                         sub=subject,
                         name="unknown",
-                        username="unknown",
+                        username=subject,
                         given_name="unknown",
                         family_name="unknown",
                         email="unknown",
-                        organisation_name="unknown",
+                        organisation_name=session["organisation_name"],
                         role="user",
                         active=0
                     )
+
                     add_object(user)
 
                 deployment = Deployment(
@@ -261,8 +262,7 @@ def sanitizedeployments(deployments):
                     updatable=0,
                 )
 
-                db.session.add(deployment)
-                db.session.commit()
+                add_object(deployment)
 
                 deps.append(deployment)
             except Exception:
