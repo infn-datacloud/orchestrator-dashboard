@@ -164,8 +164,13 @@
                   <tbody>
                     {% for key, value in d_templates.items()%}
                         <tr>
+                        {% if value > 0 %}
                             <td><button class="btn btn-link p-0" data-id="{{key}}">{{key}}</button></td>
                             <td><button class="btn btn-link p-0" data-id="{{key}}">{{value}}</button></td>
+                        {% else %}
+                            <td>{{key}}</td>
+                            <td>{{value}}</td>
+                        {% endif %}
                         </tr>
                     {% endfor %}
                   </tbody>
