@@ -135,6 +135,8 @@ If you want to run the application outside the docker image provided in the repo
 | FEATURE_DEPLOYMENT_SORT_COLUMN | Initial column used for sorting deployments list (user view) | no |
 | FEATURE_HIDDEN_ADMIN_DEPLOYMENT_COLUMNS | List of columns to hide in deployments list (admin view) | no |
 | FEATURE_HIDDEN_DEPLOYMENT_SORT_COLUMN | Initial column used for sorting deployments list (admin view) | no |
+| FEATURE_MAX_PIE_SLICES | Maximum number of slices in the pie chart (0 for no limit) (admin view) | no |
+| FEATURE_SHOW_BROKEN_DEPLOYMENTS | Show deployments without reference to the template (UNKNOWN template) in statistics (admin view) | no |
 | FEATURE_UPDATE_DEPLOYMENT | Enable update/remove advanced option when updating deployments (**DEPRECATED** - Related graphic is not up to date). | no |
 | FEATURE_VAULT_INTEGRATION | Enable vault integration. | no |
 | FEATURE_REQUIRE_USER_SSH_PUBKEY | Enable section to add user's SSH public key. _Depends on `FEATURE_VAULT_INTEGRATION` since SSH public keys are stored in the vault._ **This is mandatory to submit any deployment.** | no |
