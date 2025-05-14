@@ -1,38 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.6.2/dist/chart.min.js"></script>
-<style>
-    .chart-container {
-      width: 100%;
-      max-width: 100%;
-      margin-bottom: 30px;
-    }
 
-    canvas {
-      width: 100% !important;
-      height: auto !important;
-    }
-
-	.legend {
-	  margin-top: 10px;
-	  display: flex;
-	  flex-direction: column;
-	  align-items: center;.
-	}
-
-	.legend-item {
-	  display: flex;
-	  align-items: center;
-	  margin-bottom: 5px;
-	  text-align: center;
-	}
-
-    .legend-color-box {
-      width: 15px;
-      height: 15px;
-      margin-right: 10px;
-    }
-</style>
 <div class="container-fluid">
 	{% set ar = namespace(found=false) %}
   	<br>
@@ -42,280 +11,102 @@
                 <div class="dashboard-template-image">
                     <i class="fas fa-chart-pie"></i>
                 </div>
+            
                 <div class="dashboard-template-title">
-                    Deployments Overview
-                    <br/>
+                    {% if group %}
+                        Deployments Overview for group: {{group}}<br/>
+                    {% else %}
+                        Deployments Overview
+                    {% endif %}
                 </div>
+            
                 <div class="dashboard-template-header-buttons">
-
-					<button type="button" id="refreshbutton" class="dashboard-button dashboard-button-outline-no-border" onclick='postMain();'>
+					<button type="button" class="dashboard-button dashboard-button-outline-no-border" onclick='location.href="{{ url_for('deployments_bp.showdeploymentsoverview') }}"'>
 						<i class="fas fa-sync-alt"></i>&nbsp;Refresh
 					</button>
-                    &nbsp;
-                    <div>
-                        <button type="button" id="statusbutton" class="dashboard-button dashboard-button-small dashboard-button-primary dropdown-toggle dropdown-toggle-split" data-toggle="dropdown">
-                            <span class='fas fa-list mr-2'></span>Status&nbsp;
-                        </button>
-                        <div class="dropdown-menu">
-                            <a class="dropdown-item" href="javascript:;" onclick="processStatusSelect('all'); return true;">
-                                all
-                            </a>
-                            <a class="dropdown-item" href="javascript:;" onclick="processStatusSelect('actives'); return true;">
-                                actives
-                            </a>
-                            {% for deployment_status in status_labels %}
-                                <a class="dropdown-item" href="javascript:;" onclick="processStatusSelect('{{deployment_status}}'); return true;">
-                                    {{deployment_status}}
-                                </a>
-                            {% endfor %}
-                        </div>
-                    </div>
-                    &nbsp;
-                    <div>
-                        <button type="button" id="groupbutton" class="dashboard-button dashboard-button-small dashboard-button-primary dropdown-toggle dropdown-toggle-split" data-toggle="dropdown">
-                            <span class='fas fa-list mr-2'></span>Group&nbsp;
-                        </button>
-                        <div class="dropdown-menu">
-                            <a class="dropdown-item" href="javascript:;" onclick="processGroupSelect(''); return true;">
-                                all
-                            </a>
-                            {% for user_group in groups_labels %}
-                                {% if user_group != "UNKNOWN" %}
-                                    <a class="dropdown-item" href="javascript:;" onclick="processGroupSelect('{{user_group}}'); return true;">
-                                        {{user_group}}
-                                    </a>
-                                {% endif %}
-                            {% endfor %}
-                        </div>
-                    </div>
-                    &nbsp;
-                    <div>
-                        <button type="button" id="providerbutton" class="dashboard-button dashboard-button-small dashboard-button-primary dropdown-toggle dropdown-toggle-split" data-toggle="dropdown">
-                            <span class='fas fa-list mr-2'></span>Provider&nbsp;
-                        </button>
-                        <div class="dropdown-menu">
-                            <a class="dropdown-item" href="javascript:;" onclick="processProviderSelect(''); return true;">
-                                all
-                            </a>
-                            {% for user_provider in providers_labels %}
-                                {% if user_provider != "UNKNOWN" %}
-                                    <a class="dropdown-item" href="javascript:;" onclick="processProviderSelect('{{user_provider}}'); return true;">
-                                        {{user_provider}}
-                                    </a>
-                                {% endif %}
-                            {% endfor %}
-                        </div>
-                    </div>
-                    &nbsp;
+					<button type="button" class="dashboard-button dashboard-button-small dashboard-button-primary dropdown-toggle dropdown-toggle-split" data-toggle="dropdown">
+						<span class='fas fa-list mr-2'></span>Details&nbsp;
+					</button>
+					<div class="dropdown-menu">
+						{% for group in session['supported_usergroups'] %}
+							<a class="dropdown-item" href="{{ url_for('deployments_bp.showdeploymentsingroup', group=group) }}">
+								{{group}}
+							</a>
+						{% endfor %}
+					</div>
                 </div>
             </div>
-            <form id="tableform" action="{{ url_for('deployments_bp.showdeploymentsoverview') }}" method="post">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <input type="hidden" id="group" name="group" value={{ group }}>
-                <input type="hidden" id="provider" name="provider" value={{ provider }}>
-                <input type="hidden" id="selected_status" name="selected_status" value={{ selected_status }}>
-            </form>
-            <div class="container my-4">
-                <div id="no-data-message"
-                     style="display:none; text-align: center; font-size: 2rem; font-weight: bold; color: #888; padding: 2rem;">
-                  <i class="fas fa-database-slash" style="font-size: 3rem; color: #ccc;"></i><br/>
-                  NO DEPLOYMENTS FOR CURRENT SELECTION
+            <div class="row">
+                <div class="col">
+                    <canvas id="status_chart" width="300" height="500" style="max-width:300px;max-height:500px"></canvas>
                 </div>
-                <div id="chartsRow" class="row text-center"></div>
+                <div class="col">
+                    <canvas id="projects_chart" width="300" height="500" style="max-width:300px;max-height:500px"></canvas>
+                </div>
+                <div class="col">
+                    <canvas id="providers_chart" width="300" height="500" style="max-width:300px;max-height:500px"></canvas>
+                </div>
             </div>
-            <br><br>
         </div>
     </div>
 </div>
 
 <script>
 
-function postMain() {
-    $( "#tableform" ).submit();
-    return true;
-}
-
-function processStatusSelect(status) {
-    document.getElementById("selected_status").value = status;
-    postMain();
-}
-
-function processGroupSelect(group) {
-    document.getElementById("group").value = group;
-    postMain();
-}
-
-function processProviderSelect(provider) {
-    document.getElementById("provider").value = provider;
-    postMain();
-}
-
-let validChartCount = 0;
-
-function drawchart(chartidx, title, subtitle, labels, values, colors, maxitems) {
-  var chartsRow = document.getElementById('chartsRow');
-  var col = document.createElement('div');
-  col.className = 'col-md-4 mb-4';
-
-  var chartId = `chart${chartidx}`;
-  var legendId = `legend${chartidx}`;
-
-  col.innerHTML = `
-    <div class="chart-container">
-      <canvas id="${chartId}"></canvas>
-    </div>
-    <div id="${legendId}" class="legend"></div>
-  `;
-
-  chartsRow.appendChild(col);
-  var displayValues;
-  var displayLabels;
-  var displayColors;
-
-  if (maxitems > 0 && maxitems < values.length) {
-
-      var sorted = labels.map((label, i) => ({
-          label,
-          value: values[i],
-          color: colors[i]
-      })).sort((a, b) => b.value - a.value);
-
-      var displayed = sorted.slice(0, maxitems);
-      var others = sorted.slice(maxitems);
-
-      if (others.length > 0) {
-          var othersValue = others.reduce((sum, item) => sum + item.value, 0);
-          displayed.push({
-              label: 'Others',
-              value: othersValue,
-              color: sorted[sorted.length - 1].color
-          });
-      }
-
-      displayLabels = displayed.map(item => item.label);
-      displayValues = displayed.map(item => item.value);
-      displayColors = displayed.map(item => item.color);
-  } else {
-      displayLabels = labels.map(item => item);
-      displayValues = values.map(item => item);
-      displayColors = colors.map(item => item);
-  }
-
-
-  var chart = new Chart(document.getElementById(chartId).getContext("2d"), {
+function drawchart(chartid, title, subtitle, labels, values, colors) {
+  var ctx = document.getElementById(chartid).getContext("2d");
+  var chart = new Chart(ctx, {
     type: 'pie',
     data: {
-      labels: displayLabels,
-      datasets: [{
-        data: displayValues,
-        backgroundColor: displayColors,
-        borderWidth: 1
-      }]
+        labels: labels,
+        datasets: [{
+            data: values,
+            backgroundColor: colors,
+            borderWidth: 1
+        }]
     },
+
+    // Configuration options go here
     options: {
-      responsive: true,
-      plugins: {
-        title: {
-          display: true,
-          text: title ,
-          font: {
-            size: 18
-          },
-          color: "#162D4D",
-          padding : {
-            bottom: 8
-          }
-        },
-        subtitle: {
-          display: true,
-          text: subtitle,
-          color: '#162D4D80',
-          padding : {
-            bottom: 8
-          }
-        },
-        legend: {
-          display: false
-        },
-        tooltip: {
-          callbacks: {
-            label: (context) => `${context.label}: ${context.formattedValue}`
-          }
+        responsive: true,
+        plugins: {
+            title: {
+              display: true,
+              text: title ,
+              font: {
+                size: 18
+              },
+              color: "#162D4D",
+              padding : {
+                bottom: 8
+              }
+            },
+            subtitle: {
+              display: true,
+              text: subtitle,
+              color: '#162D4D80',
+              padding : {
+                bottom: 8
+              }
+            },
+            legend: {
+                position: "bottom",
+                align: "center",
+            }
         }
-      }
-      /*,
-      onClick: (evt, activeEls) => {
-        if (activeEls.length > 0) {
-          const idx = activeEls[0].index;
-          const label = displayLabels[idx];
-          const value = displayValues[idx];
-        }
-      }*/
     }
-  });
-
-  const legendContainer = document.getElementById(legendId);
-  displayLabels.forEach((label, i) => {
-    const item = document.createElement('div');
-    item.className = 'legend-item';
-
-    const colorBox = document.createElement('div');
-    colorBox.className = 'legend-color-box';
-    colorBox.style.backgroundColor = displayColors[i];
-
-    const text = document.createElement('span');
-    text.textContent = `${label}: ${displayValues[i]}`;
-    text.style = "font-size:small";
-
-    item.appendChild(colorBox);
-    item.appendChild(text);
-    legendContainer.appendChild(item);
-  });
-
-  if (values.length > 0) {
-      validChartCount++;
-  }
-
+ });
 }
 
 console.log("{{s_text}}");
-
-drawchart(  "status_chart",
-            "{{s_title}}",
-            "deployments distribution per status",
-            {{s_labels | safe}},
-            {{s_values}},
-            {{s_colors | safe}},
-            {{s_maxvalues}}
-);
-
-drawchart(  "projects_chart",
-            "{{p_title}}",
-            "deployments distribution per group",
-            {{p_labels | safe}},
-            {{p_values}},
-            {{p_colors | safe}},
-            {{s_maxvalues}}
-);
-
-drawchart(  "providers_chart",
-            "{{pr_title}}",
-            "deployments distribution per provider",
-            {{pr_labels | safe}},
-            {{pr_values}},
-            {{pr_colors | safe}},
-            {{s_maxvalues}}
-);
-
-const message = document.getElementById("no-data-message");
-message.style.display = validChartCount === 0 ? "block" : "none";
-const chart = document.getElementById("chartsRow");
-chart.style.display = validChartCount === 0 ? "none" : "flex";
+drawchart("status_chart", "{{s_title}}", "", {{ s_labels | safe}}, {{ s_values }}, {{s_colors | safe}});
+drawchart("projects_chart", "{{p_title}}", "deployments distribution per group",  {{ p_labels | safe}}, {{ p_values }}, {{p_colors | safe}});
+drawchart("providers_chart", "{{pr_title}}", "deployments distribution per provider", {{ pr_labels | safe}}, {{ pr_values }}, {{pr_colors | safe}});
 
 </script>
 
 {% if ar.found %}
-	<script>setTimeout(function(){postMain();},30000);</script>
+	<script>setTimeout(function(){location.reload();},30000);</script>
 {% endif %}
 
 {% endblock %}

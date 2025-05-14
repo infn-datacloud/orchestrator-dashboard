@@ -273,19 +273,6 @@ def sanitizedeployments(deployments):
     return result
 
 
-def build_status_filter(status, status_labels):
-    if status == "all":
-        return None
-    if status == "actives":
-        return "DELETE_COMPLETE,DELETE_IN_PROGRESS,CREATE_FAILED,DELETE_FAILED"
-    excluded_status = ""
-    for st in status_labels:
-        if st != status:
-            if excluded_status != "":
-                excluded_status += ","
-            excluded_status += st
-    return excluded_status
-
 def filter_status(deployments, search_string_list, negate):
     def iterator_func(x):
         if x.status in search_string_list:

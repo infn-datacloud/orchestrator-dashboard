@@ -30,7 +30,6 @@ from flask import (
     Blueprint,
     flash,
     json,
-    jsonify,
     redirect,
     render_template,
     request,
@@ -45,7 +44,7 @@ from app.iam import iam
 from app.lib import auth, dbhelpers, fed_reg, providers, s3, utils
 from app.lib import openstack as keystone
 from app.lib import tosca_info as tosca_helpers
-from app.lib.dbhelpers import filter_provider, filter_group, build_status_filter
+from app.lib.dbhelpers import filter_provider, filter_group
 from app.lib.ldap_user import LdapUserManager
 from app.models.Deployment import Deployment
 
@@ -169,47 +168,35 @@ def showalldeployments(show_back="False"):
                            groups=groups)
 
 
-@deployments_bp.route("/overview", methods=["GET", "POST"])
+@deployments_bp.route("/overview")
 @auth.authorized_with_valid_token
 def showdeploymentsoverview():
 
     access_token = iam.token["access_token"]
-
+    show_deleted="False"
     only_remote = True
-    status_labels = ["CREATE_COMPLETE","CREATE_IN_PROGRESS","CREATE_FAILED","UPDATE_COMPLETE","UPDATE_IN_PROGRESS","UPDATE_FAILED","DELETE_COMPLETE","DELETE_IN_PROGRESS","DELETE_FAILED"]
-    piemaxvalues = app.config.get("FEATURE_MAX_PIE_SLICES", 0)
-    only_effective = app.config.get("FEATURE_SHOW_BROKEN_DEPLOYMENTS", "no") == "no"
+    excluded_status = "DELETE_COMPLETE"
 
-    group = "None"
-    provider = "None"
-    selected_status = "actives"
-    if request.method == "POST":
-        group =  request.form.to_dict()["group"]
-        provider = request.form.to_dict()["provider"]
-        selected_status = request.form.to_dict()["selected_status"]
-
-    if (group == "None"):
-        group = None
-
-    if (provider == "None"):
-        provider = None
-
-    excluded_status = build_status_filter(selected_status, status_labels)
-
-    deployments = []
+    # refresh deployment list
     try:
-        if excluded_status is not None:
-            deployments = app.orchestrator.get_deployments(
-                access_token, created_by="me", excluded_status=excluded_status
-        )
-        else:
-            deployments = app.orchestrator.get_deployments(
-                access_token, created_by="me"
-        )
+        dbhelpers.update_deployments(session["userid"])
     except Exception as e:
         flash("Error retrieving deployment list: \n" + str(e), "warning")
 
-    # sanitize data and filter undesired states
+
+    deployments = []
+    try:
+        if show_deleted == "False":
+            deployments = app.orchestrator.get_deployments(
+                access_token, created_by="me", excluded_status=excluded_status
+            )
+        else:
+            deployments = app.orchestrator.get_deployments(
+                access_token, created_by="me"
+            )
+    except Exception as e:
+        flash("Error retrieving deployment list: \n" + str(e), "warning")
+
     if deployments:
         deployments = dbhelpers.sanitizedeployments(deployments)["deployments"]
 
@@ -221,62 +208,21 @@ def showdeploymentsoverview():
     providers_to_split = app.config.get("PROVIDER_NAMES_TO_SPLIT", None)
     if providers_to_split:
         providers_to_split = providers_to_split.lower()
-
-    groups_labels = []
-    providers_labels = []
-
-    # first round, load labels (names)
-    for dep in deployments:
-        if only_remote == False or dep.remote == True:
-
-            user_group = dep.user_group or "UNKNOWN"
-            if user_group and user_group not in groups_labels:
-                groups_labels.append(user_group)
-
-            dep_provider = dep.provider_name or "UNKNOWN"
-            if dep.region_name:
-                provider_ext = (dep_provider + "-" + dep.region_name).lower()
-                if  providers_to_split and provider_ext in providers_to_split:
-                    dep_provider = dep_provider + "-" + dep.region_name.lower()
-            if dep_provider and dep_provider not in providers_labels:
-                providers_labels.append(dep_provider)
-
-    #filter eventually provider
-    providers_to_filter = []
-    if provider:
-        providers_to_filter.append(provider)
-        deployments = filter_provider(
-                deployments,
-                providers_to_filter,
-                True,
-                providers_to_split)
-
-    #filter eventually group
-    groups_to_filter = []
-    if group:
-        groups_to_filter.append(group)
-        deployments = filter_group(
-                deployments,
-                groups_to_filter,
-                True)
-
-    # second round, count instances
     for dep in deployments:
         status = dep.status or "UNKNOWN"
-        if (only_remote == False or dep.remote == True) and \
-                (only_effective == False or dep.selected_template):
+        if (only_remote == False or dep.remote == 1):
             statuses[status] = statuses.get(status, 0) + 1
 
             user_group = dep.user_group or "UNKNOWN"
             groups[user_group] = groups.get(user_group, 0) + 1
 
-            dep_provider = dep.provider_name or "UNKNOWN"
+            provider = dep.provider_name or "UNKNOWN"
             if dep.region_name:
-                provider_ext = (dep_provider + "-" + dep.region_name).lower()
+                provider_ext = (provider + "-" + dep.region_name).lower()
                 if  providers_to_split and provider_ext in providers_to_split:
-                    dep_provider = dep_provider + "-" + dep.region_name.lower()
+                    provider = provider + "-" + dep.region_name.lower()
 
-            providers[dep_provider] = providers.get(dep_provider, 0) + 1
+            providers[provider] = providers.get(provider, 0) + 1
 
     # remove unused UNKNOWN entries
     if groups["UNKNOWN"] == 0:
@@ -286,32 +232,22 @@ def showdeploymentsoverview():
     if providers["UNKNOWN"] == 0:
         providers.pop("UNKNOWN")
 
-    s_title = "All Deployment Status" if selected_status == "all" else "Deployment Status: " + selected_status
-    p_title= "All Groups" if not group else "Group: " + group
-    pr_title = "All Providers" if not provider else "Provider: " + provider
-
     return render_template(
         "depoverview.html",
-        s_title=s_title,
+        s_title="Deployments status",
         s_labels=list(statuses.keys()),
         s_values=list(statuses.values()),
         s_colors=utils.genstatuscolors(statuses),
-        p_title=p_title,
+        p_title="Groups",
         p_labels=list(groups.keys()),
         p_values=list(groups.values()),
         p_colors=utils.gencolors("blue", len(groups)),
-        pr_title=pr_title,
+        pr_title="Providers",
         pr_labels=list(providers.keys()),
         pr_values=list(providers.values()),
-        pr_colors=utils.gencolors("green", len(providers)),
-        groups_labels=groups_labels,
-        providers_labels=providers_labels,
-        status_labels=status_labels,
-        group=group,
-        provider=provider,
-        selected_status=selected_status,
-        s_maxvalues=piemaxvalues
+        pr_colors=utils.gencolors("green", len(providers))
     )
+
 
 @deployments_bp.route("/depstats", methods=["GET", "POST"])
 @auth.authorized_with_valid_token
@@ -320,24 +256,16 @@ def showdeploymentstats():
     access_token = iam.token["access_token"]
 
     only_remote = True
-    status_labels = ["CREATE_COMPLETE","CREATE_IN_PROGRESS","CREATE_FAILED","UPDATE_COMPLETE","UPDATE_IN_PROGRESS","UPDATE_FAILED","DELETE_COMPLETE","DELETE_IN_PROGRESS","DELETE_FAILED"]
-    piemaxvalues = app.config.get("FEATURE_MAX_PIE_SLICES", 0)
-    only_effective = app.config.get("FEATURE_SHOW_BROKEN_DEPLOYMENTS", "no") == "no"
+    only_effective = True
+    show_deleted = "False"
+    excluded_status = "DELETE_COMPLETE,DELETE_IN_PROGRESS,CREATE_FAILED,DELETE_FAILED"
+
     group = "None"
     provider = "None"
-    templaterq = None
-    selected_status = "actives"
     if request.method == "POST":
-        if request.is_json:
-            data = request.get_json()
-            templaterq = data.get("id")
-            group = data.get("group")
-            provider = data.get("provider")
-            selected_status = data.get("selected_status")
-        else:
-            group =  request.form.to_dict()["group"]
-            provider = request.form.to_dict()["provider"]
-            selected_status = request.form.to_dict()["selected_status"]
+        show_deleted = request.form.to_dict()["showhdep"]
+        group =  request.form.to_dict()["group"]
+        provider = request.form.to_dict()["provider"]
 
     if (group == "None"):
         group = None
@@ -345,11 +273,9 @@ def showdeploymentstats():
     if (provider == "None"):
         provider = None
 
-    excluded_status = build_status_filter(selected_status, status_labels)
-
     deployments = []
     try:
-        if excluded_status is not None:
+        if show_deleted == "False":
             deployments = app.orchestrator.get_deployments(
                 access_token, excluded_status=excluded_status
         )
@@ -448,53 +374,27 @@ def showdeploymentstats():
     if templates["UNKNOWN"] == 0:
         templates.pop("UNKNOWN")
 
-    if templaterq is not None:
-        occurences = {"UNKNOWN": 0}
-        for dep in deployments:
-            if dep.selected_template == templaterq:
-                depdate = dep.creation_time.strftime("%Y-%m")
-                occurences[depdate] = occurences.get(depdate, 0) + 1
-        if occurences["UNKNOWN"] == 0:
-            occurences.pop("UNKNOWN")
-        s_occurences = dict(sorted(occurences.items()))
-        if len(s_occurences.keys()) > 0:
-            return jsonify({"labels":list(s_occurences.keys()),
-                            "values":list(s_occurences.values()),
-                            "group":group,
-                            "provider":provider,
-                            "selected_status": selected_status})
-
-        else:
-            return jsonify({"error": "Template not found!"}), 404
-
-    else:
-        s_title = "All Deployment Status" if selected_status == "all" else "Deployment Status: " + selected_status
-        p_title= "All Groups" if not group else "Group: " + group
-        pr_title = "All Providers" if not provider else "Provider: " + provider
-
-        return render_template(
-            "depstatistics.html",
-            s_title=s_title,
-            s_labels=list(statuses.keys()),
-            s_values=list(statuses.values()),
-            s_colors=utils.genstatuscolors(statuses),
-            p_title=p_title,
-            p_labels=list(groups.keys()),
-            p_values=list(groups.values()),
-            p_colors=utils.gencolors("blue", len(groups)),
-            pr_title=pr_title,
-            pr_labels=list(providers.keys()),
-            pr_values=list(providers.values()),
-            pr_colors=utils.gencolors("green", len(providers)),
-            d_templates=templates,
-            groups_labels=groups_labels,
-            providers_labels=providers_labels,
-            status_labels=status_labels,
-            group=group,
-            provider=provider,
-            selected_status=selected_status,
-            s_maxvalues=piemaxvalues
-        )
+    return render_template(
+        "depstatistics.html",
+        s_title="Deployments status",
+        s_labels=list(statuses.keys()),
+        s_values=list(statuses.values()),
+        s_colors=utils.genstatuscolors(statuses),
+        p_title="Groups",
+        p_labels=list(groups.keys()),
+        p_values=list(groups.values()),
+        p_colors=utils.gencolors("blue", len(groups)),
+        pr_title="Providers",
+        pr_labels=list(providers.keys()),
+        pr_values=list(providers.values()),
+        pr_colors=utils.gencolors("green", len(providers)),
+        d_templates=templates,
+        groups_labels=groups_labels,
+        providers_labels=providers_labels,
+        group=group,
+        provider=provider,
+        showdepdel=show_deleted
+    )
 
 
 @deployments_bp.route("/<depid>/template")
