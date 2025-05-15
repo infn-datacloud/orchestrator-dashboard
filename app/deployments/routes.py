@@ -449,17 +449,17 @@ def showdeploymentstats():
         templates.pop("UNKNOWN")
 
     if templaterq is not None:
-        occurences = {"UNKNOWN": 0}
+        occurrences = {"UNKNOWN": 0}
         for dep in deployments:
             if dep.selected_template == templaterq:
                 depdate = dep.creation_time.strftime("%Y-%m")
-                occurences[depdate] = occurences.get(depdate, 0) + 1
-        if occurences["UNKNOWN"] == 0:
-            occurences.pop("UNKNOWN")
-        s_occurences = dict(sorted(occurences.items()))
-        if len(s_occurences.keys()) > 0:
-            return jsonify({"labels":list(s_occurences.keys()),
-                            "values":list(s_occurences.values()),
+                occurrences[depdate] = occurrences.get(depdate, 0) + 1
+        if occurrences["UNKNOWN"] == 0:
+            occurrences.pop("UNKNOWN")
+        s_occurrences = dict(sorted(occurrences.items()))
+        if len(s_occurrences.keys()) > 0:
+            return jsonify({"labels":list(s_occurrences.keys()),
+                            "values":list(s_occurrences.values()),
                             "group":group,
                             "provider":provider,
                             "selected_status": selected_status})
@@ -477,7 +477,7 @@ def showdeploymentstats():
             s_title=s_title,
             s_labels=list(statuses.keys()),
             s_values=list(statuses.values()),
-            s_colors=utils.genstatuscolors(statuses),
+            s_colors=utils.genstatuscolors(statuses.keys()),
             p_title=p_title,
             p_labels=list(groups.keys()),
             p_values=list(groups.values()),

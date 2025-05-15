@@ -286,6 +286,17 @@ def build_status_filter(status, status_labels):
             excluded_status += st
     return excluded_status
 
+
+def filter_date_range(deployments, start, end, negate):
+    def iterator_func(x):
+        if start is not None and x.update_time >= start:
+            return negate
+        if end is not None and x.update_time <= end:
+            return negate
+        return not negate
+    return list(filter(iterator_func, deployments))
+
+
 def filter_status(deployments, search_string_list, negate):
     def iterator_func(x):
         if x.status in search_string_list:
@@ -322,39 +333,38 @@ def cvdeployments(deps):
     return deployments
 
 
+def notnullorempty(value):
+    return True if value is not None and value != "" else False
+
+def defaulttoempty(value):
+    return value if value is not None else ""
+
 def cvdeployment(d):
     deployment = Deployment(
         uuid=d.uuid,
         creation_time=d.creation_time,
         update_time=d.update_time,
-        physicalId="" if d.physicalId is None else d.physicalId,
+        physicalId=defaulttoempty(d.physicalId),
         description=d.description,
         status=d.status,
         status_reason=d.status_reason,
-        outputs=json.loads(d.outputs.replace("\n", "\\n"))
-        if (d.outputs is not None and d.outputs != "") else "",
-        stoutputs=json.loads(d.stoutputs.replace("\n", "\\n"))
-        if (d.stoutputs is not None and d.stoutputs != "") else "",
+        outputs=json.loads(d.outputs.replace("\n", "\\n")) if notnullorempty(d.outputs) else "",
+        stoutputs=json.loads(d.stoutputs.replace("\n", "\\n")) if notnullorempty(d.stoutputs) else "",
         task=d.task,
-        links=json.loads(d.links.replace("\n", "\\n"))
-        if (d.links is not None and d.links != "") else "",
+        links=json.loads(d.links.replace("\n", "\\n")) if notnullorempty(d.links) else "",
         sub=d.sub,
         template=d.template,
-        template_parameters=d.template_parameters
-        if d.template_parameters is not None else "",
-        template_metadata=d.template_metadata
-        if d.template_metadata is not None else "",
+        template_parameters=defaulttoempty(d.template_parameters),
+        template_metadata=defaulttoempty(d.template_metadata),
         selected_template=d.selected_template,
-        inputs=json.loads(d.inputs.replace("\n", "\\n"))
-        if (d.inputs is not None and d.inputs != "") else "",
-        stinputs=json.loads(d.stinputs.replace("\n", "\\n"))
-        if (d.stinputs is not None and d.stinputs != "") else "",
+        inputs=json.loads(d.inputs.replace("\n", "\\n")) if notnullorempty(d.inputs) else "",
+        stinputs=json.loads(d.stinputs.replace("\n", "\\n")) if notnullorempty(d.stinputs) else "",
         params=d.params,
         deployment_type=d.deployment_type,
-        provider_name="" if d.provider_name is None else d.provider_name,
+        provider_name=defaulttoempty(d.provider_name),
         provider_type=d.provider_type,
         region_name=d.region_name,
-        user_group="" if d.user_group is None else d.user_group,
+        user_group=defaulttoempty(d.user_group),
         endpoint=d.endpoint,
         remote=d.remote,
         locked=d.locked,
@@ -362,8 +372,8 @@ def cvdeployment(d):
         feedback_required=d.feedback_required,
         keep_last_attempt=d.keep_last_attempt,
         storage_encryption=d.storage_encryption,
-        vault_secret_uuid="" if d.vault_secret_uuid is None else d.vault_secret_uuid,
-        vault_secret_key="" if d.vault_secret_key is None else d.vault_secret_key,
+        vault_secret_uuid=defaulttoempty(d.vault_secret_uuid),
+        vault_secret_key=defaulttoempty(d.vault_secret_key),
         elastic=d.elastic,
         updatable=d.updatable,
     )

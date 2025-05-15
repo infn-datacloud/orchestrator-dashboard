@@ -192,13 +192,17 @@
                                         <i class="fas fa-users"></i>
                                         Users
                                     </a>
+                                    <a class="navbar-left-dropdown-children-item navbar-left-link" href="{{ url_for("users_bp.showuserstats") }}" title="Users statistics">
+                                        <i class="fas fa-chart-pie"></i>
+                                        Users statistics
+                                    </a>
                                     <a class="navbar-left-dropdown-children-item navbar-left-link" href="{{ url_for("deployments_bp.showalldeployments") }}" title="Deployments list">
                                         <i class="fas fa-list-ul"></i>
                                         Deployments list
                                     </a>
-                                    <a class="navbar-left-dropdown-children-item navbar-left-link" href="{{ url_for("deployments_bp.showdeploymentstats") }}" title="Usage statistics">
+                                    <a class="navbar-left-dropdown-children-item navbar-left-link" href="{{ url_for("deployments_bp.showdeploymentstats") }}" title="Deployments statistics">
                                         <i class="fas fa-chart-pie"></i>
-                                        Usage statistics
+                                        Deployments statistics
                                     </a>
                                     <a class="navbar-left-dropdown-children-item navbar-left-link" href="{{ url_for("services_bp.list_as_admin") }}" title="Services">
                                         <i class="fas fa-cogs"></i>

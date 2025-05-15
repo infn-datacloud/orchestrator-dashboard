@@ -13,18 +13,43 @@
 # limitations under the License.
 
 import requests
-from flask import (
-    current_app as app,
-    Blueprint,
-    session,
-    render_template,
-    flash,
-    request,
-)
-from app.lib import auth, dbhelpers
 from app.models.User import User
-from app.iam import iam
+import copy
+import io
+import os
+import random
+import re
+import string
+import uuid as uuid_generator
+from typing import Optional
+from urllib.parse import urlparse
+from distutils.util import strtobool
 
+import openstack
+import openstack.connection
+import yaml
+from flask import (
+    Blueprint,
+    flash,
+    json,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    session,
+    url_for,
+)
+from flask import current_app as app
+from werkzeug.exceptions import Forbidden
+
+from app.extensions import tosca, vaultservice
+from app.iam import iam
+from app.lib import auth, dbhelpers, fed_reg, providers, s3, utils
+from app.lib import openstack as keystone
+from app.lib import tosca_info as tosca_helpers
+from app.lib.dbhelpers import filter_date_range, build_status_filter
+from app.lib.ldap_user import LdapUserManager
+from app.models.Deployment import Deployment
 
 users_bp = Blueprint(
     "users_bp", __name__, template_folder="templates", static_folder="static"
@@ -102,3 +127,73 @@ def show_deployments(subject):
         flash("User not found!", "warning")
         users = User.get_users()
         return render_template("users.html", users=users)
+
+
+@users_bp.route("/userstats", methods=["GET", "POST"])
+@auth.authorized_with_valid_token
+@auth.only_for_admin
+def showuserstats():
+
+    access_token = iam.token["access_token"]
+
+    status_labels = ["CREATE_COMPLETE","CREATE_IN_PROGRESS","CREATE_FAILED","UPDATE_COMPLETE","UPDATE_IN_PROGRESS","UPDATE_FAILED","DELETE_COMPLETE","DELETE_IN_PROGRESS","DELETE_FAILED"]
+    only_effective = app.config.get("FEATURE_SHOW_BROKEN_DEPLOYMENTS", "no") == "no"
+    datestart = None
+    dateend = None
+    selected_status = "actives"
+    if request.method == "POST":
+        selected_status = request.form.to_dict()["selected_status"]
+
+    excluded_status = build_status_filter(selected_status, status_labels)
+
+    deployments = []
+    try:
+        if excluded_status is not None:
+            deployments = app.orchestrator.get_deployments(
+                access_token, excluded_status=excluded_status
+        )
+        else:
+            deployments = app.orchestrator.get_deployments(
+                access_token
+        )
+    except Exception as e:
+        flash("Error retrieving deployment list: \n" + str(e), "warning")
+
+    # sanitize data and filter undesired states
+    if deployments:
+        deployments = dbhelpers.sanitizedeployments(deployments)["deployments"]
+
+    # Initialize dictionaries for occurrences
+    occurrences = dict()
+
+    #filter eventually dates
+    deployments =  filter_date_range(
+            deployments,
+            datestart,
+            dateend,
+            False)
+
+    # second round, count instances
+    for dep in deployments:
+        depdate = dep.creation_time.strftime("%Y-%m")
+        sub = dep.sub
+        datelist = occurrences.get(depdate, list([]))
+        if not sub in datelist:
+            datelist.append(sub)
+            occurrences[depdate] = datelist
+    for k in occurrences.keys():
+        occurrences[k] = len(occurrences[k])
+
+    s_occurrences = dict(sorted(occurrences.items(), key=lambda item: item[0]))
+
+    s_title = "Users active using all statuses" if selected_status == "all" else "Users active using status: " + selected_status
+
+    return render_template(
+        "showuserstats.html",
+        s_title=s_title,
+        s_labels=list(s_occurrences.keys()),
+        s_values=list(s_occurrences.values()),
+        status_labels=status_labels,
+        selected_status=selected_status
+    )
+

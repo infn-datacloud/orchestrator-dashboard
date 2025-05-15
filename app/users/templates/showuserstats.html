@@ -1,0 +1,209 @@
+{% extends "base.html" %}
+{% block content %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.6.2/dist/chart.min.js"></script>
+<style>
+    .chart-container {
+      width: 100%;
+      max-width: 100%;
+      margin-bottom: 30px;
+    }
+
+    canvas {
+      width: 100% !important;
+      height: auto !important;
+    }
+
+	.legend {
+	  margin-top: 10px;
+	  display: flex;
+	  flex-direction: column;
+	  align-items: center;.
+	}
+
+	.legend-item {
+	  display: flex;
+	  align-items: center;
+	  margin-bottom: 5px;
+	  text-align: center;
+	}
+
+    .legend-color-box {
+      width: 15px;
+      height: 15px;
+      margin-right: 10px;
+    }
+</style>
+<div class="container-fluid">
+	{% set ar = namespace(found=false) %}
+  	<br>
+    <div class="card shadow mb-4">    
+        <div class="card-body">
+            <div class="dashboard-template-header">
+                <div class="dashboard-template-image">
+                    <i class="fas fa-chart-pie"></i>
+                </div>
+                <div class="dashboard-template-title">
+                    Active Users Over Time
+                    <br/>
+                </div>
+                <div class="dashboard-template-header-buttons">
+
+					<button type="button" id="refreshbutton" class="dashboard-button dashboard-button-outline-no-border" onclick='postMain();'>
+						<i class="fas fa-sync-alt"></i>&nbsp;Refresh
+					</button>
+                    &nbsp;
+                    <div>
+                        <button type="button" id="statusbutton" class="dashboard-button dashboard-button-small dashboard-button-primary dropdown-toggle dropdown-toggle-split" data-toggle="dropdown">
+                            <span class='fas fa-list mr-2'></span>Status&nbsp;
+                        </button>
+                        <div class="dropdown-menu">
+                            <a class="dropdown-item" href="javascript:;" onclick="processStatusSelect('all'); return true;">
+                                all
+                            </a>
+                            <a class="dropdown-item" href="javascript:;" onclick="processStatusSelect('actives'); return true;">
+                                actives
+                            </a>
+                        </div>
+                    </div>&nbsp;
+                    &nbsp;
+                </div>
+            </div>
+
+            <div class="modal fade" id="barChartModal" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-lg modal-dialog-centered">
+                  <div class="modal-content">
+                    <div class="modal-header">
+                      <h5 class="modal-title">Template usage over time for:&nbsp;<span id="modalTitle"></span></h5>
+                    </div>
+                    <div class="modal-body">
+                      <canvas id="barChart"></canvas>
+                    </div>
+                    <div class="modal-footer">
+                      <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                    </div>
+                  </div>
+                </div>
+            </div>
+
+            <form id="tableform" action="{{ url_for('users_bp.showuserstats') }}" method="post">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" id="selected_status" name="selected_status" value={{ selected_status }}>
+            </form>
+            <div class="container my-4">
+                <div id="no-data-message"
+                     style="display:none; text-align: center; font-size: 2rem; font-weight: bold; color: #888; padding: 2rem;">
+                  <i class="fas fa-database-slash" style="font-size: 3rem; color: #ccc;"></i><br/>
+                  NO DATA FOR CURRENT SELECTION
+                </div>
+                <div id="chartsRow" class="row text-center"></div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+
+
+
+function postMain() {
+    $( "#tableform" ).submit();
+    return true;
+}
+
+function processStatusSelect(status) {
+    document.getElementById("selected_status").value = status;
+    postMain();
+}
+
+
+let validChartCount = 0;
+
+function drawchart(chartidx, title, subtitle, labels, values) {
+  var chartsRow = document.getElementById('chartsRow');
+  var col = document.createElement('div');
+  //col.className = 'col-md-4 mb-4';
+
+  var chartId = `chart${chartidx}`;
+
+  col.innerHTML = `
+    <div class="chart-container">
+      <canvas id="${chartId}"></canvas>
+    </div>
+  `;
+
+  chartsRow.appendChild(col);
+
+  const backgroundColors = labels.map((_, i) =>
+    `hsl(${(i * 360) / labels.length}, 60%, 60%)`
+  );
+
+
+  var chart = new Chart(document.getElementById(chartId).getContext("2d"), {
+          type: "bar",
+          data: {
+            labels: labels,
+            datasets: [{
+              label: "Users active per year-month",
+              data: values,
+              backgroundColor: backgroundColors
+            }]
+          },
+          options: {
+            responsive: true,
+            scales: {
+              y: {
+                beginAtZero: true,
+                ticks: {
+                    stepSize: 1,
+                    callback: function(value) {
+                        return Number.isInteger(value) ? value : null;
+                    }
+                }
+              }
+            },
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                      label: function(context) {
+                        const label = context.label || '';
+                        const value = context.raw;
+                        return `${label}: ${value}`;
+                      },
+                      title: function (context) {
+                        return "Year-Month";
+                      }
+                    }
+                }
+            }
+    }
+  });
+
+  if (values.length > 0) {
+      validChartCount++;
+  }
+}
+
+console.log("{{s_text}}");
+
+drawchart(  "users_chart",
+            "{{s_title}}",
+            "",
+            {{s_labels | safe}},
+            {{s_values}}
+);
+
+
+const message = document.getElementById("no-data-message");
+message.style.display = validChartCount === 0 ? "block" : "none";
+const chart = document.getElementById("chartsRow");
+chart.style.display = validChartCount === 0 ? "none" : "flex";
+
+</script>
+
+{% if ar.found %}
+	<script>setTimeout(function(){postMain();},30000);</script>
+{% endif %}
+
+{% endblock %}
+
