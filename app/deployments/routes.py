@@ -339,10 +339,10 @@ def showdeploymentstats():
             provider = request.form.to_dict()["provider"]
             selected_status = request.form.to_dict()["selected_status"]
 
-    if (group == "None"):
+    if group == "None":
         group = None
 
-    if (provider == "None"):
+    if provider == "None":
         provider = None
 
     excluded_status = build_status_filter(selected_status, status_labels)

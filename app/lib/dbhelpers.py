@@ -13,7 +13,9 @@
 # limitations under the License.
 
 import ast
-import datetime
+from datetime import datetime, date
+import calendar
+
 from typing import Any, Optional
 
 from dateutil import parser
@@ -143,8 +145,8 @@ def sanitizedeployments(deployments):
         dep_json["creationTime"] = dt.strftime("%Y-%m-%d %H:%M:%S")
         dt = parser.parse(dep_json["updateTime"])
         dep_json["updateTime"] = dt.strftime("%Y-%m-%d %H:%M:%S")
-        update_time = datetime.datetime.strptime(dep_json["updateTime"], "%Y-%m-%d %H:%M:%S")
-        creation_time = datetime.datetime.strptime(dep_json["creationTime"], "%Y-%m-%d %H:%M:%S")
+        update_time = datetime.strptime(dep_json["updateTime"], "%Y-%m-%d %H:%M:%S")
+        creation_time = datetime.strptime(dep_json["creationTime"], "%Y-%m-%d %H:%M:%S")
 
         providername = dep_json["cloudProviderName"] if "cloudProviderName" in dep_json else ""
         # Older deployments saved as provider name both the provider name and the
@@ -287,11 +289,31 @@ def build_status_filter(status, status_labels):
     return excluded_status
 
 
+def month_boundary(ym_str: str, first_day: bool = True) -> date:
+    """
+    Converte una stringa 'YYYY-MM' in una data:
+    - Se first_day è True, restituisce il primo giorno del mese
+    - Se False, restituisce l'ultimo giorno del mese
+    - Se errore ritorna None
+    """
+    try:
+        dt = datetime.strptime(ym_str, "%Y-%m")
+    except ValueError:
+        return None
+
+    year, month = dt.year, dt.month
+
+    if first_day:
+        return date(year, month, 1)
+    else:
+        last_day = calendar.monthrange(year, month)[1]
+        return date(year, month, last_day)
+
+
 def filter_date_range(deployments, start, end, negate):
     def iterator_func(x):
-        if start is not None and x.update_time >= start:
-            return negate
-        if end is not None and x.update_time <= end:
+        if (start is None or x.creation_time.date() >= start) and \
+                (end is None or x.creation_time.date() <= end):
             return negate
         return not negate
     return list(filter(iterator_func, deployments))
@@ -333,8 +355,11 @@ def cvdeployments(deps):
     return deployments
 
 
+def nullorempty(value):
+    return True if value is None or value == "" or value == "None" else False
+
 def notnullorempty(value):
-    return True if value is not None and value != "" else False
+    return not nullorempty(value)
 
 def defaulttoempty(value):
     return value if value is not None else ""
