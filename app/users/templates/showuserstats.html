@@ -151,13 +151,13 @@
                       <tbody>
                         {% for user in o_users%}
                         <tr>
-                            <td scope="row">{{user.sub}}</td>
+                            <td><button class="btn btn-link p-0" data-id="{{user.sub}}">{{user.sub}}</button></td>
                             <td>{{user.username}}</td>
                             <td>{{user.given_name}}</td>
                             <td>{{user.family_name}}</td>
                             <td>{{user.organisation_name}}</td>
                             <td>{{user.email}}</td>
-                            <td>{{s_users[user.sub]}}</td>
+                            <td><button class="btn btn-link p-0" data-id="{{user.sub}}">{{s_users[user.sub]}}</button></td>
                         </tr>
                         {% endfor %}
                       </tbody>
@@ -181,6 +181,29 @@ function processStatusSelect(status) {
     document.getElementById("selected_status").value = status;
     postMain();
 }
+
+$('#tableUsers').on('click', 'button[data-id]', function () {
+     var subject = this.getAttribute('data-id');
+//     var group = document.getElementById("group").value;
+     var selected_status = document.getElementById("selected_status").value;
+//     var provider = document.getElementById("provider").value;
+     var start_date = document.getElementById("start_date").value;
+     var end_date = document.getElementById("end_date").value;
+//group: group, provider: provider,
+     const baseUrl = "{{ url_for('deployments_bp.showdeployments', subject='__subject__', showback=True) }}";
+     const url = baseUrl.replace("__subject__", subject);
+
+     fetch(url, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+            'x-csrf-token': '{{csrf_token()}}',
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ selected_status: selected_status, date_start: start_date, date_end: end_date })
+     });
+  });
+
 
 let validChartCount = 0;
 

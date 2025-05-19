@@ -275,14 +275,30 @@ def sanitizedeployments(deployments):
     return result
 
 
-def build_status_filter(status, status_labels):
+def get_all_statuses():
+    return list(["CREATE_COMPLETE","CREATE_IN_PROGRESS","CREATE_FAILED","UPDATE_COMPLETE","UPDATE_IN_PROGRESS","UPDATE_FAILED","DELETE_COMPLETE","DELETE_IN_PROGRESS","DELETE_FAILED"])
+
+
+def get_active_statuses():
+    return list(["CREATE_COMPLETE","CREATE_IN_PROGRESS","UPDATE_COMPLETE","UPDATE_IN_PROGRESS","UPDATE_FAILED"])
+
+
+def get_inactive_statuses():
+    return list(["DELETE_COMPLETE","DELETE_IN_PROGRESS","CREATE_FAILED","DELETE_FAILED"])
+
+
+def build_excludedstatus_filter(status):
     if status == "all":
         return None
     if status == "actives":
-        return "DELETE_COMPLETE,DELETE_IN_PROGRESS,CREATE_FAILED,DELETE_FAILED"
+        slist = get_inactive_statuses()
+        sfilter = ""
+    else:
+        slist = get_all_statuses()
+        sfilter = status
     excluded_status = ""
-    for st in status_labels:
-        if st != status:
+    for st in slist:
+        if st != sfilter:
             if excluded_status != "":
                 excluded_status += ","
             excluded_status += st

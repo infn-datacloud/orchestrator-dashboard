@@ -24,7 +24,7 @@ from flask import current_app as app
 
 from app.iam import iam
 from app.lib import auth, dbhelpers, fed_reg, providers, s3, utils
-from app.lib.dbhelpers import month_boundary, filter_date_range, build_status_filter, nullorempty, notnullorempty
+from app.lib.dbhelpers import month_boundary, filter_date_range, build_excludedstatus_filter, nullorempty, notnullorempty, get_all_statuses
 
 users_bp = Blueprint(
     "users_bp", __name__, template_folder="templates", static_folder="static"
@@ -60,50 +60,6 @@ def show_user(subject, ronly):
         return render_template(app.config.get("HOME_TEMPLATE"))
 
 
-@users_bp.route("/<subject>/deployments", methods=["GET", "POST"])
-@auth.authorized_with_valid_token
-@auth.only_for_admin
-def show_deployments(subject):
-
-    access_token = iam.token["access_token"]
-    user = dbhelpers.get_user(subject)
-
-    if user is not None:
-
-        issuer = iam.base_url
-        if not issuer.endswith("/"):
-            issuer += "/"
-
-        show_deleted = "False"
-        excluded_status = "DELETE_COMPLETE"
-
-        if request.method == "POST":
-            show_deleted = request.form.to_dict()["showhdep"]
-
-        deployments = []
-        try:
-            if show_deleted == "False":
-                deployments = app.orchestrator.get_deployments(
-                    access_token, created_by="{}@{}".format(subject, issuer), excluded_status=excluded_status
-                )
-            else:
-                deployments = app.orchestrator.get_deployments(
-                    access_token, created_by="{}@{}".format(subject, issuer)
-                )
-        except Exception as e:
-            flash("Error retrieving deployment list: \n" + str(e), "warning")
-
-        if deployments:
-            deployments = dbhelpers.sanitizedeployments(deployments)["deployments"]
-            app.logger.debug("Deployments: " + str(deployments))
-
-        return render_template("dep_user.html", user=user, deployments=deployments, showdepdel=show_deleted)
-    else:
-        flash("User not found!", "warning")
-        users = User.get_users()
-        return render_template("users.html", users=users)
-
-
 @users_bp.route("/userstats", methods=["GET", "POST"])
 @auth.authorized_with_valid_token
 @auth.only_for_admin
@@ -111,7 +67,6 @@ def showuserstats():
 
     access_token = iam.token["access_token"]
 
-    status_labels = ["CREATE_COMPLETE","CREATE_IN_PROGRESS","CREATE_FAILED","UPDATE_COMPLETE","UPDATE_IN_PROGRESS","UPDATE_FAILED","DELETE_COMPLETE","DELETE_IN_PROGRESS","DELETE_FAILED"]
     only_effective = app.config.get("FEATURE_SHOW_BROKEN_DEPLOYMENTS", "no") == "no"
     datestart = None
     dateend = None
@@ -126,7 +81,7 @@ def showuserstats():
     if nullorempty(dateend):
         dateend = None
 
-    excluded_status = build_status_filter(selected_status, status_labels)
+    excluded_status = build_excludedstatus_filter(selected_status)
 
     deployments = []
     try:
@@ -164,16 +119,21 @@ def showuserstats():
     for dep in deployments:
         depdate = dep.creation_time.strftime("%Y-%m")
         sub = dep.sub
-        datelist = occurrences.get(depdate, list([]))
+        datelist = occurrences.get(depdate, dict({}))
         if not sub in datelist:
-            datelist.append(sub)
-            occurrences[depdate] = datelist
+            datelist[sub] = 1
+        else:
+            datelist[sub] = datelist[sub]  + 1
+        occurrences[depdate] = datelist
 
     s_occurrences = dict(sorted(occurrences.items(), key=lambda item: item[0]))
-    k_occurrences = s_occurrences.keys()
+    k_occurrences = list(s_occurrences.keys())
     v_occurrences = list()
-    for k in s_occurrences.keys():
-        v_occurrences.append(len(s_occurrences[k]))
+    for k in s_occurrences.values():
+        v = 0
+        for j in k.values():
+            v = v+j
+        v_occurrences.append(v)
 
     # get default date interval if not user defined
     if not hasfilterdate and len(s_occurrences) > 0:
@@ -184,14 +144,14 @@ def showuserstats():
     # get users list and count deployments
     s_users = dict()
     o_users = dict()
-    for keyo, occurrence in s_occurrences.items():
-        for keyu in occurrence:
+    for occurrence in s_occurrences.values():
+        for keyu, c in occurrence.items():
             if not keyu in s_users:
                 s_users[keyu] = 0
-            s_users[keyu] = s_users[keyu] + 1
-    for keyu in s_users.keys():
-        user = dbhelpers.get_user(keyu)
-        o_users[keyu] = user
+            s_users[keyu] = s_users[keyu] + c
+            if not keyu in o_users:
+                user = dbhelpers.get_user(keyu)
+                o_users[keyu] = user
 
     s_title = "Active users over time for all statuses" if selected_status == "all" else "Active users over time for status: " + selected_status
 
@@ -200,7 +160,7 @@ def showuserstats():
         s_title=s_title,
         s_labels=list(k_occurrences),
         s_values=list(v_occurrences),
-        status_labels=status_labels,
+        status_labels=get_all_statuses(),
         selected_status=selected_status,
         datestart=datestart,
         dateend=dateend,
