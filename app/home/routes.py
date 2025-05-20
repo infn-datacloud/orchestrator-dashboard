@@ -1,4 +1,4 @@
-# Copyright (c) Istituto Nazionale di Fisica Nucleare (INFN). 2019-2020
+# Copyright (c) Istituto Nazionale di Fisica Nucleare (INFN). 2019-2025
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ from flask import (
 from flask import current_app as app
 from markupsafe import Markup
 
-from app.extensions import csrf, redis_client, tosca
+from app.extensions import csrf, tosca
 from app.iam import iam
 from app.lib import auth, dbhelpers, openstack, utils
 from app.models.User import User

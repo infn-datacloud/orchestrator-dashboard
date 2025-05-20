@@ -1,4 +1,4 @@
-# Copyright (c) Istituto Nazionale di Fisica Nucleare (INFN). 2019-2020
+# Copyright (c) Istituto Nazionale di Fisica Nucleare (INFN). 2019-2025
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,7 +21,6 @@ import string
 import uuid as uuid_generator
 from typing import Optional
 from urllib.parse import urlparse
-from distutils.util import strtobool
 
 import openstack
 import openstack.connection
@@ -48,6 +47,7 @@ from app.lib import tosca_info as tosca_helpers
 from app.lib.dbhelpers import (
     filter_provider,
     filter_group,
+    filter_template,
     filter_date_range,
     build_excludedstatus_filter,
     get_all_statuses,
@@ -72,6 +72,9 @@ SHOW_DEPLOYMENTS_KWARGS = {
     "showback": "False"
 }
 SHOW_ALLDEPLOYMENTS_ROUTE = "deployments_bp.showalldeployments"
+SHOW_ALLDEPLOYMENTS_KWARGS = {
+    "showback": "False"
+}
 MANAGE_RULES_ROUTE = "deployments_bp.manage_rules"
 LOGIN_ROUTE = "home_bp.login"
 
@@ -102,7 +105,6 @@ def showdeployments(subject, showback):
     user = dbhelpers.get_user(userid)
 
     if user is not None:
-
         group = "None"
         provider = "None"
         selected_status = "actives"
@@ -110,17 +112,16 @@ def showdeployments(subject, showback):
         datestart = None
         dateend = None
         if request.method == "POST":
-            if request.is_json:
-                data = request.get_json()
-                #group = data.get("group")
-                #provider = data.get("provider")
-                selected_status = data.get("selected_status")
-                datestart = data.get("date_start")
-                dateend = data.get("date_end")
-            else:
-                group = request.form.to_dict()["group"]
-                provider = request.form.to_dict()["provider"]
-                selected_status = request.form.to_dict()["selected_status"]
+            dr = request.form.to_dict()
+            if "group" in dr:
+                group = dr.get("group")
+            if "provider" in dr:
+                provider = dr.get("provider")
+            if "date_start" in dr:
+                datestart = dr.get("date_start")
+            if "date_end" in dr:
+                datestart = dr.get("date_end")
+            selected_status = dr.get("selected_status")
 
         if nullorempty(datestart):
             datestart = None
@@ -129,15 +130,13 @@ def showdeployments(subject, showback):
 
         if (group == "None"):
             group = None
+        #if "active_usergroup" in session and session["active_usergroup"] is not None:
+        #    group = session["active_usergroup"]
 
         if (provider == "None"):
             provider = None
 
         excluded_status = build_excludedstatus_filter(selected_status)
-
-        #group = None
-        #if "active_usergroup" in session and session["active_usergroup"] is not None:
-        #    group = session["active_usergroup"]
 
         #only_effective = app.config.get("FEATURE_SHOW_BROKEN_DEPLOYMENTS", "no") == "no"
         deployments = []
@@ -231,32 +230,59 @@ def showdeployments(subject, showback):
         return redirect(url_for(SHOW_HOME_ROUTE))
 
 
-@deployments_bp.route("/listall", methods=["GET", "POST"])
+@deployments_bp.route("/<showback>/listall", methods=["GET", "POST"])
 @auth.authorized_with_valid_token
-def showalldeployments(show_back="False"):
+def showalldeployments(showback):
     access_token = iam.token["access_token"]
-    show_deleted="False"
-    excluded_status = "DELETE_COMPLETE"
-    group = "None"
 
+    group = "None"
+    provider = "None"
+    selected_status = "actives"
+    selected_template = "None"
+    only_remote = True
+    datestart = None
+    dateend = None
     if request.method == "POST":
-        show_deleted = request.form.to_dict()["showhdep"]
-        show_back =  request.form.to_dict()["showback"]
-        group =  request.form.to_dict()["group"]
+        dr = request.form.to_dict()
+        if "group" in dr:
+            group = dr.get("group")
+        if "provider" in dr:
+            provider = dr.get("provider")
+        if "date_start" in dr:
+            datestart = dr.get("date_start")
+        if "date_end" in dr:
+            datestart = dr.get("date_end")
+        if "selected_status" in dr:
+            selected_status = dr.get("selected_status")
+        if "selected_template" in dr:
+            selected_template = dr.get("selected_template")
+
+    if nullorempty(datestart):
+        datestart = None
+    if nullorempty(dateend):
+        dateend = None
 
     if (group == "None"):
         group = None
 
+    if (provider == "None"):
+        provider = None
+
+    if (selected_template == "None"):
+        selected_template = None
+
+    excluded_status = build_excludedstatus_filter(selected_status)
+
+    # only_effective = app.config.get("FEATURE_SHOW_BROKEN_DEPLOYMENTS", "no") == "no"
     deployments = []
-    groups = []
     try:
-        if show_deleted == "False":
+        if excluded_status is not None:
             deployments = app.orchestrator.get_deployments(
-                access_token, user_group=group, excluded_status=excluded_status
+                access_token, excluded_status=excluded_status
             )
         else:
             deployments = app.orchestrator.get_deployments(
-                access_token, user_group=group
+                access_token
             )
     except Exception as e:
         flash("Error retrieving deployment list: \n" + str(e), "warning")
@@ -264,27 +290,79 @@ def showalldeployments(show_back="False"):
     if deployments:
         deployments = dbhelpers.sanitizedeployments(deployments)["deployments"]
 
-        for dep in deployments:
-            status = dep.status or "UNKNOWN"
-            if (show_deleted == True or (status not in list(excluded_status))):
-                user_group = dep.user_group or "UNKNOWN"
-                if not user_group in groups:
-                    groups.append(user_group)
+    providers_to_split = app.config.get("PROVIDER_NAMES_TO_SPLIT", None)
+    if providers_to_split:
+        providers_to_split = providers_to_split.lower()
 
-        # add local groups if missing
-        supported_usergroups = session["supported_usergroups"]
-        for g in supported_usergroups:
-            if not g in groups:
-                groups.append(g)
+    groups_labels = []
+    providers_labels = []
 
-        app.logger.debug("Deployments: " + str(deployments))
+    # first round, load labels (names)
+    for dep in deployments:
+        if only_remote == False or dep.remote == True:
+
+            user_group = dep.user_group or "UNKNOWN"
+            if user_group and user_group not in groups_labels:
+                groups_labels.append(user_group)
+
+            dep_provider = dep.provider_name or "UNKNOWN"
+            if dep.region_name:
+                provider_ext = (dep_provider + "-" + dep.region_name).lower()
+                if providers_to_split and provider_ext in providers_to_split:
+                    dep_provider = dep_provider + "-" + dep.region_name.lower()
+            if dep_provider and dep_provider not in providers_labels:
+                providers_labels.append(dep_provider)
+
+    # filter eventually dates
+    if notnullorempty(datestart) or notnullorempty(dateend):
+        dstart = month_boundary(datestart, True)
+        dend = month_boundary(dateend, False)
+        deployments = filter_date_range(
+            deployments,
+            dstart,
+            dend,
+            True)
+
+    # filter eventually provider
+    if provider:
+        providers_to_filter = []
+        providers_to_filter.append(provider)
+        deployments = filter_provider(
+            deployments,
+            providers_to_filter,
+            True,
+            providers_to_split)
+
+    # filter eventually group
+    if group:
+        groups_to_filter = []
+        groups_to_filter.append(group)
+        deployments = filter_group(
+            deployments,
+            groups_to_filter,
+            True)
+
+    # filter eventually template
+    if selected_template:
+        template_to_filter = []
+        template_to_filter.append(selected_template)
+        deployments = filter_template(
+            deployments,
+            template_to_filter,
+            True)
+
+    app.logger.debug("Deployments: " + str(deployments))
 
     return render_template("deploymentsall.html",
                            deployments=deployments,
+                           groups_labels=groups_labels,
+                           providers_labels=providers_labels,
+                           status_labels=get_all_statuses(),
                            group=group,
-                           showdepdel=show_deleted,
-                           showback=show_back,
-                           groups=groups)
+                           provider=provider,
+                           selected_status=selected_status,
+                           selected_template=selected_template,
+                           showback=showback)
 
 
 @deployments_bp.route("/overview", methods=["GET", "POST"])
@@ -1407,7 +1485,7 @@ def depdel(depid=None, mode="user", force="false"):
     if mode == "user":
         return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **SHOW_DEPLOYMENTS_KWARGS))
     else:
-        return redirect(url_for(SHOW_ALLDEPLOYMENTS_ROUTE))
+        return redirect(url_for(SHOW_ALLDEPLOYMENTS_ROUTE, **SHOW_ALLDEPLOYMENTS_KWARGS))
 
 
 @deployments_bp.route("/<depid>/<mode>/reset")
@@ -1425,7 +1503,7 @@ def depreset(depid=None, mode="user"):
     if mode == "user":
         return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **SHOW_DEPLOYMENTS_KWARGS))
     else:
-        return redirect(url_for(SHOW_ALLDEPLOYMENTS_ROUTE))
+        return redirect(url_for(SHOW_ALLDEPLOYMENTS_ROUTE, **SHOW_ALLDEPLOYMENTS_KWARGS))
 
 
 @deployments_bp.route("/depupdate/<depid>")

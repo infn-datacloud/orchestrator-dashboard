@@ -31,12 +31,11 @@
             
                 <div class="dashboard-template-title">
                     {% if group %}
-                        Deployments for group: {{group}}<br/>
+                    Deployments for group: {{group}}<br/>
                     {% else %}
-                        Deployments full list
+                    Deployments full list
                     {% endif %}
                 </div>
-            
                 <div class="dashboard-template-header-buttons">
                     {% if showback == 'True' %}
                     <button type="button" class="dashboard-button dashboard-button-outline-no-border" title="Back" onclick="set_loading(true); history.back()">
@@ -46,28 +45,66 @@
 					<button type="button" class="dashboard-button dashboard-button-outline-no-border" title="Refresh" onclick='postMain();'>
 						<i class="fas fa-sync-alt"></i>&nbsp;Refresh
 					</button>
-					<button type="button" class="dashboard-button dashboard-button-small dashboard-button-primary dropdown-toggle dropdown-toggle-split" data-toggle="dropdown">
-						<span class='fas fa-list mr-2'></span>Group&nbsp;
-					</button>
-                    <div class="dropdown-menu">
-                        <a class="dropdown-item" href="javascript:" onclick="processGroupSelect(''); return true;">
-                            all
-						</a>
-						{% for user_group in groups%}
-                            {% if user_group != "UNKNOWN" %}
-                                <a class="dropdown-item" href="javascript:" onclick="processGroupSelect('{{user_group}}'); return true;">
-                                    {{user_group}}
+                    <div>
+                        <button type="button" id="statusbutton" class="dashboard-button dashboard-button-small dashboard-button-primary dropdown-toggle dropdown-toggle-split" data-toggle="dropdown">
+                            <span class='fas fa-list mr-2'></span>Status&nbsp;
+                        </button>
+                        <div class="dropdown-menu">
+                            <a class="dropdown-item" href="javascript:;" onclick="processStatusSelect('all'); return true;">
+                                all
+                            </a>
+                            <a class="dropdown-item" href="javascript:;" onclick="processStatusSelect('actives'); return true;">
+                                actives
+                            </a>
+                            {% for deployment_status in status_labels %}
+                                <a class="dropdown-item" href="javascript:;" onclick="processStatusSelect('{{deployment_status}}'); return true;">
+                                    {{deployment_status}}
                                 </a>
-                            {% endif %}
-						{% endfor %}
-					</div>
+                            {% endfor %}
+                        </div>
+                    </div>&nbsp;
+                    <div>
+                        <button type="button" id="groupbutton" class="dashboard-button dashboard-button-small dashboard-button-primary dropdown-toggle dropdown-toggle-split" data-toggle="dropdown">
+                            <span class='fas fa-list mr-2'></span>Group&nbsp;
+                        </button>
+                        <div class="dropdown-menu">
+                            <a class="dropdown-item" href="javascript:;" onclick="processGroupSelect(''); return true;">
+                                all
+                            </a>
+                            {% for user_group in groups_labels %}
+                                {% if user_group != "UNKNOWN" %}
+                                    <a class="dropdown-item" href="javascript:;" onclick="processGroupSelect('{{user_group}}'); return true;">
+                                        {{user_group}}
+                                    </a>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>&nbsp;
+                    <div>
+                        <button type="button" id="providerbutton" class="dashboard-button dashboard-button-small dashboard-button-primary dropdown-toggle dropdown-toggle-split" data-toggle="dropdown">
+                            <span class='fas fa-list mr-2'></span>Provider&nbsp;
+                        </button>
+                        <div class="dropdown-menu">
+                            <a class="dropdown-item" href="javascript:;" onclick="processProviderSelect(''); return true;">
+                                all
+                            </a>
+                            {% for user_provider in providers_labels %}
+                                {% if user_provider != "UNKNOWN" %}
+                                    <a class="dropdown-item" href="javascript:;" onclick="processProviderSelect('{{user_provider}}'); return true;">
+                                        {{user_provider}}
+                                    </a>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
                 </div>
             </div>
-            <form id="tableform" action="{{ url_for('deployments_bp.showalldeployments') }}" method="post">
+            <form id="tableform" action="{{ url_for('deployments_bp.showalldeployments', showback=showback) }}" method="post">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <input type="hidden" id="showhdep" name="showhdep" value={{ showdepdel }}>
                 <input type="hidden" id="showback" name="showback" value={{ showback }}>
                 <input type="hidden" id="group" name="group" value={{ group }}>
+                <input type="hidden" id="provider" name="provider" value={{ provider }}>
+                <input type="hidden" id="selected_status" name="selected_status" value={{ selected_status }}>
             </form>
 			<div class="table-responsive" style="overflow:inherit;">
 				<table class="table table-bordered table-striped" id="tableAdminDeployments" width="100%" cellspacing="0">
@@ -338,7 +375,6 @@ $(document).ready(() => {
 		$(this).addClass("disabled", true);
 		$(this).html( `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Deleting...` );
 	});
-    $("#show_deleted_deployments").prop("checked", {% if  showdepdel == "True"%} true {% else %} false {% endif %})
 });
 
 $('#tableAdminDeployments').dataTable( {
@@ -393,17 +429,18 @@ function postMain() {
     return true;
 }
 
+function processStatusSelect(status) {
+    document.getElementById("selected_status").value = status;
+    postMain();
+}
+
 function processGroupSelect(group) {
     document.getElementById("group").value = group;
     postMain();
 }
 
-function processCBClick(control) {
-    if (control.is(':checked')==true) {
-        document.getElementById("showhdep").value = "True";
-    } else {
-        document.getElementById("showhdep").value = "False";
-    }
+function processProviderSelect(provider) {
+    document.getElementById("provider").value = provider;
     postMain();
 }
 

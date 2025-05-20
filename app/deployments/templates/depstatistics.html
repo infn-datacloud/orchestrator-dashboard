@@ -129,6 +129,7 @@
                 <input type="hidden" id="group" name="group" value={{ group }}>
                 <input type="hidden" id="provider" name="provider" value={{ provider }}>
                 <input type="hidden" id="selected_status" name="selected_status" value={{ selected_status }}>
+                <input type="hidden" id="selected_template" name="selected_template" value={{ selected_template }}>
             </form>
             <div class="container my-4">
                 <div id="no-data-message"
@@ -166,7 +167,7 @@
                         <tr>
                         {% if value > 0 %}
                             <td><button class="btn btn-link p-0" data-id="{{key}}">{{key}}</button></td>
-                            <td><button class="btn btn-link p-0" data-id="{{key}}">{{value}}</button></td>
+                            <td><button class="btn btn-link p-0" data-value="{{key}}">{{value}}</button></td>
                         {% else %}
                             <td>{{key}}</td>
                             <td>{{value}}</td>
@@ -229,8 +230,8 @@ $('#tableStats').dataTable( {
 
 let barChartInstance = null;
 
- $('#tableStats').on('click', 'button[data-id]', function () {
-     const id = this.getAttribute('data-id');
+ $('#tableStats').on('click', 'button[data-value]', function () {
+     const id = this.getAttribute('data-value');
      var group = document.getElementById("group").value;
      var selected_status = document.getElementById("selected_status").value;
      var provider = document.getElementById("provider").value;
@@ -309,6 +310,15 @@ let barChartInstance = null;
         const modal = new bootstrap.Modal(document.getElementById("barChartModal"));
         modal.show();
       });
+  });
+
+ $('#tableStats').on('click', 'button[data-id]', function () {
+    const id = this.getAttribute('data-id');
+    document.getElementById("selected_template").value = id;
+    const form = document.getElementById("tableform");
+    const url = "{{ url_for('deployments_bp.showalldeployments', showback=True) }}";
+    form.action = url;
+    form.submit();
   });
 
 let validChartCount = 0;

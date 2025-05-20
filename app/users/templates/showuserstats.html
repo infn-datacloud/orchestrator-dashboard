@@ -183,25 +183,13 @@ function processStatusSelect(status) {
 }
 
 $('#tableUsers').on('click', 'button[data-id]', function () {
-     var subject = this.getAttribute('data-id');
-//     var group = document.getElementById("group").value;
-     var selected_status = document.getElementById("selected_status").value;
-//     var provider = document.getElementById("provider").value;
-     var start_date = document.getElementById("start_date").value;
-     var end_date = document.getElementById("end_date").value;
-//group: group, provider: provider,
-     const baseUrl = "{{ url_for('deployments_bp.showdeployments', subject='__subject__', showback=True) }}";
-     const url = baseUrl.replace("__subject__", subject);
 
-     fetch(url, {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: {
-            'x-csrf-token': '{{csrf_token()}}',
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ selected_status: selected_status, date_start: start_date, date_end: end_date })
-     });
+    const form = document.getElementById("tableform");
+    const subject = this.getAttribute('data-id');
+    const baseUrl = "{{ url_for('deployments_bp.showdeployments', subject='__subject__', showback=True) }}";
+    const url = baseUrl.replace("__subject__", subject);
+    form.action = url;
+    form.submit();
   });
 
 
@@ -271,8 +259,6 @@ function drawchart(chartidx, title, subtitle, labels, values) {
       validChartCount++;
   }
 }
-
-console.log("{{s_text}}");
 
 drawchart(  "users_chart",
             "{{s_title}}",

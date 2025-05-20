@@ -119,6 +119,8 @@ def create_app():
     if not redis_client.ping():
         raise Exception("Redis server not responding!")
     cache.init_app(app)
+    with app.app_context():
+        cache.clear()
 
     # initialize VAULT if present
     if app.config.get("FEATURE_VAULT_INTEGRATION") == "yes":
