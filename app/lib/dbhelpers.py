@@ -174,7 +174,7 @@ def sanitizedeployments(deployments):
                 or dep.provider_type != provider_type
                 or dep.region_name != region_name
                 or str(dep.status_reason or "") != status_reason
-                or dep.sub != subject
+                #or dep.sub != subject
             ):
                 dep.update_time = update_time
                 dep.physicalId = vphid
@@ -183,7 +183,7 @@ def sanitizedeployments(deployments):
                 dep.task = dep_json["task"]
                 dep.links = json.dumps(dep_json["links"])
                 dep.remote = 1
-                dep.sub = subject
+                #dep.sub = subject
                 dep.provider_name = providername
                 dep.provider_type = provider_type
                 dep.region_name = region_name
