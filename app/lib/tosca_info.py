@@ -61,20 +61,22 @@ class ToscaInfo:
 
     def _loadmetadata(self):
         mpath = os.path.join(self.tosca_metadata_dir, "metadata.yml")
-        if os.path.isfile(mpath):
-            with io.open(mpath) as stream:
-                metadata = yaml.full_load(stream)
+        if not os.path.isfile(mpath):
+            mpath = os.path.join(self.tosca_metadata_dir, "metadata.yaml")
+            if not os.path.isfile(mpath):
+                return {}, "1.0.0"
+        with io.open(mpath) as stream:
+            metadata = yaml.full_load(stream)
 
-                # validate against schema
-                jsonschema.validate(
-                    metadata,
-                    self.metadata_schema,
-                    format_checker=jsonschema.Draft202012Validator.FORMAT_CHECKER,
-                )
-                tosca_gmetadata = {str(uuid.uuid4()): service for service in metadata["services"]}
-                tosca_gversion = "1.0.0"  if "version" not in metadata else metadata["version"]
-                return tosca_gmetadata, tosca_gversion
-        return {}, "1.0.0"
+            # validate against schema
+            jsonschema.validate(
+                metadata,
+                self.metadata_schema,
+                format_checker=jsonschema.Draft202012Validator.FORMAT_CHECKER,
+            )
+            tosca_gmetadata = {str(uuid.uuid4()): service for service in metadata["services"]}
+            tosca_gversion = "1.0.0"  if "version" not in metadata else metadata["version"]
+            return tosca_gmetadata, tosca_gversion
 
     def _loadtoscatemplates(self):
         toscatemplates = []
@@ -169,21 +171,18 @@ class ToscaInfo:
             tosca_inputs = {}
             tosca_outputs = {}
             # get inputs/outputs from template, if provided
-            if "inputs" in template["topology_template"]:
-                tosca_inputs = template["topology_template"]["inputs"]
-                tosca_info["inputs"] = tosca_inputs
+            topology_template = template["topology_template"]
+            if "inputs" in topology_template:
+                tosca_inputs = tosca_info["inputs"] = topology_template["inputs"]
 
-            if "outputs" in template["topology_template"]:
-                tosca_outputs = template["topology_template"]["outputs"]
-                tosca_info["outputs"] = tosca_outputs
+            if "outputs" in topology_template:
+                tosca_outputs = tosca_info["outputs"] = topology_template["outputs"]
 
-            if "node_templates" in template["topology_template"]:
-                tosca_info["deployment_type"] = getdeploymenttype(
-                    template["topology_template"]["node_templates"]
-                )
+            if "node_templates" in topology_template:
+                tosca_info["deployment_type"] = getdeploymenttype(topology_template["node_templates"])
 
-            if "policies" in template["topology_template"]:
-                tosca_info["policies"] = template["topology_template"]["policies"]
+            if "policies" in topology_template:
+                tosca_info["policies"] = topology_template["policies"]
 
             # add parameters code here
             if tosca and self.tosca_params_dir:
