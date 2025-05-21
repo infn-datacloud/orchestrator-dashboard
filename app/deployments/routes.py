@@ -88,6 +88,7 @@ class InputValidationError(Exception):
 @deployments_bp.route("/<subject>/<showback>/list", methods=["GET", "POST"])
 @auth.authorized_with_valid_token
 def showdeployments(subject, showback):
+
     access_token = iam.token["access_token"]
 
     if subject == 'me' or subject == session["userid"] :
@@ -233,6 +234,7 @@ def showdeployments(subject, showback):
 @deployments_bp.route("/<showback>/listall", methods=["GET", "POST"])
 @auth.authorized_with_valid_token
 def showalldeployments(showback):
+
     access_token = iam.token["access_token"]
 
     group = "None"
@@ -259,6 +261,7 @@ def showalldeployments(showback):
 
     if nullorempty(datestart):
         datestart = None
+
     if nullorempty(dateend):
         dateend = None
 

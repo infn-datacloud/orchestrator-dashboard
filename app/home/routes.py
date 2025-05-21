@@ -71,12 +71,44 @@ def show_info():
     )
 
 
-@home_bp.route("/settings")
+@home_bp.route("/settings", methods=["GET", "POST"])
 @auth.authorized_with_valid_token
 def show_settings():
-    """
-    Route for displaying the settings page.
-    """
+
+    if request.method == "POST" and session["userrole"].lower() == "admin":
+
+        operation = request.form.to_dict()["operation"]
+
+        if operation == "repo":
+            current_config = app.settings.repository_configuration
+
+            ret1, tosca_update_msg = update_configuration(
+                current_config,
+                "tosca_templates",
+                app.settings.tosca_dir,
+                "Cloning TOSCA templates"
+            )
+            ret2, conf_update_msg = update_configuration(
+                current_config,
+                "dashboard_configuration",
+                app.settings.settings_dir,
+                "Cloning dashboard configuraton"
+            )
+
+            try:
+                tosca.reload()
+            except Exception as error:
+                handle_configuration_reload_error(error)
+
+            if ret1 or ret2:
+                handle_configuration_reload(current_config, tosca_update_msg, conf_update_msg)
+
+        if operation == "groups":
+            groups = request.form.getlist("iamgroups[]")
+            app.settings.set_iam_groups(groups)
+            auth.update_user_info()
+
+
     groups = app.settings.iam_groups
     repository_configuration = app.settings.repository_configuration
     _, _, _, tosca_gversion, _ = tosca.get()
@@ -91,58 +123,6 @@ def show_settings():
         tosca_version="{0:c}.{1:c}.{2:c}".format(tosca_gversion[0], tosca_gversion[2], tosca_gversion[4]),
         groups=groups
     )
-
-
-@home_bp.route("/setsettingsgroups", methods=["POST"])
-@auth.authorized_with_valid_token
-def submit_settings_groups():
-    """
-    A function to update settings.
-    It checks the user's role, then updates the current configuration
-    and handles configuration reload.
-    """
-    if request.method == "POST" and session["userrole"].lower() == "admin":
-        groups  =  request.json["groups"]
-        app.settings.set_iam_groups(groups)
-        auth.update_user_info()
-
-    return redirect(url_for("home_bp.home"))
-
-
-@home_bp.route("/setsettings", methods=["POST"])
-@auth.authorized_with_valid_token
-def submit_settings():
-    """
-    A function to update settings.
-    It checks the user's role, then updates the current configuration
-    and handles configuration reload.
-    """
-    if request.method == "POST" and session["userrole"].lower() == "admin":
-
-        current_config = app.settings.repository_configuration
-
-        ret1, tosca_update_msg = update_configuration(
-            current_config,
-            "tosca_templates",
-            app.settings.tosca_dir,
-            "Cloning TOSCA templates"
-        )
-        ret2, conf_update_msg = update_configuration(
-            current_config,
-            "dashboard_configuration",
-            app.settings.settings_dir,
-            "Cloning dashboard configuraton"
-        )
-
-        try:
-            tosca.reload()
-        except Exception as error:
-            handle_configuration_reload_error(error)
-
-        if ret1 or ret2:
-            handle_configuration_reload(current_config, tosca_update_msg, conf_update_msg)
-
-    return redirect(url_for("home_bp.show_settings"))
 
 
 def update_configuration(current_config, field_prefix, repo_dir, message):

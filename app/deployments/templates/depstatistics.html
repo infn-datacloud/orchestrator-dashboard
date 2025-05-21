@@ -57,49 +57,47 @@
                             <span class='fas fa-list mr-2'></span>Status&nbsp;
                         </button>
                         <div class="dropdown-menu">
-                            <a class="dropdown-item" href="javascript:;" onclick="processStatusSelect('all'); return true;">
+                            <a class={% if not selected_status or selected_status == 'all' %}"dropdown-item active"{% else %}"dropdown-item"{% endif %} href="javascript:;" onclick="processStatusSelect('all'); return true;">
                                 all
                             </a>
-                            <a class="dropdown-item" href="javascript:;" onclick="processStatusSelect('actives'); return true;">
+                            <a class={% if selected_status == 'actives' %}"dropdown-item active"{% else %}"dropdown-item"{% endif %} href="javascript:;" onclick="processStatusSelect('actives'); return true;">
                                 actives
                             </a>
                             {% for deployment_status in status_labels %}
-                                <a class="dropdown-item" href="javascript:;" onclick="processStatusSelect('{{deployment_status}}'); return true;">
+                                <a class={% if selected_status == deployment_status %}"dropdown-item active"{% else %}"dropdown-item"{% endif %} href="javascript:;" onclick="processStatusSelect('{{deployment_status}}'); return true;">
                                     {{deployment_status}}
                                 </a>
                             {% endfor %}
                         </div>
-                    </div>
-                    &nbsp;
+                    </div>&nbsp;
                     <div>
                         <button type="button" id="groupbutton" class="dashboard-button dashboard-button-small dashboard-button-primary dropdown-toggle dropdown-toggle-split" data-toggle="dropdown">
                             <span class='fas fa-list mr-2'></span>Group&nbsp;
                         </button>
                         <div class="dropdown-menu">
-                            <a class="dropdown-item" href="javascript:;" onclick="processGroupSelect(''); return true;">
+                            <a class={% if not group or group == '' %}"dropdown-item active"{% else %}"dropdown-item"{% endif %} href="javascript:;" onclick="processGroupSelect(''); return true;">
                                 all
                             </a>
                             {% for user_group in groups_labels %}
                                 {% if user_group != "UNKNOWN" %}
-                                    <a class="dropdown-item" href="javascript:;" onclick="processGroupSelect('{{user_group}}'); return true;">
+                                    <a class={% if group == user_group %}"dropdown-item active"{% else %}"dropdown-item"{% endif %} href="javascript:;" onclick="processGroupSelect('{{user_group}}'); return true;">
                                         {{user_group}}
                                     </a>
                                 {% endif %}
                             {% endfor %}
                         </div>
-                    </div>
-                    &nbsp;
+                    </div>&nbsp;
                     <div>
                         <button type="button" id="providerbutton" class="dashboard-button dashboard-button-small dashboard-button-primary dropdown-toggle dropdown-toggle-split" data-toggle="dropdown">
                             <span class='fas fa-list mr-2'></span>Provider&nbsp;
                         </button>
                         <div class="dropdown-menu">
-                            <a class="dropdown-item" href="javascript:;" onclick="processProviderSelect(''); return true;">
+                            <a class={% if not provider or provider == '' %}"dropdown-item active"{% else %}"dropdown-item"{% endif %} href="javascript:;" onclick="processProviderSelect(''); return true;">
                                 all
                             </a>
                             {% for user_provider in providers_labels %}
                                 {% if user_provider != "UNKNOWN" %}
-                                    <a class="dropdown-item" href="javascript:;" onclick="processProviderSelect('{{user_provider}}'); return true;">
+                                    <a class={% if provider == user_provider %}"dropdown-item active"{% else %}"dropdown-item"{% endif %} href="javascript:;" onclick="processProviderSelect('{{user_provider}}'); return true;">
                                         {{user_provider}}
                                     </a>
                                 {% endif %}
@@ -131,13 +129,14 @@
                 <input type="hidden" id="selected_status" name="selected_status" value={{ selected_status }}>
                 <input type="hidden" id="selected_template" name="selected_template" value={{ selected_template }}>
             </form>
-            <div class="container my-4">
+            <div class="container-fluid my-4">
                 <div id="no-data-message"
                      style="display:none; text-align: center; font-size: 2rem; font-weight: bold; color: #888; padding: 2rem;">
                   <i class="fas fa-database-slash" style="font-size: 3rem; color: #ccc;"></i><br/>
                   NO DEPLOYMENTS FOR CURRENT SELECTION
                 </div>
                 <div id="chartsRow" class="row text-center"></div>
+
             </div>
             <br><br>
             <div class="row" id="uttitle">
@@ -448,44 +447,44 @@ function drawchart(chartidx, title, subtitle, labels, values, colors, maxitems) 
   }
 }
 
-console.log("{{s_text}}");
+window.onload = function() {
 
-drawchart(  "status_chart",
-            "{{s_title}}",
-            "deployments distribution per status",
-            {{s_labels | safe}},
-            {{s_values}},
-            {{s_colors | safe}},
-            {{s_maxvalues}}
-);
+    drawchart("status_chart",
+        "{{s_title}}",
+        "deployments distribution per status",
+        {{s_labels | safe}},
+        {{s_values}},
+        {{s_colors | safe}},
+        {{s_maxvalues}}
+    );
 
+    drawchart("projects_chart",
+        "{{p_title}}",
+        "deployments distribution per group",
+        {{p_labels | safe}},
+        {{p_values}},
+        {{p_colors | safe}},
+        {{s_maxvalues}}
+    );
 
-drawchart(  "projects_chart",
-            "{{p_title}}",
-            "deployments distribution per group",
-            {{p_labels | safe}},
-            {{p_values}},
-            {{p_colors | safe}},
-            {{s_maxvalues}}
-);
+    drawchart("providers_chart",
+        "{{pr_title}}",
+        "deployments distribution per provider",
+        {{pr_labels | safe}},
+        {{pr_values}},
+        {{pr_colors | safe}},
+        {{s_maxvalues}}
+    );
 
-drawchart(  "providers_chart",
-            "{{pr_title}}",
-            "deployments distribution per provider",
-            {{pr_labels | safe}},
-            {{pr_values}},
-            {{pr_colors | safe}},
-            {{s_maxvalues}}
-);
-
-const message = document.getElementById("no-data-message");
-message.style.display = validChartCount === 0 ? "block" : "none";
-const chart = document.getElementById("chartsRow");
-chart.style.display = validChartCount === 0 ? "none" : "flex";
-const uttitle = document.getElementById("uttitle");
-uttitle.style.display = validChartCount === 0 ? "none" : "flex";
-const uttable = document.getElementById("uttable");
-uttable.style.display = validChartCount === 0 ? "none" : "block";
+    const message = document.getElementById("no-data-message");
+    message.style.display = validChartCount === 0 ? "block" : "none";
+    const chart = document.getElementById("chartsRow");
+    chart.style.display = validChartCount === 0 ? "none" : "flex";
+    const uttitle = document.getElementById("uttitle");
+    uttitle.style.display = validChartCount === 0 ? "none" : "flex";
+    const uttable = document.getElementById("uttable");
+    uttable.style.display = validChartCount === 0 ? "none" : "block";
+}
 
 </script>
 

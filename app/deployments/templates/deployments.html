@@ -50,14 +50,14 @@
                             <span class='fas fa-list mr-2'></span>Status&nbsp;
                         </button>
                         <div class="dropdown-menu">
-                            <a class="dropdown-item" href="javascript:;" onclick="processStatusSelect('all'); return true;">
+                            <a class={% if not selected_status or selected_status == 'all' %}"dropdown-item active"{% else %}"dropdown-item"{% endif %} href="javascript:;" onclick="processStatusSelect('all'); return true;">
                                 all
                             </a>
-                            <a class="dropdown-item" href="javascript:;" onclick="processStatusSelect('actives'); return true;">
+                            <a class={% if selected_status == 'actives' %}"dropdown-item active"{% else %}"dropdown-item"{% endif %} href="javascript:;" onclick="processStatusSelect('actives'); return true;">
                                 actives
                             </a>
                             {% for deployment_status in status_labels %}
-                                <a class="dropdown-item" href="javascript:;" onclick="processStatusSelect('{{deployment_status}}'); return true;">
+                                <a class={% if selected_status == deployment_status %}"dropdown-item active"{% else %}"dropdown-item"{% endif %} href="javascript:;" onclick="processStatusSelect('{{deployment_status}}'); return true;">
                                     {{deployment_status}}
                                 </a>
                             {% endfor %}
@@ -68,12 +68,12 @@
                             <span class='fas fa-list mr-2'></span>Group&nbsp;
                         </button>
                         <div class="dropdown-menu">
-                            <a class="dropdown-item" href="javascript:;" onclick="processGroupSelect(''); return true;">
+                            <a class={% if not group or group == '' %}"dropdown-item active"{% else %}"dropdown-item"{% endif %} href="javascript:;" onclick="processGroupSelect(''); return true;">
                                 all
                             </a>
                             {% for user_group in groups_labels %}
                                 {% if user_group != "UNKNOWN" %}
-                                    <a class="dropdown-item" href="javascript:;" onclick="processGroupSelect('{{user_group}}'); return true;">
+                                    <a class={% if group == user_group %}"dropdown-item active"{% else %}"dropdown-item"{% endif %} href="javascript:;" onclick="processGroupSelect('{{user_group}}'); return true;">
                                         {{user_group}}
                                     </a>
                                 {% endif %}
@@ -85,12 +85,12 @@
                             <span class='fas fa-list mr-2'></span>Provider&nbsp;
                         </button>
                         <div class="dropdown-menu">
-                            <a class="dropdown-item" href="javascript:;" onclick="processProviderSelect(''); return true;">
+                            <a class={% if not provider or provider == '' %}"dropdown-item active"{% else %}"dropdown-item"{% endif %} href="javascript:;" onclick="processProviderSelect(''); return true;">
                                 all
                             </a>
                             {% for user_provider in providers_labels %}
                                 {% if user_provider != "UNKNOWN" %}
-                                    <a class="dropdown-item" href="javascript:;" onclick="processProviderSelect('{{user_provider}}'); return true;">
+                                    <a class={% if provider == user_provider %}"dropdown-item active"{% else %}"dropdown-item"{% endif %} href="javascript:;" onclick="processProviderSelect('{{user_provider}}'); return true;">
                                         {{user_provider}}
                                     </a>
                                 {% endif %}
