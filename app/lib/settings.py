@@ -92,23 +92,18 @@ class Settings:
     def align_db(self, app):
 
         # settings version
-        self.db_settings_version = dbhelpers.get_setting(self._keysettingsv)
-        if not self.db_settings_version:
+        if not self.version:
             # set initial version
-            self.db_settings_version = "1"
-            self._save_setting(self._keysettingsv, self.db_settings_version)
+            self.version = "1"
 
         # iam groups membership
-        db_iam_groups = dbhelpers.get_setting(self._keyiamgroups)
-        if not db_iam_groups:
+        if not self.iam_groups:
             # get default from config file if present
-            config_iam_groups = app.config.get("IAM_GROUP_MEMBERSHIP")
-            self._save_setting(self._keyiamgroups, json.dumps(config_iam_groups))
+            self.iam_groups = app.config.get(self._keyiamgroups)
 
         # repository configuration
-        db_repository_configuration = dbhelpers.get_setting(self._keyreposconf)
-        if not db_repository_configuration:
-            self._save_setting(self._keyreposconf, json.dumps(dict()))
+        if not self.repository_configuration:
+            self.repository_configuration = dict()
 
     def _save_setting(self,id,value):
         if dbhelpers.get_setting(id):
@@ -116,28 +111,39 @@ class Settings:
         else:
             dbhelpers.add_object(Setting(id=id, value=value))
 
-    @property
-    def iam_groups(self):
-        setting = dbhelpers.get_setting(self._keyiamgroups)
+    def _jsonsetter(self, value, key):
+        if value:
+            self._save_setting(key, json.dumps(value))
+        else:
+            self._save_setting(key, None)
+
+    def _jsongetter(selfself, key):
+        setting = dbhelpers.get_setting(key)
         if setting:
             return json.loads(setting.value)
         return None
+
+    @property
+    def version(self):
+        return self._jsongetter(self._keysettingsv)
+
+    @version.setter
+    def version(self, value):
+        self._jsonsetter(value, self._keysettingsv)
+
+    @property
+    def iam_groups(self):
+        return self._jsongetter(self._keyiamgroups)
 
     @iam_groups.setter
     def iam_groups(self, value):
-        if value:
-            self._save_setting(self._keyiamgroups, json.dumps(value))
-        else:
-            self._save_setting(self._keyiamgroups, None)
+        self._jsonsetter(value, self._keyiamgroups)
 
     @property
     def repository_configuration(self):
-        setting = dbhelpers.get_setting(self._keyreposconf)
-        if setting:
-            return json.loads(setting.value)
-        return None
+        return self._jsongetter(self._keyreposconf)
 
     @repository_configuration.setter
     def repository_configuration(self, value):
-        self._save_setting(self._keyreposconf, json.dumps(value))
+        self._jsonsetter(value, self._keyreposconf)
 
