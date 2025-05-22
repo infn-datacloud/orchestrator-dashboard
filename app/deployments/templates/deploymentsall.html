@@ -406,21 +406,6 @@ $('#tableAdminDeployments').dataTable( {
     {% else %}
       , "order": [[4, 'desc']]
     {% endif %}
-	,'fnDrawCallback': function () {
-		$('.dataTables_filter').each(function () {
-            if ($('#show_deleted_deployments').length == 0) {
-                $(this).prepend(
-                    '<label><input type="checkbox" id="show_deleted_deployments" name="show_deleted_deployments"\
-                id="show_deleted_deployments" \
-                >&nbsp;Show deleted deployments</label>&nbsp;&nbsp;&nbsp;&nbsp;'
-                );
-                $('#show_deleted_deployments:checkbox').click(function () {
-                    var checkbox = $(this);
-                    processCBClick(checkbox);
-                });
-            }
-		});
-	}
 });
 
 function postMain() {
