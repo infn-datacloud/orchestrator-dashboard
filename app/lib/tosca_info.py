@@ -58,6 +58,8 @@ class ToscaInfo:
         self.redis_client.set("tosca_info", json.dumps(tosca_info))
         self.redis_client.set("tosca_text", json.dumps(tosca_text))
 
+
+
     def _loadmetadata(self):
         mpath = url_path_join(self.tosca_metadata_dir, "metadata.yml")
         if not os.path.isfile(mpath):

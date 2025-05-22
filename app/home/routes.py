@@ -14,6 +14,7 @@
 
 import json
 import re
+import redis
 from semver.version import Version
 from datetime import datetime
 
@@ -96,7 +97,9 @@ def show_settings():
             )
 
             try:
-                tosca.reload()
+                r = redis.Redis()
+                r.publish("broadcast_channel", "tosca_reload")
+
             except Exception as error:
                 handle_configuration_reload_error(error)
 

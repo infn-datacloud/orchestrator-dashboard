@@ -13,6 +13,8 @@
 # limitations under the License.
 import json
 import os
+import redis
+import threading
 from logging.config import dictConfig
 
 from flask import Flask
@@ -197,6 +199,17 @@ def register_blueprints(app):
 
     if app.config.get("FEATURE_VAULT_INTEGRATION") == "yes":
         app.register_blueprint(vault_bp, url_prefix="/vault")
+
+def redis_listener():
+    r = redis.Redis()
+    pubsub = r.pubsub()
+    pubsub.subscribe("broadcast_channel")
+
+    for message in pubsub.listen():
+        if message["type"] == "message":
+            data = message["data"].decode()
+            if data == "tosca_reload":
+                tosca.reload()
 
 
 def validate_log_level(log_level):
