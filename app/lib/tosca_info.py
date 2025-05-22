@@ -1,4 +1,4 @@
-# Copyright (c) Istituto Nazionale di Fisica Nucleare (INFN). 2019-2020
+# Copyright (c) Istituto Nazionale di Fisica Nucleare (INFN). 2019-2025
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,9 +18,9 @@ import json
 import os
 import uuid
 from fnmatch import fnmatch
-
 import jsonschema
 import yaml
+from app.lib.path_utils import url_path_join
 
 
 class ToscaInfo:
@@ -40,11 +40,10 @@ class ToscaInfo:
         :param settings_dir: the dir of the params and metadata files
         """
         self.redis_client = redis_client
-        self.tosca_dir = app.config.get("TOSCA_TEMPLATES_DIR") + "/"
-        self.tosca_params_dir = os.path.join(app.config.get("SETTINGS_DIR"), "tosca-parameters")
-        self.tosca_metadata_dir = os.path.join(app.config.get("SETTINGS_DIR"), "tosca-metadata")
-        self.metadata_schema = app.config.get("METADATA_SCHEMA")
-
+        self.tosca_dir = app.settings.tosca_dir
+        self.tosca_params_dir = app.settings.tosca_params_dir
+        self.tosca_metadata_dir = app.settings.tosca_metadata_dir
+        self.metadata_schema = app.settings.metadata_schema
         self.reload()
 
 
@@ -60,9 +59,9 @@ class ToscaInfo:
         self.redis_client.set("tosca_text", json.dumps(tosca_text))
 
     def _loadmetadata(self):
-        mpath = os.path.join(self.tosca_metadata_dir, "metadata.yml")
+        mpath = url_path_join(self.tosca_metadata_dir, "metadata.yml")
         if not os.path.isfile(mpath):
-            mpath = os.path.join(self.tosca_metadata_dir, "metadata.yaml")
+            mpath = url_path_join(self.tosca_metadata_dir, "metadata.yaml")
             if not os.path.isfile(mpath):
                 return {}, "1.0.0"
         with io.open(mpath) as stream:
@@ -138,11 +137,11 @@ class ToscaInfo:
                     tosca_info["metadata"][k] = v
 
             if tosca and self.tosca_metadata_dir:
-                tosca_metadata_path = self.tosca_metadata_dir + "/"
+                tosca_metadata_path = url_path_join(self.tosca_metadata_dir, "/")
                 for mpath, msubs, mnames in os.walk(tosca_metadata_path):
                     for mname in mnames:
                         fmname = os.path.relpath(
-                            os.path.join(mpath, mname), self.tosca_metadata_dir
+                            url_path_join(mpath, mname), self.tosca_metadata_dir
                         )
                         if fnmatch(fmname, os.path.splitext(tosca)[0] + ".metadata.yml") or \
                             fnmatch(fmname, os.path.splitext(tosca)[0] + ".metadata.yaml"
@@ -187,7 +186,7 @@ class ToscaInfo:
             # add parameters code here
             if tosca and self.tosca_params_dir:
                 tosca_pars_path = (
-                    self.tosca_params_dir + "/"
+                    url_path_join(self.tosca_params_dir, "/")
                 )  # this has to be reassigned here because is local.
                 for fpath, subs, fnames in os.walk(tosca_pars_path):
                     for fname in fnames:

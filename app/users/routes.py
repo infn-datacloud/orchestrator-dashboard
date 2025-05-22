@@ -24,7 +24,15 @@ from flask import current_app as app
 
 from app.iam import iam
 from app.lib import auth, dbhelpers
-from app.lib.dbhelpers import month_boundary, filter_date_range, build_excludedstatus_filter, nullorempty, notnullorempty, get_all_statuses
+from app.lib.dbhelpers import (
+    month_boundary,
+    months_list,
+    filter_date_range,
+    build_excludedstatus_filter,
+    nullorempty,
+    notnullorempty,
+    get_all_statuses
+)
 
 users_bp = Blueprint(
     "users_bp", __name__, template_folder="templates", static_folder="static"
@@ -126,7 +134,22 @@ def showuserstats():
             datelist[sub] = datelist[sub]  + 1
         occurrences[depdate] = datelist
 
+
     s_occurrences = dict(sorted(occurrences.items(), key=lambda item: item[0]))
+    k_occurrences = list(s_occurrences.keys())
+    # get default date interval if not user defined
+    if not hasfilterdate and len(s_occurrences) > 0:
+        kocc = list(k_occurrences)
+        datestart = kocc[0]
+        dateend = kocc[len(kocc)-1]
+
+    # get full interval list
+    months = months_list(datestart, dateend)
+    for month in months:
+        if not month in s_occurrences:
+            s_occurrences[month] = dict()
+
+    s_occurrences = dict(sorted(s_occurrences.items(), key=lambda item: item[0]))
     k_occurrences = list(s_occurrences.keys())
     v_occurrences = list()
     for k in s_occurrences.values():
@@ -134,12 +157,6 @@ def showuserstats():
         for j in k.values():
             v = v+j
         v_occurrences.append(v)
-
-    # get default date interval if not user defined
-    if not hasfilterdate and len(s_occurrences) > 0:
-        kocc = list(k_occurrences)
-        datestart = kocc[0]
-        dateend = kocc[len(kocc)-1]
 
     # get users list and count deployments
     s_users = dict()

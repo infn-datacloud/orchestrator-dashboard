@@ -105,7 +105,7 @@ def show_settings():
 
         if operation == "groups":
             groups = request.form.getlist("iamgroups[]")
-            app.settings.set_iam_groups(groups)
+            app.settings.iam_groups = groups
             auth.update_user_info()
 
 
@@ -229,7 +229,7 @@ def handle_configuration_reload(current_config, message1, message2):
 
     now = datetime.now()
     current_config["updated_at"] = now.strftime("%d/%m/%Y %H:%M:%S")
-    app.settings.set_repository_configuration(current_config)
+    app.settings.repository_configuration = current_config
 
     notify_admins_and_users(message1, message2)
 

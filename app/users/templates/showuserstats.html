@@ -226,33 +226,48 @@ function drawchart(chartidx, title, subtitle, labels, values) {
             }]
           },
           options: {
-            responsive: true,
-            scales: {
-              y: {
-                beginAtZero: true,
-                ticks: {
-                    stepSize: 1,
-                    callback: function(value) {
-                        return Number.isInteger(value) ? value : null;
-                    }
-                }
-              }
-            },
-            plugins: {
-                tooltip: {
-                    callbacks: {
-                      label: function(context) {
-                        const label = context.label || '';
-                        const value = context.raw;
-                        return `${label}: ${value}`;
-                      },
-                      title: function (context) {
-                        return "Year-Month";
+              responsive: true,
+              scales: {
+                  y: {
+                      beginAtZero: true,
+                      ticks: {
+                          stepSize: 1,
+                          callback: function (value) {
+                              return Number.isInteger(value) ? value : null;
+                          }
                       }
-                    }
-                }
-            }
-    }
+                  }
+              },
+              plugins: {
+                  tooltip: {
+                      callbacks: {
+                          label: function (context) {
+                              const label = context.label || '';
+                              const value = context.raw;
+                              return `${label}: ${value}`;
+                          },
+                          title: function (context) {
+                              return "Year-Month";
+                          }
+                      }
+                  },
+                  legend: {
+                      position: 'top',
+                      labels: {
+                          generateLabels: function (chart) {
+                              return chart.data.datasets.map((dataset, i) => ({
+                                  text: dataset.label,
+                                  fillStyle: 'transparent',
+                                  strokeStyle: 'transparent',
+                                  lineWidth: 0,
+                                  hidden: !chart.isDatasetVisible(i),
+                                  datasetIndex: i
+                              }));
+                          }
+                      }
+                  }
+              }
+          }
   });
 
   if (values.length > 0) {

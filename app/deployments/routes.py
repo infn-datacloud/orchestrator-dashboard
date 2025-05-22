@@ -53,7 +53,8 @@ from app.lib.dbhelpers import (
     get_all_statuses,
     nullorempty,
     notnullorempty,
-    month_boundary
+    month_boundary,
+    months_list
 )
 from app.lib.ldap_user import LdapUserManager
 from app.models.Deployment import Deployment
@@ -654,6 +655,19 @@ def showdeploymentstats():
         if occurrences["UNKNOWN"] == 0:
             occurrences.pop("UNKNOWN")
         s_occurrences = dict(sorted(occurrences.items()))
+        # add empty bins
+        if  len(s_occurrences) > 0:
+            k_occurrences = list(s_occurrences.keys())
+            kocc = list(k_occurrences)
+            datestart = kocc[0]
+            dateend = kocc[len(kocc) - 1]
+            # get full interval list
+            months = months_list(datestart, dateend)
+            for month in months:
+                if not month in s_occurrences:
+                    s_occurrences[month] = 0
+            s_occurrences = dict(sorted(s_occurrences.items()))
+
         if len(s_occurrences.keys()) > 0:
             return jsonify({"labels":list(s_occurrences.keys()),
                             "values":list(s_occurrences.values()),

@@ -326,6 +326,34 @@ def month_boundary(ym_str: str, first_day: bool = True) -> date:
         return date(year, month, last_day)
 
 
+def months_list(start, end):
+    """Restituisce una lista di stringhe 'YYYY-MM' tra due date (incluse).
+    I parametri possono essere oggetti `date` o stringhe 'YYYY-MM'.
+    """
+    if isinstance(start, str):
+        start_date = datetime.strptime(start, "%Y-%m").date()
+    else:
+        start_date = date(start.year, start.month, 1)
+
+    if isinstance(end, str):
+        end_date = datetime.strptime(end, "%Y-%m").date()
+    else:
+        end_date = date(end.year, end.month, 1)
+
+    # Genera la lista
+    result = []
+    current = start_date
+
+    while current <= end_date:
+        result.append(current.strftime("%Y-%m"))
+        if current.month == 12:
+            current = date(current.year + 1, 1, 1)
+        else:
+            current = date(current.year, current.month + 1, 1)
+
+    return result
+
+
 def filter_date_range(deployments, start, end, negate):
     def iterator_func(x):
         if (start is None or x.creation_time.date() >= start) and \
