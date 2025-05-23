@@ -70,7 +70,7 @@ class Settings:
             temp_slam_url = app.config.get("SLAM_URL", None)
             if temp_slam_url is not None:
                 if not temp_slam_url.endswith("/rest/slam"):
-                    temp_slam_url = utils.url_path_join(temp_settings_dir, "/rest/slam")
+                    temp_slam_url = path_utils.url_path_join(temp_settings_dir, "/rest/slam")
             self.slam_url = temp_slam_url
             self.cmdb_url = app.config.get("CMDB_URL", None)
         else:

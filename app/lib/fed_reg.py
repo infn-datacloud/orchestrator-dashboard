@@ -19,7 +19,7 @@ import requests
 from flask import current_app as app
 from flask import flash, session
 
-from app.lib import utils
+from app.lib import path_utils
 
 
 def get(
@@ -33,9 +33,9 @@ def get(
 ):
     """Execute generic get on Fed-Reg."""
     if app.settings.use_fed_reg:
-        url = utils.url_path_join(app.settings.fed_reg_url, version, entity)
+        url = path_utils.url_path_join(app.settings.fed_reg_url, version, entity)
         if uid is not None:
-            url = utils.url_path_join(url, uid)
+            url = path_utils.url_path_join(url, uid)
 
         headers = {"Authorization": f"Bearer {access_token}"}
         params = {**kwargs}

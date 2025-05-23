@@ -14,7 +14,7 @@
 
 import json
 import requests
-from app.lib import utils
+from app.lib import path_utils, utils
 
 def get_unscoped_keystone_token(
     access_token, auth_url, identity_provider="infn-cc", protocol="oidc", **kwargs
@@ -38,7 +38,7 @@ def get_unscoped_keystone_token(
 
     headers = {"Authorization": "bearer %s" % access_token}
 
-    url = utils.url_path_join(auth_url,"/v3/OS-FEDERATION/identity_providers/{}/protocols/{}/auth".format(
+    url = path_utils.url_path_join(auth_url,"/v3/OS-FEDERATION/identity_providers/{}/protocols/{}/auth".format(
         identity_provider, protocol
     ))
 
@@ -66,7 +66,7 @@ def get_project_list(auth_url, unscoped_token):
     """
     headers = {"X-Auth-Token": unscoped_token}
 
-    url = utils.url_path_join(auth_url, "/v3/auth/projects")
+    url = path_utils.url_path_join(auth_url, "/v3/auth/projects")
 
     response = requests.get(url, headers=headers)
     response.raise_for_status()
@@ -98,7 +98,7 @@ def get_scoped_token(auth_url, unscoped_token, project_id):
     }
     headers = {"Content-Type": "application/json"}
 
-    url = utils.url_path_join(auth_url, "/v3/auth/tokens")
+    url = path_utils.url_path_join(auth_url, "/v3/auth/tokens")
 
     response = requests.post(url, headers=headers, data=json.dumps(payload))
     response.raise_for_status()
@@ -125,7 +125,7 @@ def list_ec2_credentials(auth_url, user_id, project_id, scoped_token):
     """
     headers = {"Content-Type": "application/json", "X-Auth-Token": scoped_token}
 
-    url = utils.url_path_join(auth_url, "/v3/users/{}/credentials/OS-EC2".format(user_id))
+    url = path_utils.url_path_join(auth_url, "/v3/users/{}/credentials/OS-EC2".format(user_id))
 
     response = requests.get(url, headers=headers)
 
@@ -159,7 +159,7 @@ def create_ec2_credentials(auth_url, user_id, project_id, scoped_token):
     payload = {"tenant_id": project_id}
     headers = {"Content-Type": "application/json", "X-Auth-Token": scoped_token}
 
-    url = utils.url_path_join(auth_url, "/v3/users/{}/credentials/OS-EC2".format(user_id))
+    url = path_utils.url_path_join(auth_url, "/v3/users/{}/credentials/OS-EC2".format(user_id))
 
     response = requests.post(url, data=json.dumps(payload), headers=headers)
 
@@ -242,7 +242,7 @@ def delete_ec2_credential(auth_url, user_id, credential_id, scoped_token):
 
     headers = {"Accept": "application/json", "X-Auth-Token": scoped_token}
 
-    url = utils.url_path_join(auth_url, "/v3/users/{}/credentials/OS-EC2/{}".format(user_id, credential_id))
+    url = path_utils.url_path_join(auth_url, "/v3/users/{}/credentials/OS-EC2/{}".format(user_id, credential_id))
 
     requests.delete(url, headers=headers)
 
