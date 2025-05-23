@@ -50,11 +50,11 @@ class Settings:
         temp_settings_dir = app.config.get("SETTINGS_DIR")
         if temp_settings_dir is None:
             raise Exception("SETTINGS_DIR is not defined in configuration")
-        self.settings_dir = path_utils.url_path_join(temp_settings_dir, "/")
+        self.settings_dir = path_utils.path_ensure_slash(temp_settings_dir)
         temp_tosca_dir = app.config.get("TOSCA_TEMPLATES_DIR")
         if temp_tosca_dir is None:
             raise Exception("TOSCA_TEMPLATES_DIR is not defined in configuration")
-        self.tosca_dir = path_utils.url_path_join(temp_tosca_dir, "/")
+        self.tosca_dir = path_utils.path_ensure_slash(temp_tosca_dir)
         self.tosca_params_dir = path_utils.url_path_join(temp_settings_dir, "tosca-parameters")
         self.tosca_metadata_dir = path_utils.url_path_join(temp_settings_dir, "tosca-metadata")
         self.metadata_schema = app.config.get("METADATA_SCHEMA")

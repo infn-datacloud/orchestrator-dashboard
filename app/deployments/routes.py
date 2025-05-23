@@ -111,7 +111,7 @@ def showdeployments(subject, showback):
         userid = session["userid"]
     else:
         userid = subject
-        issuer = path_utils.url_path_join(iam.base_url, "/")
+        issuer = path_utils.path_ensure_slash(iam.base_url)
         created_by = "{}@{}".format(subject, issuer)
 
     user = dbhelpers.get_user(userid)

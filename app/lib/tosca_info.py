@@ -20,7 +20,7 @@ import uuid
 from fnmatch import fnmatch
 import jsonschema
 import yaml
-from app.lib.path_utils import url_path_join
+from app.lib.path_utils import url_path_join, path_ensure_slash
 
 
 class ToscaInfo:
@@ -139,7 +139,7 @@ class ToscaInfo:
                     tosca_info["metadata"][k] = v
 
             if tosca and self.tosca_metadata_dir:
-                tosca_metadata_path = url_path_join(self.tosca_metadata_dir, "/")
+                tosca_metadata_path = path_ensure_slash(self.tosca_metadata_dir)
                 for mpath, msubs, mnames in os.walk(tosca_metadata_path):
                     for mname in mnames:
                         fmname = os.path.relpath(
@@ -187,9 +187,7 @@ class ToscaInfo:
 
             # add parameters code here
             if tosca and self.tosca_params_dir:
-                tosca_pars_path = (
-                    url_path_join(self.tosca_params_dir, "/")
-                )  # this has to be reassigned here because is local.
+                tosca_pars_path = path_ensure_slash(self.tosca_params_dir)
                 for fpath, subs, fnames in os.walk(tosca_pars_path):
                     for fname in fnames:
                         ffname = os.path.relpath(os.path.join(fpath, fname), self.tosca_params_dir)

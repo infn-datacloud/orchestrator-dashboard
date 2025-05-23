@@ -15,6 +15,13 @@
 import re
 import urllib.parse
 
+
+def path_ensure_slash(path):
+    p = '' if not path else path
+    if not p.endswith("/"):
+        p += "/"
+    return p
+
 def url_path_join(
     base_url,
     *paths
