@@ -94,10 +94,10 @@
                             <span class='fas fa-list mr-2'></span>Status&nbsp;
                         </button>
                         <div class="dropdown-menu">
-                            <a class="dropdown-item" href="javascript:;" onclick="processStatusSelect('all'); return true;">
+                            <a class={% if not selected_status or selected_status == 'all' %}"dropdown-item active"{% else %}"dropdown-item"{% endif %} href="javascript:;" onclick="processStatusSelect('all'); return true;">
                                 all
                             </a>
-                            <a class="dropdown-item" href="javascript:;" onclick="processStatusSelect('actives'); return true;">
+                            <a class={% if not selected_status or selected_status == 'actives' %}"dropdown-item active"{% else %}"dropdown-item"{% endif %} href="javascript:;" onclick="processStatusSelect('actives'); return true;">
                                 actives
                             </a>
                         </div>
@@ -188,6 +188,7 @@ $('#tableUsers').on('click', 'button[data-id]', function () {
     const subject = this.getAttribute('data-id');
     const baseUrl = "{{ url_for('deployments_bp.showdeployments', subject='__subject__', showback=True) }}";
     const url = baseUrl.replace("__subject__", subject);
+    set_loading(true);
     form.action = url;
     form.submit();
   });

@@ -234,7 +234,7 @@ let barChartInstance = null;
      var group = document.getElementById("group").value;
      var selected_status = document.getElementById("selected_status").value;
      var provider = document.getElementById("provider").value;
-
+     set_loading(true);
      fetch("{{ url_for('deployments_bp.showdeploymentstats') }}", {
         method: 'POST',
         credentials: 'same-origin',
@@ -320,7 +320,7 @@ let barChartInstance = null;
                 }
             }
         });
-
+        set_loading(false);
         const modal = new bootstrap.Modal(document.getElementById("barChartModal"));
         modal.show();
       });
@@ -331,6 +331,7 @@ let barChartInstance = null;
     document.getElementById("selected_template").value = id;
     const form = document.getElementById("tableform");
     const url = "{{ url_for('deployments_bp.showalldeployments', showback=True) }}";
+    set_loading(true);
     form.action = url;
     form.submit();
   });
