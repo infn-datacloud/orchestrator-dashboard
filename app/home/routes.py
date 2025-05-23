@@ -97,7 +97,7 @@ def show_settings():
             )
 
             try:
-                r = redis.Redis()
+                r = redis.Redis(app.config.get("REDIS_URL"))
                 r.publish("broadcast_channel", "tosca_reload")
 
             except Exception as error:

@@ -14,10 +14,9 @@
 import json
 import os
 import redis
-import threading
 from logging.config import dictConfig
 
-from flask import Flask
+from flask import Flask, flash
 from flask_migrate import upgrade
 from werkzeug.middleware.proxy_fix import ProxyFix
 
@@ -200,8 +199,8 @@ def register_blueprints(app):
     if app.config.get("FEATURE_VAULT_INTEGRATION") == "yes":
         app.register_blueprint(vault_bp, url_prefix="/vault")
 
-def redis_listener():
-    r = redis.Redis()
+def redis_listener(redis_url):
+    r = redis.Redis(redis_url)
     pubsub = r.pubsub()
     pubsub.subscribe("broadcast_channel")
 
@@ -209,7 +208,10 @@ def redis_listener():
         if message["type"] == "message":
             data = message["data"].decode()
             if data == "tosca_reload":
-                tosca.reload()
+                try:
+                    tosca.reload()
+                except Exception as err:
+                    flash(f"Unexpected {err=}, {type(err)=}", "danger")
 
 
 def validate_log_level(log_level):

@@ -41,7 +41,15 @@ from werkzeug.exceptions import Forbidden
 
 from app.extensions import tosca, vaultservice
 from app.iam import iam
-from app.lib import auth, dbhelpers, fed_reg, providers, s3, utils
+from app.lib import (
+    auth,
+    dbhelpers,
+    fed_reg,
+    path_utils,
+    providers,
+    s3,
+    utils
+)
 from app.lib import openstack as keystone
 from app.lib import tosca_info as tosca_helpers
 from app.lib.dbhelpers import (
@@ -79,6 +87,12 @@ SHOW_ALLDEPLOYMENTS_KWARGS = {
 MANAGE_RULES_ROUTE = "deployments_bp.manage_rules"
 LOGIN_ROUTE = "home_bp.login"
 
+def get_deployments_kwargs(subject):
+    kwargs = SHOW_DEPLOYMENTS_KWARGS.copy()
+    if subject != session["userid"]:
+        kwargs["subject"] = subject
+    return kwargs
+
 
 class InputValidationError(Exception):
     """Exception raised for errors in the input validation process."""
@@ -93,16 +107,12 @@ def showdeployments(subject, showback):
     access_token = iam.token["access_token"]
 
     if subject == 'me' or subject == session["userid"] :
+        subject = created_by = 'me'
         userid = session["userid"]
-        created_by = "me"
-        myown=True
     else:
         userid = subject
-        issuer = iam.base_url
-        if not issuer.endswith("/"):
-            issuer += "/"
+        issuer = path_utils.url_path_join(iam.base_url, "/")
         created_by = "{}@{}".format(subject, issuer)
-        myown=False
 
     user = dbhelpers.get_user(userid)
 
@@ -180,7 +190,7 @@ def showdeployments(subject, showback):
                 if dep_provider and dep_provider not in providers_labels:
                     providers_labels.append(dep_provider)
 
-        if myown:
+        if subject == 'me':
             for g in session['supported_usergroups']:
                 if g not in groups_labels:
                     groups_labels.append(g)
@@ -218,7 +228,7 @@ def showdeployments(subject, showback):
 
         return render_template("deployments.html",
                                 user=user,
-                                myown=myown,
+                                subject=subject,
                                 deployments=deployments,
                                 groups_labels=groups_labels,
                                 providers_labels=providers_labels,
@@ -712,12 +722,15 @@ def showdeploymentstats():
 @auth.authorized_with_valid_token
 def deptemplate(depid=None):
     access_token = iam.token["access_token"]
-
+    dep = dbhelpers.get_deployment(depid)
+    if dep is None:
+        flash("Deployment not found!", "warning")
+        return redirect(url_for(SHOW_HOME_ROUTE))
     try:
         template = app.orchestrator.get_template(access_token, depid)
     except Exception:
         flash("Error getting template: ".format(), "danger")
-        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **SHOW_DEPLOYMENTS_KWARGS))
+        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **get_deployments_kwargs(dep.sub)))
 
     return render_template("deptemplate.html", template=template)
 
@@ -729,7 +742,11 @@ def lockdeployment(depid=None):
     if dep is not None:
         dep.locked = 1
         dbhelpers.add_object(dep)
-    return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **SHOW_DEPLOYMENTS_KWARGS))
+        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **get_deployments_kwargs(dep.sub)))
+    else:
+        flash("Deployment not found!", "warning")
+        return redirect(url_for(SHOW_HOME_ROUTE))
+
 
 
 @deployments_bp.route("/<depid>/unlock")
@@ -739,7 +756,11 @@ def unlockdeployment(depid=None):
     if dep is not None:
         dep.locked = 0
         dbhelpers.add_object(dep)
-    return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **SHOW_DEPLOYMENTS_KWARGS))
+        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **get_deployments_kwargs(dep.sub)))
+    else:
+        flash("Deployment not found!", "warning")
+        return redirect(url_for(SHOW_HOME_ROUTE))
+
 
 
 @deployments_bp.route("/edit", methods=["POST"])
@@ -786,7 +807,8 @@ def depoutput(depid=None):
     # retrieve deployment from DB
     dep = dbhelpers.get_deployment(depid)
     if dep is None:
-        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **SHOW_DEPLOYMENTS_KWARGS))
+        flash("Deployment not found!", "warning")
+        return redirect(url_for(SHOW_HOME_ROUTE))
 
     inputs, outputs, stoutputs = process_deployment_data(dep)
 
@@ -863,7 +885,8 @@ def deptemplatedb(depid):
     # retrieve deployment from DB
     dep = dbhelpers.get_deployment(depid)
     if dep is None:
-        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **SHOW_DEPLOYMENTS_KWARGS))
+        flash("Deployment not found!", "warning")
+        return redirect(url_for(SHOW_HOME_ROUTE))
     else:
         template = dep.template
         return render_template("deptemplate.html", template=template)
@@ -923,14 +946,18 @@ def depinfradetails(depid=None):
 
     dep = dbhelpers.get_deployment(depid)
 
-    if dep is None or dep.physicalId is None:
-        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **SHOW_DEPLOYMENTS_KWARGS))
+    if dep is None:
+        flash("Deployment not found!", "warning")
+        return redirect(url_for(SHOW_HOME_ROUTE))
+
+    if dep.physicalId is None:
+        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **get_deployments_kwargs(dep.sub)))
 
     try:
         resources = app.orchestrator.get_resources(access_token, depid)
     except Exception as e:
         flash(str(e), "warning")
-        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **SHOW_DEPLOYMENTS_KWARGS))
+        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **get_deployments_kwargs(dep.sub)))
 
     details = extract_vm_details(depid, resources)
     tosca_info = process_tosca_info(dep)
@@ -1057,14 +1084,17 @@ def get_openstack_connection(
 
 def get_vm_info(depid):
     dep = dbhelpers.get_deployment(depid)
-    if dep is None or dep.physicalId is None:
-        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **SHOW_DEPLOYMENTS_KWARGS))
+    if dep is None:
+        flash("Deployment not found!", "warning")
+        return redirect(url_for(SHOW_HOME_ROUTE))
+    if dep.physicalId is None:
+        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **get_deployments_kwargs(dep.sub)))
 
     try:
         resources = app.orchestrator.get_resources(iam.token["access_token"], depid)
     except Exception as e:
         flash(str(e), "warning")
-        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **SHOW_DEPLOYMENTS_KWARGS))
+        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **get_deployments_kwargs(dep.sub)))
 
     def find_node_with_pubip(resources):
         for resource in resources:
@@ -1114,7 +1144,7 @@ def get_sec_groups(conn, server_id, public=True):
 def security_groups(depid=None):
     try:
         sec_groups = ""
-
+        subject=request.args.get("subject")
         vm_provider = request.args.get("depProvider")
         vm_info = get_vm_info(depid)
         vm_id = vm_info["vm_id"]
@@ -1141,7 +1171,7 @@ def security_groups(depid=None):
         return render_template("depsecgroups.html", depid=depid, sec_groups=sec_groups)
     except Exception as e:
         flash(str(e), "warning")
-        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **SHOW_DEPLOYMENTS_KWARGS))
+        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **get_deployments_kwargs(subject)))
 
 
 @deployments_bp.route("/<depid>/<sec_group_id>/manage_rules")
@@ -1467,7 +1497,10 @@ def depqcgdetails(depid=None):
     access_token = iam.token["access_token"]
 
     dep = dbhelpers.get_deployment(depid)
-    if dep is not None and dep.physicalId is not None and dep.deployment_type == "QCG":
+    if dep is not None:
+        flash("Deployment not found!", "warning")
+        return redirect(url_for(SHOW_HOME_ROUTE))
+    if dep.physicalId is not None and dep.deployment_type == "QCG":
         try:
             job = json.loads(app.orchestrator.get_extra_info(access_token, depid))
         except Exception as e:
@@ -1475,7 +1508,7 @@ def depqcgdetails(depid=None):
             job = None
 
         return render_template("depqcgdetails.html", job=(job[0] if job else None))
-    return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **SHOW_DEPLOYMENTS_KWARGS))
+    return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **get_deployments_kwargs(dep.sub)))
 
 
 @deployments_bp.route("/<depid>/<mode>/<force>/delete")
@@ -1485,7 +1518,11 @@ def depdel(depid=None, mode="user", force="false"):
 
     dep = dbhelpers.get_deployment(depid)
     # should happen as a callback on the cancellation message from the orchestrator
-    if dep is not None and dep.storage_encryption == 1:
+    if dep is None:
+        flash("Deployment not found!", "warning")
+        return redirect(url_for(SHOW_HOME_ROUTE))
+
+    if dep.storage_encryption == 1:
         secret_path = session["userid"] + "/" + dep.vault_secret_uuid
         delete_secret_from_vault(access_token, secret_path)
     ##
@@ -1500,7 +1537,7 @@ def depdel(depid=None, mode="user", force="false"):
         flash(str(e), "danger")
 
     if mode == "user":
-        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **SHOW_DEPLOYMENTS_KWARGS))
+        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **get_deployments_kwargs(dep.sub)))
     else:
         return redirect(url_for(SHOW_ALLDEPLOYMENTS_ROUTE, **SHOW_ALLDEPLOYMENTS_KWARGS))
 
@@ -1511,14 +1548,17 @@ def depreset(depid=None, mode="user"):
     access_token = iam.token["access_token"]
     # add check last update time to ensure stuck state
     dep = dbhelpers.get_deployment(depid)
-    if dep is not None and dep.status == "DELETE_IN_PROGRESS":
+    if dep is None:
+        flash("Deployment not found!", "warning")
+        return redirect(url_for(SHOW_HOME_ROUTE))
+    if dep.status == "DELETE_IN_PROGRESS":
         try:
             app.orchestrator.patch(access_token, depid, "DELETE_FAILED")
         except Exception as e:
             flash(str(e), "danger")
 
     if mode == "user":
-        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **SHOW_DEPLOYMENTS_KWARGS))
+        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **get_deployments_kwargs(dep.sub)))
     else:
         return redirect(url_for(SHOW_ALLDEPLOYMENTS_ROUTE, **SHOW_ALLDEPLOYMENTS_KWARGS))
 
@@ -1526,13 +1566,12 @@ def depreset(depid=None, mode="user"):
 @deployments_bp.route("/depupdate/<depid>")
 @auth.authorized_with_valid_token
 def depupdate(depid=None):
-    if depid is None:
-        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **SHOW_DEPLOYMENTS_KWARGS))
 
     dep = dbhelpers.get_deployment(depid)
 
     if dep is None:
-        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **SHOW_DEPLOYMENTS_KWARGS))
+        flash("Deployment not found!", "warning")
+        return redirect(url_for(SHOW_HOME_ROUTE))
 
     access_token = iam.token["access_token"]
     template = dep.template
@@ -1584,9 +1623,12 @@ def addnodes(depid):
 
     dep = dbhelpers.get_deployment(depid)
 
-    if dep is None or dep.physicalId is None:
-        flash("Deployment not found or invalid.", "warning")
-        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **SHOW_DEPLOYMENTS_KWARGS))
+    if dep is None:
+        flash("Deployment not found!", "warning")
+        return redirect(url_for(SHOW_HOME_ROUTE))
+    if dep.physicalId is None:
+        flash("Deployment invalid.", "warning")
+        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **get_deployments_kwargs(dep.sub)))
 
     try:
         template = app.orchestrator.get_template(access_token, depid)
@@ -1610,7 +1652,7 @@ def addnodes(depid):
             )
             app.logger.error(message)
             flash(message, "warning")
-            return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **SHOW_DEPLOYMENTS_KWARGS))
+            return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **get_deployments_kwargs(dep.sub)))
 
         app.orchestrator.update(
             access_token,
@@ -1632,7 +1674,7 @@ def addnodes(depid):
         app.logger.error(err_msg)
         flash(err_msg, "warning")
 
-    return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **SHOW_DEPLOYMENTS_KWARGS))
+    return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **get_deployments_kwargs(dep.sub)))
 
 
 @deployments_bp.route("/updatedep", methods=["POST"])
@@ -1646,10 +1688,10 @@ def updatedep():
 
     depid = form_data["_depid"]
 
-    if depid is None:
-        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **SHOW_DEPLOYMENTS_KWARGS))
-
     dep = dbhelpers.get_deployment(depid)
+    if dep is None:
+        flash("Deployment not found!", "warning")
+        return redirect(url_for(SHOW_HOME_ROUTE))
 
     template = yaml.full_load(io.StringIO(dep.template))
 
@@ -1715,7 +1757,7 @@ def updatedep():
     except Exception as e:
         flash(str(e), "danger")
 
-    return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **SHOW_DEPLOYMENTS_KWARGS))
+    return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **get_deployments_kwargs(dep.sub)))
 
 
 @deployments_bp.route("/configure", methods=["GET"])
@@ -2550,7 +2592,7 @@ def create_deployment(
     except Exception as e:
         flash(str(e), "danger")
         app.logger.error("Error creating deployment: {}".format(e))
-        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **SHOW_DEPLOYMENTS_KWARGS))
+        return redirect(url_for(SHOW_HOME_ROUTE))
 
     # store data into database
     uuid = rs_json["uuid"]
@@ -2662,13 +2704,16 @@ def retrydep(depid=None):
 
     # retrieve deployment from DB
     dep = dbhelpers.get_deployment(depid)
+    if dep is None:
+        flash("Deployment not found!", "warning")
+        return redirect(url_for(SHOW_HOME_ROUTE))
 
-    if dep is None or dep.selected_template == "":
+    if dep.selected_template == "":
         flash(
             "The selected deployment is invalid. Try creating it from scratch.",
             "danger",
         )
-        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **SHOW_DEPLOYMENTS_KWARGS))
+        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **get_deployments_kwargs(dep.sub)))
 
     inputs = process_deployment_data(dep)
 
@@ -2722,7 +2767,7 @@ def retrydep(depid=None):
             "The selected deployment is invalid. Try creating it from scratch.",
             "danger",
         )
-        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **SHOW_DEPLOYMENTS_KWARGS))
+        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **get_deployments_kwargs(dep.sub)))
 
     form_data = inputs
 
@@ -2743,7 +2788,7 @@ def retrydep(depid=None):
         "success",
     )
 
-    return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **SHOW_DEPLOYMENTS_KWARGS))
+    return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **get_deployments_kwargs(dep.sub)))
 
 
 def create_dep_method(

@@ -30,7 +30,7 @@
                 </div>
             
                 <div class="dashboard-template-title">
-                    {% if myown == True %}
+                    {% if subject == 'me' %}
                     My deployments
                     {% else %}
  					Deployments for:&nbsp;{{user.name}}
@@ -98,14 +98,14 @@
                         </div>
                     </div>
 
-                    {% if myown == True %}
+                    {% if subject == 'me' %}
 					<button type="button" class="dashboard-button dashboard-button-primary" title="New deployment" onclick='location.href="{{ url_for('home_bp.home') }}"'>
 						New deployment<i class="fas fa-plus"></i>
 					</button>
                     {% endif %}
                 </div>
             </div>
-            <form id="tableform" action="{{ url_for('deployments_bp.showdeployments', subject=user.sub, showback=showback) }}" method="post">
+            <form id="tableform" action="{{ url_for('deployments_bp.showdeployments', subject=subject, showback=showback) }}" method="post">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" id="group" name="group" value={{ group }}>
                 <input type="hidden" id="provider" name="provider" value={{ provider }}>
@@ -175,7 +175,7 @@
 												</a>											
 											{% endif %}
                                             {% if deployment.status != 'DELETE_COMPLETE' %}
-                                                {% if myown == True %}
+                                                {% if subject == 'me' %}
 											    <a class="dropdown-item" data-toggle="modal" data-target="#editDeployment" data-id="{{ deployment.uuid }}" data-description="{{ deployment.description }}" data-action="{{ url_for('deployments_bp.editdeployment') }}">
 												    <span class="fas fa-edit mr-2 grey-text"></span>Edit</a>
                                                 {% endif %}
@@ -189,7 +189,7 @@
 													<!-- <a class="dropdown-item" data-toggle="modal" data-target="#requestPorts" data-id="{{ deployment.uuid }}" data-action="{{ url_for('deployments_bp.sendportsrequest') }}" >
 														<span class="fas fa-ticket-alt mr-2 grey-text"></span>Request Ports
 													</a> -->
-													<a class="dropdown-item {% if deployment.physicalId is not defined %}disabled{% endif %}" href="{{ url_for('deployments_bp.security_groups', depid=deployment.uuid, depProvider=deployment.provider_name) }}">
+													<a class="dropdown-item {% if deployment.physicalId is not defined %}disabled{% endif %}" href="{{ url_for('deployments_bp.security_groups', depid=deployment.uuid, depProvider=deployment.provider_name, subject=deployment.sub) }}">
 														<span class="fas fa-shield-alt mr-2 grey-text"></span>Manage Ports
 													</a>
 												{% endif %}
@@ -220,7 +220,7 @@
                                                     </a>
                                                 {% else %}
                                                     {% if deployment.status != 'DELETE_COMPLETE' %}
-                                                        {% if myown == True %}
+                                                        {% if subject == 'me' %}
                                                         <a class="dropdown-item" href="{{ url_for('deployments_bp.lockdeployment', depid=deployment.uuid) }}">
                                                             <span class="fas fa-lock mr-2"></span>Lock
                                                         </a>

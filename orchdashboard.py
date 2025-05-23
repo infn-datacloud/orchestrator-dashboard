@@ -28,5 +28,5 @@ if __name__ == '__main__':
 @app.before_request
 def start_redis_listener():
     app.before_request_funcs[None].remove(start_redis_listener)
-    thread = threading.Thread(target=redis_listener, daemon=True)
+    thread = threading.Thread(target=redis_listener, args=(app.config.get("REDIS_URL"),), daemon=True)
     thread.start()
