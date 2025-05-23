@@ -22,10 +22,19 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 
 from app.deployments.routes import deployments_bp
 from app.errors.routes import errors_bp
-from app.extensions import cache, csrf, db, mail, migrate, redis_client, tosca, vaultservice
+from app.extensions import (
+    cache,
+    csrf,
+    db,
+    mail,
+    migrate,
+    redis_client,
+    tosca,
+    vaultservice
+)
 from app.home.routes import home_bp
 from app.iam import make_iam_blueprint
-from app.lib import utils
+from app.lib import redis_helper, utils
 from app.lib.cmdb import Cmdb
 from app.lib.orchestrator import Orchestrator
 from app.lib.settings import Settings
@@ -200,7 +209,7 @@ def register_blueprints(app):
         app.register_blueprint(vault_bp, url_prefix="/vault")
 
 def redis_listener(redis_url):
-    r = redis.Redis(redis_url)
+    r = redis_helper.get_redis(redis_url)
     pubsub = r.pubsub()
     pubsub.subscribe("broadcast_channel")
 

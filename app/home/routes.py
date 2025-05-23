@@ -33,7 +33,7 @@ from markupsafe import Markup
 
 from app.extensions import csrf, tosca
 from app.iam import iam
-from app.lib import auth, dbhelpers, openstack, utils
+from app.lib import auth, dbhelpers, openstack, redis_helper, utils
 from app.models.User import User
 
 home_bp = Blueprint(
@@ -97,7 +97,7 @@ def show_settings():
             )
 
             try:
-                r = redis.Redis(app.config.get("REDIS_URL"))
+                r = redis_helper.get_redis(app.config.get("REDIS_URL"))
                 r.publish("broadcast_channel", "tosca_reload")
 
             except Exception as error:
