@@ -186,7 +186,7 @@ $('#tableUsers').on('click', 'button[data-id]', function () {
 
     const form = document.getElementById("tableform");
     const subject = this.getAttribute('data-id');
-    const baseUrl = "{{ url_for('deployments_bp.showdeployments', subject='__subject__', showback=True) }}";
+    const baseUrl = "{{ url_for('users_bp.showuserstats', subject='__subject__', showback=True) }}";
     const url = baseUrl.replace("__subject__", subject);
     set_loading(true);
     form.action = url;
@@ -196,7 +196,7 @@ $('#tableUsers').on('click', 'button[data-id]', function () {
 
 let validChartCount = 0;
 
-function drawchart(chartidx, title, subtitle, labels, values) {
+function drawchart(chartidx, title, subtitle, labels, values, colors) {
   var chartsRow = document.getElementById('chartsRow');
   var col = document.createElement('div');
   //col.className = 'col-md-4 mb-4';
@@ -210,11 +210,11 @@ function drawchart(chartidx, title, subtitle, labels, values) {
   `;
 
   chartsRow.appendChild(col);
-
+  /*
   const backgroundColors = labels.map((_, i) =>
     `hsl(${(i * 360) / labels.length}, 60%, 60%)`
   );
-
+  */
 
   var chart = new Chart(document.getElementById(chartId).getContext("2d"), {
           type: "bar",
@@ -223,7 +223,7 @@ function drawchart(chartidx, title, subtitle, labels, values) {
             datasets: [{
               label: "Active users per year-month",
               data: values,
-              backgroundColor: backgroundColors
+              backgroundColor: colors
             }]
           },
           options: {
@@ -282,7 +282,8 @@ window.onload = function() {
         "{{s_title}}",
         "",
         {{s_labels | safe}},
-        {{s_values}}
+        {{s_values}},
+        {{s_colors | safe}}
     );
 
     flatpickr("#start-picker", {

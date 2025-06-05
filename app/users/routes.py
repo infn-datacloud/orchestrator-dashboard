@@ -23,7 +23,7 @@ from flask import (
 from flask import current_app as app
 
 from app.iam import iam
-from app.lib import auth, dbhelpers
+from app.lib import auth, dbhelpers, utils
 from app.lib.dbhelpers import (
     month_boundary,
     months_list,
@@ -177,6 +177,7 @@ def showuserstats():
         s_title=s_title,
         s_labels=list(k_occurrences),
         s_values=list(v_occurrences),
+        s_colors=utils.gencolors("green", len(s_occurrences)),
         status_labels=get_all_statuses(),
         selected_status=selected_status,
         datestart=datestart,

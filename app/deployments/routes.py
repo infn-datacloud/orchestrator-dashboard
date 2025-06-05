@@ -683,7 +683,9 @@ def showdeploymentstats():
                             "values":list(s_occurrences.values()),
                             "group":group,
                             "provider":provider,
-                            "selected_status": selected_status})
+                            "selected_status": selected_status,
+                            "bar_colors": utils.gencolors("green", len(s_occurrences))
+            })
 
         else:
             return jsonify({"error": "Template not found!"}), 404
