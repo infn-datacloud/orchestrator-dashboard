@@ -406,11 +406,16 @@ def portfolio():
         # if user not found, insert
         subject = session["userid"]
         email = session["useremail"]
+        #CLOUD-2833
+        role = session["userrole"]
+        #
         user = dbhelpers.get_user(subject)
-        if user is None:
-            admins = json.dumps(app.config["ADMINS"])
-            role = "admin" if email in admins else "user"
 
+        if user is None:
+            # CLOUD-2833
+            #admins = json.dumps(app.config["ADMINS"])
+            #role = "admin" if email in admins else "user"
+            #
             user = User(
                 sub=subject,
                 name=session["username"],
@@ -436,7 +441,9 @@ def portfolio():
                 picture=utils.avatar(email, 26),
                 active=1))
 
-        session["userrole"] = user.role  # role
+        # CLOUD-2833
+        #session["userrole"] = user.role  # role
+        #
 
         services = dbhelpers.get_services(visibility="public")
         services.extend(

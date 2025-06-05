@@ -33,11 +33,17 @@ def set_user_info():
     session["given_name"] = account_info_json["given_name"]
     session["family_name"] = account_info_json["family_name"]
     session["useremail"] = account_info_json["email"]
-    session["userrole"] = "user"
+    #CLOUD-2833
+    #session["userrole"] = "user"
+    #
     session["gravatar"] = utils.avatar(account_info_json["email"], 26)
     session["organisation_name"] = account_info_json["organisation_name"]
 
     user_groups = account_info_json["groups"]
+
+
+
+
     supported_groups = []
     if app.settings.iam_groups:
         supported_groups = list(set(app.settings.iam_groups) & set(user_groups))
