@@ -332,7 +332,7 @@ let barChartInstance = null;
     const id = this.getAttribute('data-id');
     document.getElementById("selected_template").value = id;
     const form = document.getElementById("tableform");
-    const url = "{{ url_for('deployments_bp.showdeploymentstats', showback=True) }}";
+    const url = "{{ url_for('deployments_bp.showalldeployments', showback=True) }}";
     set_loading(true);
     form.action = url;
     form.submit();

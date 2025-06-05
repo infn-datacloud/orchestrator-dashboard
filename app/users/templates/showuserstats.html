@@ -186,7 +186,7 @@ $('#tableUsers').on('click', 'button[data-id]', function () {
 
     const form = document.getElementById("tableform");
     const subject = this.getAttribute('data-id');
-    const baseUrl = "{{ url_for('users_bp.showuserstats', subject='__subject__', showback=True) }}";
+    const baseUrl = "{{ url_for('deployments_bp.showdeployments', subject='__subject__', showback=True) }}";
     const url = baseUrl.replace("__subject__", subject);
     set_loading(true);
     form.action = url;
