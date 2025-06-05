@@ -1,4 +1,4 @@
-# Copyright (c) Istituto Nazionale di Fisica Nucleare (INFN). 2019-2020
+# Copyright (c) Istituto Nazionale di Fisica Nucleare (INFN). 2019-2025
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
 
 import json
 import re
+import redis
 from semver.version import Version
 from datetime import datetime
 
@@ -30,9 +31,9 @@ from flask import (
 from flask import current_app as app
 from markupsafe import Markup
 
-from app.extensions import csrf, redis_client, tosca
+from app.extensions import csrf, tosca
 from app.iam import iam
-from app.lib import auth, dbhelpers, openstack, utils
+from app.lib import auth, dbhelpers, openstack, redis_helper, utils
 from app.models.User import User
 
 home_bp = Blueprint(
@@ -71,12 +72,46 @@ def show_info():
     )
 
 
-@home_bp.route("/settings")
+@home_bp.route("/settings", methods=["GET", "POST"])
 @auth.authorized_with_valid_token
 def show_settings():
-    """
-    Route for displaying the settings page.
-    """
+
+    if request.method == "POST" and session["userrole"].lower() == "admin":
+
+        operation = request.form.to_dict()["operation"]
+
+        if operation == "repo":
+            current_config = app.settings.repository_configuration
+
+            ret1, tosca_update_msg = update_configuration(
+                current_config,
+                "tosca_templates",
+                app.settings.tosca_dir,
+                "Cloning TOSCA templates"
+            )
+            ret2, conf_update_msg = update_configuration(
+                current_config,
+                "dashboard_configuration",
+                app.settings.settings_dir,
+                "Cloning dashboard configuraton"
+            )
+
+            try:
+                r = redis_helper.get_redis(app.config.get("REDIS_URL"))
+                r.publish("broadcast_channel", "tosca_reload")
+
+            except Exception as error:
+                handle_configuration_reload_error(error)
+
+            if ret1 or ret2:
+                handle_configuration_reload(current_config, tosca_update_msg, conf_update_msg)
+
+        if operation == "groups":
+            groups = request.form.getlist("iamgroups[]")
+            app.settings.iam_groups = groups
+            auth.update_user_info()
+
+
     groups = app.settings.iam_groups
     repository_configuration = app.settings.repository_configuration
     _, _, _, tosca_gversion, _ = tosca.get()
@@ -91,58 +126,6 @@ def show_settings():
         tosca_version="{0:c}.{1:c}.{2:c}".format(tosca_gversion[0], tosca_gversion[2], tosca_gversion[4]),
         groups=groups
     )
-
-
-@home_bp.route("/setsettingsgroups", methods=["POST"])
-@auth.authorized_with_valid_token
-def submit_settings_groups():
-    """
-    A function to update settings.
-    It checks the user's role, then updates the current configuration
-    and handles configuration reload.
-    """
-    if request.method == "POST" and session["userrole"].lower() == "admin":
-        groups  =  request.json["groups"]
-        app.settings.set_iam_groups(groups)
-        auth.update_user_info()
-
-    return redirect(url_for("home_bp.home"))
-
-
-@home_bp.route("/setsettings", methods=["POST"])
-@auth.authorized_with_valid_token
-def submit_settings():
-    """
-    A function to update settings.
-    It checks the user's role, then updates the current configuration
-    and handles configuration reload.
-    """
-    if request.method == "POST" and session["userrole"].lower() == "admin":
-
-        current_config = app.settings.repository_configuration
-
-        ret1, tosca_update_msg = update_configuration(
-            current_config,
-            "tosca_templates",
-            app.settings.tosca_dir,
-            "Cloning TOSCA templates"
-        )
-        ret2, conf_update_msg = update_configuration(
-            current_config,
-            "dashboard_configuration",
-            app.settings.settings_dir,
-            "Cloning dashboard configuraton"
-        )
-
-        try:
-            tosca.reload()
-        except Exception as error:
-            handle_configuration_reload_error(error)
-
-        if ret1 or ret2:
-            handle_configuration_reload(current_config, tosca_update_msg, conf_update_msg)
-
-    return redirect(url_for("home_bp.show_settings"))
 
 
 def update_configuration(current_config, field_prefix, repo_dir, message):
@@ -249,7 +232,7 @@ def handle_configuration_reload(current_config, message1, message2):
 
     now = datetime.now()
     current_config["updated_at"] = now.strftime("%d/%m/%Y %H:%M:%S")
-    app.settings.set_repository_configuration(current_config)
+    app.settings.repository_configuration = current_config
 
     notify_admins_and_users(message1, message2)
 
@@ -469,6 +452,8 @@ def portfolio():
             flash("Error retrieving deployment list: \n" + str(e), "warning")
 
         deps = dbhelpers.get_user_deployments(session["userid"])
+
+
         statuses = {}
         for dep in deps:
             status = dep.status if dep.status else "UNKNOWN"

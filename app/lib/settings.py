@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from app.extensions import db
-from app.lib import dbhelpers, utils
+from app.lib import dbhelpers, utils, path_utils
 from app.models.Setting import Setting
 from flask import json
 
@@ -42,23 +42,26 @@ class Settings:
             CMDB URL, SLAM URL, IM URL, monitoring URL, and Vault URL.
     """
 
+    _keyiamgroups = "IAM_GROUP_MEMBERSHIP"
+    _keyreposconf = "REPOSITORY_CONFIGURATION"
+    _keysettingsv = "SETTINGS_VERSION"
+
     def __init__(self, app):
         temp_settings_dir = app.config.get("SETTINGS_DIR")
         if temp_settings_dir is None:
             raise Exception("SETTINGS_DIR is not defined in configuration")
-        self.settings_dir = utils.url_path_join(temp_settings_dir, "/")
+        self.settings_dir = path_utils.path_ensure_slash(temp_settings_dir)
         temp_tosca_dir = app.config.get("TOSCA_TEMPLATES_DIR")
         if temp_tosca_dir is None:
             raise Exception("TOSCA_TEMPLATES_DIR is not defined in configuration")
-        self.tosca_dir = utils.url_path_join(temp_tosca_dir, "/")
-        self.tosca_params_dir = utils.url_path_join(temp_settings_dir, "tosca-parameters")
-        self.tosca_metadata_dir = utils.url_path_join(temp_settings_dir, "tosca-metadata")
-        self.repository_configuration = None
+        self.tosca_dir = path_utils.path_ensure_slash(temp_tosca_dir)
+        self.tosca_params_dir = path_utils.url_path_join(temp_settings_dir, "tosca-parameters")
+        self.tosca_metadata_dir = path_utils.url_path_join(temp_settings_dir, "tosca-metadata")
+        self.metadata_schema = app.config.get("METADATA_SCHEMA")
 
         self.iam_url = app.config.get("IAM_BASE_URL")
         self.iam_client_id = app.config.get("IAM_CLIENT_ID")
         self.iam_client_secret = app.config.get("IAM_CLIENT_SECRET")
-        self.iam_groups = app.config.get("IAM_GROUP_MEMBERSHIP")
 
         self.fed_reg_url = app.config.get("FED_REG_URL", None)
         self.use_fed_reg = True if self.fed_reg_url is not None else False
@@ -67,7 +70,7 @@ class Settings:
             temp_slam_url = app.config.get("SLAM_URL", None)
             if temp_slam_url is not None:
                 if not temp_slam_url.endswith("/rest/slam"):
-                    temp_slam_url = utils.url_path_join(temp_settings_dir, "/rest/slam")
+                    temp_slam_url = path_utils.url_path_join(temp_settings_dir, "/rest/slam")
             self.slam_url = temp_slam_url
             self.cmdb_url = app.config.get("CMDB_URL", None)
         else:
@@ -87,49 +90,59 @@ class Settings:
 
     def align_db(self, app):
 
-        # version
-        self.db_settings_version = dbhelpers.get_setting("SETTINGS_VERSION")
-        if not self.db_settings_version:
+        # settings version
+        if not self.version:
             # set initial version
-            self.db_settings_version = "1"
-            self.save_setting("SETTINGS_VERSION", self.db_settings_version)
+            self.version = "1"
 
         # iam groups membership
-        iam_groups = dbhelpers.get_setting("IAM_GROUP_MEMBERSHIP")
-        if not iam_groups:
+        if not self.iam_groups:
             # get default from config file if present
-            config_iam_groups = self.iam_groups
-            if config_iam_groups:
-                self.save_setting("IAM_GROUP_MEMBERSHIP", json.dumps(config_iam_groups))
-        else:
-            self.iam_groups = json.loads(iam_groups.value)
+            self.iam_groups = app.config.get(self._keyiamgroups)
 
         # repository configuration
-        repository_configuration = dbhelpers.get_setting("REPOSITORY_CONFIGURATION")
-        if not repository_configuration:
-            self.repository_configuration = {}
-        else:
-            self.repository_configuration = json.loads(repository_configuration.value)
+        if not self.repository_configuration:
+            self.repository_configuration = dict()
 
-    def save_setting(self,id,value):
+    def _save_setting(self,id,value):
         if dbhelpers.get_setting(id):
             dbhelpers.update_setting(id, dict(value=value))
         else:
             dbhelpers.add_object(Setting(id=id, value=value))
 
-
-    def set_iam_groups(self, iam_groups):
-        self.iam_groups = iam_groups
-        key = "IAM_GROUP_MEMBERSHIP"
-        if iam_groups:
-            self.save_setting(key, json.dumps(iam_groups))
+    def _jsonsetter(self, value, key):
+        if value:
+            self._save_setting(key, json.dumps(value))
         else:
-            self.save_setting(key, None)
+            self._save_setting(key, None)
 
-    def set_repository_configuration(self, repository_configuration):
-        self.repository_configuration = repository_configuration
-        key = "REPOSITORY_CONFIGURATION"
-        if repository_configuration:
-            self.save_setting(key, json.dumps(repository_configuration))
-        else:
-            self.save_setting(key, None)
+    def _jsongetter(selfself, key):
+        setting = dbhelpers.get_setting(key)
+        if setting:
+            return json.loads(setting.value)
+        return None
+
+    @property
+    def version(self):
+        return self._jsongetter(self._keysettingsv)
+
+    @version.setter
+    def version(self, value):
+        self._jsonsetter(value, self._keysettingsv)
+
+    @property
+    def iam_groups(self):
+        return self._jsongetter(self._keyiamgroups)
+
+    @iam_groups.setter
+    def iam_groups(self, value):
+        self._jsonsetter(value, self._keyiamgroups)
+
+    @property
+    def repository_configuration(self):
+        return self._jsongetter(self._keyreposconf)
+
+    @repository_configuration.setter
+    def repository_configuration(self, value):
+        self._jsonsetter(value, self._keyreposconf)
+

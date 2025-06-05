@@ -12,19 +12,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import requests
-from flask import (
-    current_app as app,
-    Blueprint,
-    session,
-    render_template,
-    flash,
-    request,
-)
-from app.lib import auth, dbhelpers
 from app.models.User import User
-from app.iam import iam
+from flask import (
+    Blueprint,
+    flash,
+    render_template,
+    request,
+    session,
+)
+from flask import current_app as app
 
+from app.iam import iam
+from app.lib import auth, dbhelpers, utils
+from app.lib.dbhelpers import (
+    month_boundary,
+    months_list,
+    filter_date_range,
+    build_excludedstatus_filter,
+    nullorempty,
+    notnullorempty,
+    get_all_statuses
+)
 
 users_bp = Blueprint(
     "users_bp", __name__, template_folder="templates", static_folder="static"
@@ -60,45 +68,121 @@ def show_user(subject, ronly):
         return render_template(app.config.get("HOME_TEMPLATE"))
 
 
-@users_bp.route("/<subject>/deployments", methods=["GET", "POST"])
+@users_bp.route("/userstats", methods=["GET", "POST"])
 @auth.authorized_with_valid_token
 @auth.only_for_admin
-def show_deployments(subject):
+def showuserstats():
 
     access_token = iam.token["access_token"]
-    user = dbhelpers.get_user(subject)
 
-    if user is not None:
+    only_effective = app.config.get("FEATURE_SHOW_BROKEN_DEPLOYMENTS", "no") == "no"
+    datestart = None
+    dateend = None
+    selected_status = "actives"
+    if request.method == "POST":
+        selected_status = request.form.to_dict()["selected_status"]
+        datestart = request.form.to_dict()["start_date"]
+        dateend = request.form.to_dict()["end_date"]
 
-        issuer = iam.base_url
-        if not issuer.endswith("/"):
-            issuer += "/"
+    if nullorempty(datestart):
+        datestart = None
+    if nullorempty(dateend):
+        dateend = None
 
-        show_deleted = "False"
-        excluded_status = "DELETE_COMPLETE"
+    excluded_status = build_excludedstatus_filter(selected_status)
 
-        if request.method == "POST":
-            show_deleted = request.form.to_dict()["showhdep"]
+    deployments = []
+    try:
+        if excluded_status is not None:
+            deployments = app.orchestrator.get_deployments(
+                access_token, excluded_status=excluded_status
+        )
+        else:
+            deployments = app.orchestrator.get_deployments(
+                access_token
+        )
+    except Exception as e:
+        flash("Error retrieving deployment list: \n" + str(e), "warning")
 
-        deployments = []
-        try:
-            if show_deleted == "False":
-                deployments = app.orchestrator.get_deployments(
-                    access_token, created_by="{}@{}".format(subject, issuer), excluded_status=excluded_status
-                )
-            else:
-                deployments = app.orchestrator.get_deployments(
-                    access_token, created_by="{}@{}".format(subject, issuer)
-                )
-        except Exception as e:
-            flash("Error retrieving deployment list: \n" + str(e), "warning")
+    # sanitize data and filter undesired states
+    if deployments:
+        deployments = dbhelpers.sanitizedeployments(deployments)["deployments"]
 
-        if deployments:
-            deployments = dbhelpers.sanitizedeployments(deployments)["deployments"]
-            app.logger.debug("Deployments: " + str(deployments))
+    # Initialize dictionaries for occurrences
+    occurrences = dict()
+    hasfilterdate = False
 
-        return render_template("dep_user.html", user=user, deployments=deployments, showdepdel=show_deleted)
-    else:
-        flash("User not found!", "warning")
-        users = User.get_users()
-        return render_template("users.html", users=users)
+    # filter eventually dates
+    if notnullorempty(datestart) or notnullorempty(dateend):
+        dstart = month_boundary(datestart, True)
+        dend = month_boundary(dateend, False)
+        hasfilterdate = True
+        deployments =  filter_date_range(
+                deployments,
+                dstart,
+                dend,
+                True)
+
+    # second round, count instances
+    for dep in deployments:
+        depdate = dep.creation_time.strftime("%Y-%m")
+        sub = dep.sub
+        datelist = occurrences.get(depdate, dict({}))
+        if not sub in datelist:
+            datelist[sub] = 1
+        else:
+            datelist[sub] = datelist[sub]  + 1
+        occurrences[depdate] = datelist
+
+
+    s_occurrences = dict(sorted(occurrences.items(), key=lambda item: item[0]))
+    k_occurrences = list(s_occurrences.keys())
+    # get default date interval if not user defined
+    if not hasfilterdate and len(s_occurrences) > 0:
+        kocc = list(k_occurrences)
+        datestart = kocc[0]
+        dateend = kocc[len(kocc)-1]
+
+    # get full interval list
+    months = months_list(datestart, dateend)
+    for month in months:
+        if not month in s_occurrences:
+            s_occurrences[month] = dict()
+
+    s_occurrences = dict(sorted(s_occurrences.items(), key=lambda item: item[0]))
+    k_occurrences = list(s_occurrences.keys())
+    v_occurrences = list()
+    for k in s_occurrences.values():
+        v = 0
+        for j in k.values():
+            v = v+j
+        v_occurrences.append(v)
+
+    # get users list and count deployments
+    s_users = dict()
+    o_users = dict()
+    for occurrence in s_occurrences.values():
+        for keyu, c in occurrence.items():
+            if not keyu in s_users:
+                s_users[keyu] = 0
+            s_users[keyu] = s_users[keyu] + c
+            if not keyu in o_users:
+                user = dbhelpers.get_user(keyu)
+                o_users[keyu] = user
+
+    s_title = "Active users over time for all statuses" if selected_status == "all" else "Active users over time for status: " + selected_status
+
+    return render_template(
+        "showuserstats.html",
+        s_title=s_title,
+        s_labels=list(k_occurrences),
+        s_values=list(v_occurrences),
+        s_colors=utils.gencolors("green", len(s_occurrences)),
+        status_labels=get_all_statuses(),
+        selected_status=selected_status,
+        datestart=datestart,
+        dateend=dateend,
+        s_users=s_users,
+        o_users=o_users.values()
+    )
+

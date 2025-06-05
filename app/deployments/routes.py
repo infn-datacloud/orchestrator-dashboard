@@ -1,4 +1,4 @@
-# Copyright (c) Istituto Nazionale di Fisica Nucleare (INFN). 2019-2020
+# Copyright (c) Istituto Nazionale di Fisica Nucleare (INFN). 2019-2025
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,7 +21,6 @@ import string
 import uuid as uuid_generator
 from typing import Optional
 from urllib.parse import urlparse
-from distutils.util import strtobool
 
 import openstack
 import openstack.connection
@@ -30,6 +29,7 @@ from flask import (
     Blueprint,
     flash,
     json,
+    jsonify,
     redirect,
     render_template,
     request,
@@ -41,10 +41,29 @@ from werkzeug.exceptions import Forbidden
 
 from app.extensions import tosca, vaultservice
 from app.iam import iam
-from app.lib import auth, dbhelpers, fed_reg, providers, s3, utils
+from app.lib import (
+    auth,
+    dbhelpers,
+    fed_reg,
+    path_utils,
+    providers,
+    s3,
+    utils
+)
 from app.lib import openstack as keystone
 from app.lib import tosca_info as tosca_helpers
-from app.lib.dbhelpers import filter_provider, filter_group
+from app.lib.dbhelpers import (
+    filter_provider,
+    filter_group,
+    filter_template,
+    filter_date_range,
+    build_excludedstatus_filter,
+    get_all_statuses,
+    nullorempty,
+    notnullorempty,
+    month_boundary,
+    months_list
+)
 from app.lib.ldap_user import LdapUserManager
 from app.models.Deployment import Deployment
 
@@ -57,9 +76,22 @@ deployments_bp = Blueprint(
 
 SHOW_HOME_ROUTE = "home_bp.portfolio"
 SHOW_DEPLOYMENTS_ROUTE = "deployments_bp.showdeployments"
+SHOW_DEPLOYMENTS_KWARGS = {
+    "subject": "me",
+    "showback": "False"
+}
 SHOW_ALLDEPLOYMENTS_ROUTE = "deployments_bp.showalldeployments"
+SHOW_ALLDEPLOYMENTS_KWARGS = {
+    "showback": "False"
+}
 MANAGE_RULES_ROUTE = "deployments_bp.manage_rules"
 LOGIN_ROUTE = "home_bp.login"
+
+def get_deployments_kwargs(subject):
+    kwargs = SHOW_DEPLOYMENTS_KWARGS.copy()
+    if subject != session["userid"]:
+        kwargs["subject"] = subject
+    return kwargs
 
 
 class InputValidationError(Exception):
@@ -68,76 +100,203 @@ class InputValidationError(Exception):
     pass
 
 
-@deployments_bp.route("/depls")
+@deployments_bp.route("/<subject>/<showback>/list", methods=["GET", "POST"])
 @auth.authorized_with_valid_token
-def showdeploymentsingroup():
-    group = request.args["group"]
-    session["active_usergroup"] = group
-    flash("Group set to {}".format(group), "info")
-    return showdeployments("True")
+def showdeployments(subject, showback):
 
-
-@deployments_bp.route("/list", methods=["GET", "POST"])
-@auth.authorized_with_valid_token
-def showdeployments(show_back="False"):
     access_token = iam.token["access_token"]
-    show_deleted="False"
-    excluded_status = "DELETE_COMPLETE"
 
-    if request.method == "POST":
-        show_deleted = request.form.to_dict()["showhdep"]
-        show_back =  request.form.to_dict()["showback"]
+    if subject == 'me' or subject == session["userid"] :
+        subject = created_by = 'me'
+        userid = session["userid"]
+    else:
+        userid = subject
+        issuer = path_utils.path_ensure_slash(iam.base_url)
+        created_by = "{}@{}".format(subject, issuer)
 
-    group = None
-    if "active_usergroup" in session and session["active_usergroup"] is not None:
-        group = session["active_usergroup"]
+    user = dbhelpers.get_user(userid)
 
-    deployments = []
-    try:
-        if show_deleted == "False":
-            deployments = app.orchestrator.get_deployments(
-                access_token, created_by="me", user_group=group, excluded_status=excluded_status
-            )
-        else:
-            deployments = app.orchestrator.get_deployments(
-                access_token, created_by="me", user_group=group
-            )
-    except Exception as e:
-        flash("Error retrieving deployment list: \n" + str(e), "warning")
+    if user is not None:
+        group = "None"
+        provider = "None"
+        selected_status = "actives"
+        only_remote = True
+        datestart = None
+        dateend = None
+        if request.method == "POST":
+            dr = request.form.to_dict()
+            if "group" in dr:
+                group = dr.get("group")
+            if "provider" in dr:
+                provider = dr.get("provider")
+            if "date_start" in dr:
+                datestart = dr.get("date_start")
+            if "date_end" in dr:
+                datestart = dr.get("date_end")
+            selected_status = dr.get("selected_status")
 
-    if deployments:
-        deployments = dbhelpers.sanitizedeployments(deployments)["deployments"]
+        if nullorempty(datestart):
+            datestart = None
+        if nullorempty(dateend):
+            dateend = None
+
+        if (group == "None"):
+            group = None
+        #if "active_usergroup" in session and session["active_usergroup"] is not None:
+        #    group = session["active_usergroup"]
+
+        if (provider == "None"):
+            provider = None
+
+        excluded_status = build_excludedstatus_filter(selected_status)
+
+        #only_effective = app.config.get("FEATURE_SHOW_BROKEN_DEPLOYMENTS", "no") == "no"
+        deployments = []
+        try:
+            if excluded_status is not None:
+                deployments = app.orchestrator.get_deployments(
+                    access_token, created_by=created_by, excluded_status=excluded_status
+                )
+            else:
+                deployments = app.orchestrator.get_deployments(
+                    access_token, created_by=created_by
+                )
+        except Exception as e:
+            flash("Error retrieving deployment list: \n" + str(e), "warning")
+
+        if deployments:
+            deployments = dbhelpers.sanitizedeployments(deployments)["deployments"]
+
+        providers_to_split = app.config.get("PROVIDER_NAMES_TO_SPLIT", None)
+        if providers_to_split:
+            providers_to_split = providers_to_split.lower()
+
+        groups_labels = []
+        providers_labels = []
+
+        # first round, load labels (names)
+        for dep in deployments:
+            if only_remote == False or dep.remote == True:
+
+                user_group = dep.user_group or "UNKNOWN"
+                if user_group and user_group not in groups_labels:
+                    groups_labels.append(user_group)
+
+                dep_provider = dep.provider_name or "UNKNOWN"
+                if dep.region_name:
+                    provider_ext = (dep_provider + "-" + dep.region_name).lower()
+                    if providers_to_split and provider_ext in providers_to_split:
+                        dep_provider = dep_provider + "-" + dep.region_name.lower()
+                if dep_provider and dep_provider not in providers_labels:
+                    providers_labels.append(dep_provider)
+
+        if subject == 'me':
+            for g in session['supported_usergroups']:
+                if g not in groups_labels:
+                    groups_labels.append(g)
+
+        # filter eventually dates
+        if notnullorempty(datestart) or notnullorempty(dateend):
+            dstart = month_boundary(datestart, True)
+            dend = month_boundary(dateend, False)
+            deployments = filter_date_range(
+                deployments,
+                dstart,
+                dend,
+                True)
+
+        # filter eventually provider
+        providers_to_filter = []
+        if provider:
+            providers_to_filter.append(provider)
+            deployments = filter_provider(
+                deployments,
+                providers_to_filter,
+                True,
+                providers_to_split)
+
+        # filter eventually group
+        groups_to_filter = []
+        if group:
+            groups_to_filter.append(group)
+            deployments = filter_group(
+                deployments,
+                groups_to_filter,
+                True)
 
         app.logger.debug("Deployments: " + str(deployments))
 
-    return render_template("deployments.html", deployments=deployments, showdepdel=show_deleted, showback=show_back)
+        return render_template("deployments.html",
+                                user=user,
+                                subject=subject,
+                                deployments=deployments,
+                                groups_labels=groups_labels,
+                                providers_labels=providers_labels,
+                                status_labels=get_all_statuses(),
+                                group=group,
+                                provider=provider,
+                                selected_status=selected_status,
+                                showback=showback)
+    else:
+        flash("User not found!", "warning")
+        return redirect(url_for(SHOW_HOME_ROUTE))
 
-@deployments_bp.route("/listall", methods=["GET", "POST"])
+
+@deployments_bp.route("/<showback>/listall", methods=["GET", "POST"])
 @auth.authorized_with_valid_token
-def showalldeployments(show_back="False"):
-    access_token = iam.token["access_token"]
-    show_deleted="False"
-    excluded_status = "DELETE_COMPLETE"
-    group = "None"
+def showalldeployments(showback):
 
+    access_token = iam.token["access_token"]
+
+    group = "None"
+    provider = "None"
+    selected_status = "actives"
+    selected_template = "None"
+    only_remote = True
+    datestart = None
+    dateend = None
     if request.method == "POST":
-        show_deleted = request.form.to_dict()["showhdep"]
-        show_back =  request.form.to_dict()["showback"]
-        group =  request.form.to_dict()["group"]
+        dr = request.form.to_dict()
+        if "group" in dr:
+            group = dr.get("group")
+        if "provider" in dr:
+            provider = dr.get("provider")
+        if "date_start" in dr:
+            datestart = dr.get("date_start")
+        if "date_end" in dr:
+            datestart = dr.get("date_end")
+        if "selected_status" in dr:
+            selected_status = dr.get("selected_status")
+        if "selected_template" in dr:
+            selected_template = dr.get("selected_template")
+
+    if nullorempty(datestart):
+        datestart = None
+
+    if nullorempty(dateend):
+        dateend = None
 
     if (group == "None"):
         group = None
 
+    if (provider == "None"):
+        provider = None
+
+    if (selected_template == "None"):
+        selected_template = None
+
+    excluded_status = build_excludedstatus_filter(selected_status)
+
+    # only_effective = app.config.get("FEATURE_SHOW_BROKEN_DEPLOYMENTS", "no") == "no"
     deployments = []
-    groups = []
     try:
-        if show_deleted == "False":
+        if excluded_status is not None:
             deployments = app.orchestrator.get_deployments(
-                access_token, user_group=group, excluded_status=excluded_status
+                access_token, excluded_status=excluded_status
             )
         else:
             deployments = app.orchestrator.get_deployments(
-                access_token, user_group=group
+                access_token
             )
     except Exception as e:
         flash("Error retrieving deployment list: \n" + str(e), "warning")
@@ -145,58 +304,121 @@ def showalldeployments(show_back="False"):
     if deployments:
         deployments = dbhelpers.sanitizedeployments(deployments)["deployments"]
 
-        for dep in deployments:
-            status = dep.status or "UNKNOWN"
-            if (show_deleted == True or (status not in list(excluded_status))):
-                user_group = dep.user_group or "UNKNOWN"
-                if not user_group in groups:
-                    groups.append(user_group)
+    providers_to_split = app.config.get("PROVIDER_NAMES_TO_SPLIT", None)
+    if providers_to_split:
+        providers_to_split = providers_to_split.lower()
 
-        # add local groups if missing
-        supported_usergroups = session["supported_usergroups"]
-        for g in supported_usergroups:
-            if not g in groups:
-                groups.append(g)
+    groups_labels = []
+    providers_labels = []
 
-        app.logger.debug("Deployments: " + str(deployments))
+    # first round, load labels (names)
+    for dep in deployments:
+        if only_remote == False or dep.remote == True:
+
+            user_group = dep.user_group or "UNKNOWN"
+            if user_group and user_group not in groups_labels:
+                groups_labels.append(user_group)
+
+            dep_provider = dep.provider_name or "UNKNOWN"
+            if dep.region_name:
+                provider_ext = (dep_provider + "-" + dep.region_name).lower()
+                if providers_to_split and provider_ext in providers_to_split:
+                    dep_provider = dep_provider + "-" + dep.region_name.lower()
+            if dep_provider and dep_provider not in providers_labels:
+                providers_labels.append(dep_provider)
+
+    # filter eventually dates
+    if notnullorempty(datestart) or notnullorempty(dateend):
+        dstart = month_boundary(datestart, True)
+        dend = month_boundary(dateend, False)
+        deployments = filter_date_range(
+            deployments,
+            dstart,
+            dend,
+            True)
+
+    # filter eventually provider
+    if provider:
+        providers_to_filter = []
+        providers_to_filter.append(provider)
+        deployments = filter_provider(
+            deployments,
+            providers_to_filter,
+            True,
+            providers_to_split)
+
+    # filter eventually group
+    if group:
+        groups_to_filter = []
+        groups_to_filter.append(group)
+        deployments = filter_group(
+            deployments,
+            groups_to_filter,
+            True)
+
+    # filter eventually template
+    if selected_template:
+        template_to_filter = []
+        template_to_filter.append(selected_template)
+        deployments = filter_template(
+            deployments,
+            template_to_filter,
+            True)
+
+    app.logger.debug("Deployments: " + str(deployments))
 
     return render_template("deploymentsall.html",
                            deployments=deployments,
+                           groups_labels=groups_labels,
+                           providers_labels=providers_labels,
+                           status_labels=get_all_statuses(),
                            group=group,
-                           showdepdel=show_deleted,
-                           showback=show_back,
-                           groups=groups)
+                           provider=provider,
+                           selected_status=selected_status,
+                           selected_template=selected_template,
+                           showback=showback)
 
 
-@deployments_bp.route("/overview")
+@deployments_bp.route("/overview", methods=["GET", "POST"])
 @auth.authorized_with_valid_token
 def showdeploymentsoverview():
 
     access_token = iam.token["access_token"]
-    show_deleted="False"
+
     only_remote = True
-    excluded_status = "DELETE_COMPLETE"
+    piemaxvalues = app.config.get("FEATURE_MAX_PIE_SLICES", 0)
+    only_effective = False #app.config.get("FEATURE_SHOW_BROKEN_DEPLOYMENTS", "no") == "no"
 
-    # refresh deployment list
-    try:
-        dbhelpers.update_deployments(session["userid"])
-    except Exception as e:
-        flash("Error retrieving deployment list: \n" + str(e), "warning")
+    group = "None"
+    provider = "None"
+    selected_status = "actives"
+    if request.method == "POST":
+        group =  request.form.to_dict()["group"]
+        provider = request.form.to_dict()["provider"]
+        selected_status = request.form.to_dict()["selected_status"]
 
+    if (group == "None"):
+        group = None
+
+    if (provider == "None"):
+        provider = None
+
+    excluded_status = build_excludedstatus_filter(selected_status)
 
     deployments = []
     try:
-        if show_deleted == "False":
+        if excluded_status is not None:
             deployments = app.orchestrator.get_deployments(
                 access_token, created_by="me", excluded_status=excluded_status
-            )
+        )
         else:
             deployments = app.orchestrator.get_deployments(
                 access_token, created_by="me"
-            )
+        )
     except Exception as e:
         flash("Error retrieving deployment list: \n" + str(e), "warning")
 
+    # sanitize data and filter undesired states
     if deployments:
         deployments = dbhelpers.sanitizedeployments(deployments)["deployments"]
 
@@ -208,21 +430,62 @@ def showdeploymentsoverview():
     providers_to_split = app.config.get("PROVIDER_NAMES_TO_SPLIT", None)
     if providers_to_split:
         providers_to_split = providers_to_split.lower()
+
+    groups_labels = []
+    providers_labels = []
+
+    # first round, load labels (names)
+    for dep in deployments:
+        if only_remote == False or dep.remote == True:
+
+            user_group = dep.user_group or "UNKNOWN"
+            if user_group and user_group not in groups_labels:
+                groups_labels.append(user_group)
+
+            dep_provider = dep.provider_name or "UNKNOWN"
+            if dep.region_name:
+                provider_ext = (dep_provider + "-" + dep.region_name).lower()
+                if  providers_to_split and provider_ext in providers_to_split:
+                    dep_provider = dep_provider + "-" + dep.region_name.lower()
+            if dep_provider and dep_provider not in providers_labels:
+                providers_labels.append(dep_provider)
+
+    #filter eventually provider
+    providers_to_filter = []
+    if provider:
+        providers_to_filter.append(provider)
+        deployments = filter_provider(
+                deployments,
+                providers_to_filter,
+                True,
+                providers_to_split)
+
+    #filter eventually group
+    groups_to_filter = []
+    if group:
+        groups_to_filter.append(group)
+        deployments = filter_group(
+                deployments,
+                groups_to_filter,
+                True)
+
+    # second round, count instances
     for dep in deployments:
         status = dep.status or "UNKNOWN"
-        if (only_remote == False or dep.remote == 1):
+        if (only_remote == False or dep.remote == True) and \
+                (only_effective == False or dep.selected_template):
             statuses[status] = statuses.get(status, 0) + 1
 
             user_group = dep.user_group or "UNKNOWN"
             groups[user_group] = groups.get(user_group, 0) + 1
 
-            provider = dep.provider_name or "UNKNOWN"
+            dep_provider = dep.provider_name or "UNKNOWN"
             if dep.region_name:
-                provider_ext = (provider + "-" + dep.region_name).lower()
+                provider_ext = (dep_provider + "-" + dep.region_name).lower()
                 if  providers_to_split and provider_ext in providers_to_split:
-                    provider = provider + "-" + dep.region_name.lower()
+                    dep_provider = dep_provider + "-" + dep.region_name.lower()
 
-            providers[provider] = providers.get(provider, 0) + 1
+            providers[dep_provider] = providers.get(dep_provider, 0) + 1
 
     # remove unused UNKNOWN entries
     if groups["UNKNOWN"] == 0:
@@ -232,22 +495,32 @@ def showdeploymentsoverview():
     if providers["UNKNOWN"] == 0:
         providers.pop("UNKNOWN")
 
+    s_title = "All Deployment Status" if selected_status == "all" else "Deployment Status: " + selected_status
+    p_title= "All Groups" if not group else "Group: " + group
+    pr_title = "All Providers" if not provider else "Provider: " + provider
+
     return render_template(
         "depoverview.html",
-        s_title="Deployments status",
+        s_title=s_title,
         s_labels=list(statuses.keys()),
         s_values=list(statuses.values()),
         s_colors=utils.genstatuscolors(statuses),
-        p_title="Groups",
+        p_title=p_title,
         p_labels=list(groups.keys()),
         p_values=list(groups.values()),
         p_colors=utils.gencolors("blue", len(groups)),
-        pr_title="Providers",
+        pr_title=pr_title,
         pr_labels=list(providers.keys()),
         pr_values=list(providers.values()),
-        pr_colors=utils.gencolors("green", len(providers))
+        pr_colors=utils.gencolors("green", len(providers)),
+        groups_labels=groups_labels,
+        providers_labels=providers_labels,
+        status_labels=get_all_statuses(),
+        group=group,
+        provider=provider,
+        selected_status=selected_status,
+        s_maxvalues=piemaxvalues
     )
-
 
 @deployments_bp.route("/depstats", methods=["GET", "POST"])
 @auth.authorized_with_valid_token
@@ -256,26 +529,35 @@ def showdeploymentstats():
     access_token = iam.token["access_token"]
 
     only_remote = True
-    only_effective = True
-    show_deleted = "False"
-    excluded_status = "DELETE_COMPLETE,DELETE_IN_PROGRESS,CREATE_FAILED,DELETE_FAILED"
-
+    piemaxvalues = app.config.get("FEATURE_MAX_PIE_SLICES", 0)
+    only_effective = app.config.get("FEATURE_SHOW_BROKEN_DEPLOYMENTS", "no") == "no"
     group = "None"
     provider = "None"
+    templaterq = None
+    selected_status = "actives"
     if request.method == "POST":
-        show_deleted = request.form.to_dict()["showhdep"]
-        group =  request.form.to_dict()["group"]
-        provider = request.form.to_dict()["provider"]
+        if request.is_json:
+            data = request.get_json()
+            templaterq = data.get("id")
+            group = data.get("group")
+            provider = data.get("provider")
+            selected_status = data.get("selected_status")
+        else:
+            group =  request.form.to_dict()["group"]
+            provider = request.form.to_dict()["provider"]
+            selected_status = request.form.to_dict()["selected_status"]
 
-    if (group == "None"):
+    if group == "None":
         group = None
 
-    if (provider == "None"):
+    if provider == "None":
         provider = None
+
+    excluded_status = build_excludedstatus_filter(selected_status)
 
     deployments = []
     try:
-        if show_deleted == "False":
+        if excluded_status is not None:
             deployments = app.orchestrator.get_deployments(
                 access_token, excluded_status=excluded_status
         )
@@ -374,39 +656,83 @@ def showdeploymentstats():
     if templates["UNKNOWN"] == 0:
         templates.pop("UNKNOWN")
 
-    return render_template(
-        "depstatistics.html",
-        s_title="Deployments status",
-        s_labels=list(statuses.keys()),
-        s_values=list(statuses.values()),
-        s_colors=utils.genstatuscolors(statuses),
-        p_title="Groups",
-        p_labels=list(groups.keys()),
-        p_values=list(groups.values()),
-        p_colors=utils.gencolors("blue", len(groups)),
-        pr_title="Providers",
-        pr_labels=list(providers.keys()),
-        pr_values=list(providers.values()),
-        pr_colors=utils.gencolors("green", len(providers)),
-        d_templates=templates,
-        groups_labels=groups_labels,
-        providers_labels=providers_labels,
-        group=group,
-        provider=provider,
-        showdepdel=show_deleted
-    )
+    if templaterq is not None:
+        occurrences = {"UNKNOWN": 0}
+        for dep in deployments:
+            if dep.selected_template == templaterq:
+                depdate = dep.creation_time.strftime("%Y-%m")
+                occurrences[depdate] = occurrences.get(depdate, 0) + 1
+        if occurrences["UNKNOWN"] == 0:
+            occurrences.pop("UNKNOWN")
+        s_occurrences = dict(sorted(occurrences.items()))
+        # add empty bins
+        if  len(s_occurrences) > 0:
+            k_occurrences = list(s_occurrences.keys())
+            kocc = list(k_occurrences)
+            datestart = kocc[0]
+            dateend = kocc[len(kocc) - 1]
+            # get full interval list
+            months = months_list(datestart, dateend)
+            for month in months:
+                if not month in s_occurrences:
+                    s_occurrences[month] = 0
+            s_occurrences = dict(sorted(s_occurrences.items()))
+
+        if len(s_occurrences.keys()) > 0:
+            return jsonify({"labels":list(s_occurrences.keys()),
+                            "values":list(s_occurrences.values()),
+                            "group":group,
+                            "provider":provider,
+                            "selected_status": selected_status,
+                            "bar_colors": utils.gencolors("green", len(s_occurrences))
+            })
+
+        else:
+            return jsonify({"error": "Template not found!"}), 404
+
+    else:
+        s_title = "All Deployment Status" if selected_status == "all" else "Deployment Status: " + selected_status
+        p_title= "All Groups" if not group else "Group: " + group
+        pr_title = "All Providers" if not provider else "Provider: " + provider
+
+        return render_template(
+            "depstatistics.html",
+            s_title=s_title,
+            s_labels=list(statuses.keys()),
+            s_values=list(statuses.values()),
+            s_colors=utils.genstatuscolors(statuses.keys()),
+            p_title=p_title,
+            p_labels=list(groups.keys()),
+            p_values=list(groups.values()),
+            p_colors=utils.gencolors("blue", len(groups)),
+            pr_title=pr_title,
+            pr_labels=list(providers.keys()),
+            pr_values=list(providers.values()),
+            pr_colors=utils.gencolors("green", len(providers)),
+            d_templates=templates,
+            groups_labels=groups_labels,
+            providers_labels=providers_labels,
+            status_labels=get_all_statuses(),
+            group=group,
+            provider=provider,
+            selected_status=selected_status,
+            s_maxvalues=piemaxvalues
+        )
 
 
 @deployments_bp.route("/<depid>/template")
 @auth.authorized_with_valid_token
 def deptemplate(depid=None):
     access_token = iam.token["access_token"]
-
+    dep = dbhelpers.get_deployment(depid)
+    if dep is None:
+        flash("Deployment not found!", "warning")
+        return redirect(url_for(SHOW_HOME_ROUTE))
     try:
         template = app.orchestrator.get_template(access_token, depid)
     except Exception:
         flash("Error getting template: ".format(), "danger")
-        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
+        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **get_deployments_kwargs(dep.sub)))
 
     return render_template("deptemplate.html", template=template)
 
@@ -418,7 +744,11 @@ def lockdeployment(depid=None):
     if dep is not None:
         dep.locked = 1
         dbhelpers.add_object(dep)
-    return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
+        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **get_deployments_kwargs(dep.sub)))
+    else:
+        flash("Deployment not found!", "warning")
+        return redirect(url_for(SHOW_HOME_ROUTE))
+
 
 
 @deployments_bp.route("/<depid>/unlock")
@@ -428,7 +758,11 @@ def unlockdeployment(depid=None):
     if dep is not None:
         dep.locked = 0
         dbhelpers.add_object(dep)
-    return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
+        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **get_deployments_kwargs(dep.sub)))
+    else:
+        flash("Deployment not found!", "warning")
+        return redirect(url_for(SHOW_HOME_ROUTE))
+
 
 
 @deployments_bp.route("/edit", methods=["POST"])
@@ -438,7 +772,7 @@ def editdeployment():
     dbhelpers.update_deployment(
         form_data["deployment_uuid"], dict(description=form_data["description"])
     )
-    return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
+    return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **SHOW_DEPLOYMENTS_KWARGS))
 
 
 def preprocess_outputs(outputs, stoutputs, inputs):
@@ -475,7 +809,8 @@ def depoutput(depid=None):
     # retrieve deployment from DB
     dep = dbhelpers.get_deployment(depid)
     if dep is None:
-        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
+        flash("Deployment not found!", "warning")
+        return redirect(url_for(SHOW_HOME_ROUTE))
 
     inputs, outputs, stoutputs = process_deployment_data(dep)
 
@@ -552,7 +887,8 @@ def deptemplatedb(depid):
     # retrieve deployment from DB
     dep = dbhelpers.get_deployment(depid)
     if dep is None:
-        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
+        flash("Deployment not found!", "warning")
+        return redirect(url_for(SHOW_HOME_ROUTE))
     else:
         template = dep.template
         return render_template("deptemplate.html", template=template)
@@ -612,14 +948,18 @@ def depinfradetails(depid=None):
 
     dep = dbhelpers.get_deployment(depid)
 
-    if dep is None or dep.physicalId is None:
-        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
+    if dep is None:
+        flash("Deployment not found!", "warning")
+        return redirect(url_for(SHOW_HOME_ROUTE))
+
+    if dep.physicalId is None:
+        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **get_deployments_kwargs(dep.sub)))
 
     try:
         resources = app.orchestrator.get_resources(access_token, depid)
     except Exception as e:
         flash(str(e), "warning")
-        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
+        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **get_deployments_kwargs(dep.sub)))
 
     details = extract_vm_details(depid, resources)
     tosca_info = process_tosca_info(dep)
@@ -746,14 +1086,17 @@ def get_openstack_connection(
 
 def get_vm_info(depid):
     dep = dbhelpers.get_deployment(depid)
-    if dep is None or dep.physicalId is None:
-        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
+    if dep is None:
+        flash("Deployment not found!", "warning")
+        return redirect(url_for(SHOW_HOME_ROUTE))
+    if dep.physicalId is None:
+        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **get_deployments_kwargs(dep.sub)))
 
     try:
         resources = app.orchestrator.get_resources(iam.token["access_token"], depid)
     except Exception as e:
         flash(str(e), "warning")
-        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
+        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **get_deployments_kwargs(dep.sub)))
 
     def find_node_with_pubip(resources):
         for resource in resources:
@@ -803,7 +1146,7 @@ def get_sec_groups(conn, server_id, public=True):
 def security_groups(depid=None):
     try:
         sec_groups = ""
-
+        subject=request.args.get("subject")
         vm_provider = request.args.get("depProvider")
         vm_info = get_vm_info(depid)
         vm_id = vm_info["vm_id"]
@@ -830,7 +1173,7 @@ def security_groups(depid=None):
         return render_template("depsecgroups.html", depid=depid, sec_groups=sec_groups)
     except Exception as e:
         flash(str(e), "warning")
-        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
+        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **get_deployments_kwargs(subject)))
 
 
 @deployments_bp.route("/<depid>/<sec_group_id>/manage_rules")
@@ -1156,7 +1499,10 @@ def depqcgdetails(depid=None):
     access_token = iam.token["access_token"]
 
     dep = dbhelpers.get_deployment(depid)
-    if dep is not None and dep.physicalId is not None and dep.deployment_type == "QCG":
+    if dep is not None:
+        flash("Deployment not found!", "warning")
+        return redirect(url_for(SHOW_HOME_ROUTE))
+    if dep.physicalId is not None and dep.deployment_type == "QCG":
         try:
             job = json.loads(app.orchestrator.get_extra_info(access_token, depid))
         except Exception as e:
@@ -1164,7 +1510,7 @@ def depqcgdetails(depid=None):
             job = None
 
         return render_template("depqcgdetails.html", job=(job[0] if job else None))
-    return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
+    return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **get_deployments_kwargs(dep.sub)))
 
 
 @deployments_bp.route("/<depid>/<mode>/<force>/delete")
@@ -1174,7 +1520,11 @@ def depdel(depid=None, mode="user", force="false"):
 
     dep = dbhelpers.get_deployment(depid)
     # should happen as a callback on the cancellation message from the orchestrator
-    if dep is not None and dep.storage_encryption == 1:
+    if dep is None:
+        flash("Deployment not found!", "warning")
+        return redirect(url_for(SHOW_HOME_ROUTE))
+
+    if dep.storage_encryption == 1:
         secret_path = session["userid"] + "/" + dep.vault_secret_uuid
         delete_secret_from_vault(access_token, secret_path)
     ##
@@ -1188,7 +1538,10 @@ def depdel(depid=None, mode="user", force="false"):
     except Exception as e:
         flash(str(e), "danger")
 
-    return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE if mode == "user" else SHOW_ALLDEPLOYMENTS_ROUTE))
+    if mode == "user":
+        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **get_deployments_kwargs(dep.sub)))
+    else:
+        return redirect(url_for(SHOW_ALLDEPLOYMENTS_ROUTE, **SHOW_ALLDEPLOYMENTS_KWARGS))
 
 
 @deployments_bp.route("/<depid>/<mode>/reset")
@@ -1197,25 +1550,30 @@ def depreset(depid=None, mode="user"):
     access_token = iam.token["access_token"]
     # add check last update time to ensure stuck state
     dep = dbhelpers.get_deployment(depid)
-    if dep is not None and dep.status == "DELETE_IN_PROGRESS":
+    if dep is None:
+        flash("Deployment not found!", "warning")
+        return redirect(url_for(SHOW_HOME_ROUTE))
+    if dep.status == "DELETE_IN_PROGRESS":
         try:
             app.orchestrator.patch(access_token, depid, "DELETE_FAILED")
         except Exception as e:
             flash(str(e), "danger")
 
-    return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE if mode == "user" else SHOW_ALLDEPLOYMENTS_ROUTE))
+    if mode == "user":
+        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **get_deployments_kwargs(dep.sub)))
+    else:
+        return redirect(url_for(SHOW_ALLDEPLOYMENTS_ROUTE, **SHOW_ALLDEPLOYMENTS_KWARGS))
 
 
 @deployments_bp.route("/depupdate/<depid>")
 @auth.authorized_with_valid_token
 def depupdate(depid=None):
-    if depid is None:
-        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
 
     dep = dbhelpers.get_deployment(depid)
 
     if dep is None:
-        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
+        flash("Deployment not found!", "warning")
+        return redirect(url_for(SHOW_HOME_ROUTE))
 
     access_token = iam.token["access_token"]
     template = dep.template
@@ -1267,9 +1625,12 @@ def addnodes(depid):
 
     dep = dbhelpers.get_deployment(depid)
 
-    if dep is None or dep.physicalId is None:
-        flash("Deployment not found or invalid.", "warning")
-        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
+    if dep is None:
+        flash("Deployment not found!", "warning")
+        return redirect(url_for(SHOW_HOME_ROUTE))
+    if dep.physicalId is None:
+        flash("Deployment invalid.", "warning")
+        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **get_deployments_kwargs(dep.sub)))
 
     try:
         template = app.orchestrator.get_template(access_token, depid)
@@ -1293,7 +1654,7 @@ def addnodes(depid):
             )
             app.logger.error(message)
             flash(message, "warning")
-            return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
+            return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **get_deployments_kwargs(dep.sub)))
 
         app.orchestrator.update(
             access_token,
@@ -1315,7 +1676,7 @@ def addnodes(depid):
         app.logger.error(err_msg)
         flash(err_msg, "warning")
 
-    return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
+    return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **get_deployments_kwargs(dep.sub)))
 
 
 @deployments_bp.route("/updatedep", methods=["POST"])
@@ -1329,10 +1690,10 @@ def updatedep():
 
     depid = form_data["_depid"]
 
-    if depid is None:
-        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
-
     dep = dbhelpers.get_deployment(depid)
+    if dep is None:
+        flash("Deployment not found!", "warning")
+        return redirect(url_for(SHOW_HOME_ROUTE))
 
     template = yaml.full_load(io.StringIO(dep.template))
 
@@ -1398,7 +1759,7 @@ def updatedep():
     except Exception as e:
         flash(str(e), "danger")
 
-    return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
+    return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **get_deployments_kwargs(dep.sub)))
 
 
 @deployments_bp.route("/configure", methods=["GET"])
@@ -1491,7 +1852,7 @@ def configure_form():
     selected_tosca = request.args.get("selected_tosca")
     if selected_tosca is None:
         flash("Error getting template (not found)", "danger")
-        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
+        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **SHOW_DEPLOYMENTS_KWARGS))
 
     tosca_info, _, _, _, _ = tosca.get()
     template = copy.deepcopy(tosca_info[os.path.normpath(selected_tosca)])
@@ -2233,7 +2594,7 @@ def create_deployment(
     except Exception as e:
         flash(str(e), "danger")
         app.logger.error("Error creating deployment: {}".format(e))
-        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
+        return redirect(url_for(SHOW_HOME_ROUTE))
 
     # store data into database
     uuid = rs_json["uuid"]
@@ -2325,7 +2686,7 @@ def createdep():
         template_text,
     )
 
-    return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
+    return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **SHOW_DEPLOYMENTS_KWARGS))
 
 
 @deployments_bp.route("/<depid>/retry")
@@ -2345,13 +2706,16 @@ def retrydep(depid=None):
 
     # retrieve deployment from DB
     dep = dbhelpers.get_deployment(depid)
+    if dep is None:
+        flash("Deployment not found!", "warning")
+        return redirect(url_for(SHOW_HOME_ROUTE))
 
-    if dep is None or dep.selected_template == "":
+    if dep.selected_template == "":
         flash(
             "The selected deployment is invalid. Try creating it from scratch.",
             "danger",
         )
-        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
+        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **get_deployments_kwargs(dep.sub)))
 
     inputs = process_deployment_data(dep)
 
@@ -2405,7 +2769,7 @@ def retrydep(depid=None):
             "The selected deployment is invalid. Try creating it from scratch.",
             "danger",
         )
-        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
+        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **get_deployments_kwargs(dep.sub)))
 
     form_data = inputs
 
@@ -2426,7 +2790,7 @@ def retrydep(depid=None):
         "success",
     )
 
-    return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
+    return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **get_deployments_kwargs(dep.sub)))
 
 
 def create_dep_method(
@@ -2454,7 +2818,7 @@ def create_dep_method(
             if len(errors) > 0:
                 for error in errors:
                     flash(error, "danger")
-                return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
+                return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **SHOW_DEPLOYMENTS_KWARGS))
 
     app.logger.debug(f"Calling orchestrator with inputs: {inputs}")
 
@@ -2637,4 +3001,4 @@ def sendportsrequest():
             "danger",
         )
 
-    return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE))
+    return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **SHOW_DEPLOYMENTS_KWARGS))
