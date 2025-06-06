@@ -196,7 +196,7 @@ $('#tableUsers').on('click', 'button[data-id]', function () {
 
 let validChartCount = 0;
 
-function drawchart(chartidx, title, subtitle, labels, values, colors) {
+function drawbarchart(chartidx, title, subtitle, labels, values, colors) {
   var chartsRow = document.getElementById('chartsRow');
   var col = document.createElement('div');
   //col.className = 'col-md-4 mb-4';
@@ -278,7 +278,7 @@ function drawchart(chartidx, title, subtitle, labels, values, colors) {
 
 window.onload = function() {
 
-    drawchart("users_chart",
+    drawbarchart("users_chart",
         "{{s_title}}",
         "",
         {{s_labels | safe}},

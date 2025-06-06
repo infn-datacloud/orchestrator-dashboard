@@ -1249,6 +1249,18 @@ table.table-bordered.dataTable tbody td {
     color: var(--color-primary-50)!important;
 }
 
+.nav-link-xl {
+    font-weight: 500 !important;
+    font-size: 32px !important;
+    text-transform: none !important;
+    border: 0px solid transparent !important;
+}
+
+.nav-tabs-xl {
+    border: 0px solid transparent !important;
+    border-bottom: 0px solid transparent !important;
+}
+
 .nav-tabs .nav-item.show .nav-link, .nav-tabs .nav-link {
     border: none;
     text-transform: uppercase;
@@ -1317,6 +1329,14 @@ footer {
 *   -- RESPONSIVE --
 *
 */
+
+/* XXL */
+
+@media (min-width: 1440px) {
+  .container {
+    max-width: 1360px;
+  }
+}
 
 /* MEDIUM */
 

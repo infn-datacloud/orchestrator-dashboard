@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import copy
+import datetime
 import io
 import os
 import random
@@ -129,10 +130,10 @@ def showdeployments(subject, showback):
                 group = dr.get("group")
             if "provider" in dr:
                 provider = dr.get("provider")
-            if "date_start" in dr:
-                datestart = dr.get("date_start")
-            if "date_end" in dr:
-                datestart = dr.get("date_end")
+            if "start_date" in dr:
+                datestart = dr.get("start_date")
+            if "end_date" in dr:
+                dateend = dr.get("end_date")
             selected_status = dr.get("selected_status")
 
         if nullorempty(datestart):
@@ -436,7 +437,7 @@ def showdeploymentsoverview():
 
     # first round, load labels (names)
     for dep in deployments:
-        if only_remote == False or dep.remote == True:
+        if only_remote == False or dep.remote == 1:
 
             user_group = dep.user_group or "UNKNOWN"
             if user_group and user_group not in groups_labels:
@@ -472,7 +473,7 @@ def showdeploymentsoverview():
     # second round, count instances
     for dep in deployments:
         status = dep.status or "UNKNOWN"
-        if (only_remote == False or dep.remote == True) and \
+        if (only_remote == False or dep.remote == 1) and \
                 (only_effective == False or dep.selected_template):
             statuses[status] = statuses.get(status, 0) + 1
 
@@ -535,6 +536,8 @@ def showdeploymentstats():
     provider = "None"
     templaterq = None
     selected_status = "actives"
+    datestart = None
+    dateend = None
     if request.method == "POST":
         if request.is_json:
             data = request.get_json()
@@ -572,6 +575,18 @@ def showdeploymentstats():
     if deployments:
         deployments = dbhelpers.sanitizedeployments(deployments)["deployments"]
 
+    # filter eventually dates
+    hasfilterdate = False
+    if notnullorempty(datestart) or notnullorempty(dateend):
+        dstart = month_boundary(datestart, True)
+        dend = month_boundary(dateend, False)
+        hasfilterdate = True
+        deployments =  filter_date_range(
+                deployments,
+                dstart,
+                dend,
+                True)
+
     # Initialize dictionaries for status, projects, and providers
     statuses = {"UNKNOWN": 0}
     groups = {"UNKNOWN": 0}
@@ -592,7 +607,7 @@ def showdeploymentstats():
 
     # first round, load labels (names)
     for dep in deployments:
-        if only_remote == False or dep.remote == True:
+        if only_remote == False or dep.remote == 1:
 
             user_group = dep.user_group or "UNKNOWN"
             if user_group and user_group not in groups_labels:
@@ -628,7 +643,7 @@ def showdeploymentstats():
     # second round, count instances
     for dep in deployments:
         status = dep.status or "UNKNOWN"
-        if (only_remote == False or dep.remote == True) and \
+        if (only_remote == False or dep.remote == 1) and \
                 (only_effective == False or dep.selected_template):
             statuses[status] = statuses.get(status, 0) + 1
 
@@ -691,9 +706,48 @@ def showdeploymentstats():
             return jsonify({"error": "Template not found!"}), 404
 
     else:
+        occurrences = dict()
+
+        # count instances
+        for dep in deployments:
+            depdate = dep.creation_time.strftime("%Y-%m")
+            sub = dep.sub
+            datelist = occurrences.get(depdate, dict({}))
+            if not sub in datelist:
+                datelist[sub] = 1
+            else:
+                datelist[sub] = datelist[sub] + 1
+            occurrences[depdate] = datelist
+
+        s_occurrences = dict(sorted(occurrences.items(), key=lambda item: item[0]))
+        k_occurrences = list(s_occurrences.keys())
+        # get default date interval if not user defined
+        if not hasfilterdate and len(s_occurrences) > 0:
+            kocc = list(k_occurrences)
+            datestart = kocc[0]
+            dateend = datetime.date.today().strftime("%Y-%m")  # kocc[len(kocc)-1]
+
+        # get full interval list
+        months = months_list(datestart, dateend)
+        for month in months:
+            if not month in s_occurrences:
+                s_occurrences[month] = dict()
+
+        # new sort
+        s_occurrences = dict(sorted(s_occurrences.items(), key=lambda item: item[0]))
+        k_occurrences = list(s_occurrences.keys())
+        v_occurrences = list()
+        # count instances
+        for k in s_occurrences.values():
+            v = 0
+            for j in k.values():
+                v = v + j
+            v_occurrences.append(v)
+
         s_title = "All Deployment Status" if selected_status == "all" else "Deployment Status: " + selected_status
         p_title= "All Groups" if not group else "Group: " + group
         pr_title = "All Providers" if not provider else "Provider: " + provider
+        bar_title = "Deployments over time"
 
         return render_template(
             "depstatistics.html",
@@ -716,7 +770,11 @@ def showdeploymentstats():
             group=group,
             provider=provider,
             selected_status=selected_status,
-            s_maxvalues=piemaxvalues
+            s_maxvalues=piemaxvalues,
+            k_occurrences=k_occurrences,
+            v_occurrences=v_occurrences,
+            bar_title=bar_title,
+            bar_colors=utils.gencolors("green", len(v_occurrences))
         )
 
 
