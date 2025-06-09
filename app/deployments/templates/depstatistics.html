@@ -139,6 +139,19 @@
 
             </div>
             <br><br>
+
+            <nav>
+              <div class="nav nav-tabs nav-tabs-xl " id="nav-tab" role="tablist">
+                <button class="nav-link nav-link-xl active" id="nav-templates-tab" data-toggle="tab" data-target="#nav-templates" type="button" role="tab" aria-controls="nav-templates" aria-selected="true">
+                    <i class="fas fa-file-invoice"></i>&nbsp;&nbsp;Templates Usage</button>
+                <button class="nav-link nav-link-xl " id="nav-deployments-tab" data-toggle="tab" data-target="#nav-deployments" type="button" role="tab" aria-controls="nav-deployments" aria-selected="false">
+                    <i class="fas fa-chart-bar"></i>&nbsp;&nbsp;Deployments Over Time</button>
+              </div>
+            </nav>
+
+            <div class="tab-content" id="nav-tabContent">
+              <div class="tab-pane fade show active" id="nav-templates" role="tabpanel" aria-labelledby="nav-templates-tab">
+<!--
             <div class="row" id="uttitle">
                 <div class="dashboard-template-image">
                     <i class="fas fa-file-invoice"></i>
@@ -149,6 +162,7 @@
                 </div>
             </div>
             <div id="uttable">
+     -->
                 <!--Table-->
                 <div class="table-responsive">
                 <table id="tableStats" class="table table-bordered table-striped" width="100%" cellspacing="0">
@@ -178,8 +192,17 @@
                 </table>
                 </div>
                 <!--Table-->
-
+<!--
             </div>
+            -->
+              </div>
+              <div class="tab-pane fade " id="nav-deployments" role="tabpanel" aria-labelledby="nav-deployments-tab">
+                  <div id="barChartRow" class="row text-center"></div>
+              </div>
+            </div>
+
+
+
         </div>
     </div>
 </div>
@@ -340,6 +363,84 @@ let barChartInstance = null;
 
 let validChartCount = 0;
 
+function drawbarchart(chartidx, title, subtitle, labels, values, colors) {
+  var barChartRow = document.getElementById('barChartRow');
+  var col = document.createElement('div');
+  //col.className = 'col-md-4 mb-4';
+
+  var chartId = `chart${chartidx}`;
+
+  col.innerHTML = `
+    <div class="chart-container">
+      <canvas id="${chartId}"></canvas>
+    </div>
+  `;
+
+  barChartRow.appendChild(col);
+
+  var chart = new Chart(document.getElementById(chartId).getContext("2d"), {
+          type: "bar",
+          data: {
+            labels: labels,
+            datasets: [{
+              label: "Deployments per year-month",
+              data: values,
+              backgroundColor: colors
+            }]
+          },
+          options: {
+              responsive: true,
+              scales: {
+                  y: {
+                      beginAtZero: true,
+                      ticks: {
+                          stepSize: 1,
+                          callback: function (value) {
+                              return Number.isInteger(value) ? value : null;
+                          }
+                      }
+                  }
+              },
+              plugins: {
+                  tooltip: {
+                      callbacks: {
+                          label: function (context) {
+                              const label = context.label || '';
+                              const value = context.raw;
+                              return `${label}: ${value}`;
+                          },
+                          title: function (context) {
+                              return "Year-Month";
+                          }
+                      }
+                  },
+                  legend: {
+                      position: 'top',
+                      labels: {
+                          generateLabels: function (chart) {
+                              return chart.data.datasets.map((dataset, i) => ({
+                                  text: dataset.label,
+                                  fillStyle: 'transparent',
+                                  strokeStyle: 'transparent',
+                                  lineWidth: 0,
+                                  hidden: !chart.isDatasetVisible(i),
+                                  datasetIndex: i
+                              }));
+                          }
+                      }
+                  }
+              }
+          }
+  });
+
+  chart.render();
+
+  if (values.length > 0) {
+      validChartCount++;
+  }
+}
+
+
 function drawchart(chartidx, title, subtitle, labels, values, colors, maxitems) {
   var chartsRow = document.getElementById('chartsRow');
   var col = document.createElement('div');
@@ -442,6 +543,8 @@ function drawchart(chartidx, title, subtitle, labels, values, colors, maxitems) 
     }
   });
 
+  chart.render();
+
   const legendContainer = document.getElementById(legendId);
   displayLabels.forEach((label, i) => {
     const item = document.createElement('div');
@@ -463,6 +566,22 @@ function drawchart(chartidx, title, subtitle, labels, values, colors, maxitems) 
   if (values.length > 0) {
       validChartCount++;
   }
+}
+
+$('#nav-deployments-tab').on("shown.bs.tab",function(){
+      drawDeploymentsBar();
+      $('#nav-deployments-tab').off();
+});
+
+function drawDeploymentsBar()
+{
+    drawbarchart("deployments_chart",
+        "{{bar_title}}",
+        "",
+        {{k_occurrences | safe}},
+        {{v_occurrences}},
+        {{bar_colors | safe}}
+    );
 }
 
 window.onload = function() {
@@ -498,11 +617,19 @@ window.onload = function() {
     message.style.display = validChartCount === 0 ? "block" : "none";
     const chart = document.getElementById("chartsRow");
     chart.style.display = validChartCount === 0 ? "none" : "flex";
+
+    const navtab = document.getElementById("nav-tab");
+    navtab.style.display = validChartCount === 0 ? "none" : "flex";
+    const navcontent = document.getElementById("nav-tabContent");
+    navcontent.style.display = validChartCount === 0 ? "none" : "block";
+/*
     const uttitle = document.getElementById("uttitle");
     uttitle.style.display = validChartCount === 0 ? "none" : "flex";
     const uttable = document.getElementById("uttable");
     uttable.style.display = validChartCount === 0 ? "none" : "block";
+  */
 }
+
 
 </script>
 
@@ -511,4 +638,3 @@ window.onload = function() {
 {% endif %}
 
 {% endblock %}
-
