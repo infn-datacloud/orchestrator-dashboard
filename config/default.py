@@ -4,7 +4,6 @@ CONFIGURATION_PROFILE = "default"
 IAM_CLIENT_ID = "8f319311-9aa8-4dbe-9d31-b2e0f034ad2e"
 IAM_CLIENT_SECRET = "OJZq-oTUCoNmUzdVJcMkE2lEIPRI2sR_aDvT-gwEsGT0idPsTOWIZpduo9tM0Zl2hmJbuFtccylfSEYHgh3xbA"
 IAM_BASE_URL = "https://iam.cloud.infn.it"
-IAM_ADMIN_GROUPS = ["developers", "datacloud/orchestrator"]
 ORCHESTRATOR_URL = "http://mp-recas.ba.infn.it:8080"
 CALLBACK_URL = "https://mp-recas.ba.infn.it:8443/callback"
 
@@ -37,6 +36,7 @@ YOURLS_API_SIGNATURE_TOKEN=None
 
 ### ADMIN SETTINGS
 SUPPORT_EMAIL = "michele.perniola@ba.infn.it"
+ADMINS = "['michele.perniola@ba.infn.it']"
 EXTERNAL_LINKS = []
 OVERALL_TIMEOUT = 720
 PROVIDER_TIMEOUT = 720
