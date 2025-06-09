@@ -48,13 +48,10 @@ def show_users():
     return render_template("users.html", users=users)
 
 
-#@users_bp.route("/<subject>/<ronly>", methods=["GET", "POST"])
-@users_bp.route("/<subject>")
+@users_bp.route("/<subject>/<ronly>", methods=["GET", "POST"])
 @auth.authorized_with_valid_token
 @auth.only_for_admin
-def show_user(subject):
-#def show_user(subject, ronly):
-    '''
+def show_user(subject, ronly):
     if request.method == "POST":
         # cannot change its own role
         if session["userid"] == subject:
@@ -64,11 +61,10 @@ def show_user(subject):
         active = request.form["active"]
         # update database
         dbhelpers.update_user(subject, dict(role=role, active=bool(active)))
-    '''
+
     user = dbhelpers.get_user(subject)
     if user is not None:
-        return render_template("user.html", user=user)
-        #return render_template("user.html", user=user, ronly=ronly)
+        return render_template("user.html", user=user, ronly=ronly)
     else:
         return render_template(app.config.get("HOME_TEMPLATE"))
 
@@ -195,3 +191,4 @@ def showuserstats():
         s_users=s_users,
         o_users=o_users.values()
     )
+

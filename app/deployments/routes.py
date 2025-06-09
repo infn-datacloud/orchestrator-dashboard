@@ -88,7 +88,6 @@ SHOW_ALLDEPLOYMENTS_KWARGS = {
 MANAGE_RULES_ROUTE = "deployments_bp.manage_rules"
 LOGIN_ROUTE = "home_bp.login"
 
-
 def get_deployments_kwargs(subject):
     kwargs = SHOW_DEPLOYMENTS_KWARGS.copy()
     if subject != session["userid"]:
@@ -105,9 +104,10 @@ class InputValidationError(Exception):
 @deployments_bp.route("/<subject>/<showback>/list", methods=["GET", "POST"])
 @auth.authorized_with_valid_token
 def showdeployments(subject, showback):
+
     access_token = iam.token["access_token"]
 
-    if subject == 'me' or subject == session["userid"]:
+    if subject == 'me' or subject == session["userid"] :
         subject = created_by = 'me'
         userid = session["userid"]
     else:
@@ -143,7 +143,7 @@ def showdeployments(subject, showback):
 
         if (group == "None"):
             group = None
-        # if "active_usergroup" in session and session["active_usergroup"] is not None:
+        #if "active_usergroup" in session and session["active_usergroup"] is not None:
         #    group = session["active_usergroup"]
 
         if (provider == "None"):
@@ -151,7 +151,7 @@ def showdeployments(subject, showback):
 
         excluded_status = build_excludedstatus_filter(selected_status)
 
-        # only_effective = app.config.get("FEATURE_SHOW_BROKEN_DEPLOYMENTS", "no") == "no"
+        #only_effective = app.config.get("FEATURE_SHOW_BROKEN_DEPLOYMENTS", "no") == "no"
         deployments = []
         try:
             if excluded_status is not None:
@@ -228,16 +228,16 @@ def showdeployments(subject, showback):
         app.logger.debug("Deployments: " + str(deployments))
 
         return render_template("deployments.html",
-                               user=user,
-                               subject=subject,
-                               deployments=deployments,
-                               groups_labels=groups_labels,
-                               providers_labels=providers_labels,
-                               status_labels=get_all_statuses(),
-                               group=group,
-                               provider=provider,
-                               selected_status=selected_status,
-                               showback=showback)
+                                user=user,
+                                subject=subject,
+                                deployments=deployments,
+                                groups_labels=groups_labels,
+                                providers_labels=providers_labels,
+                                status_labels=get_all_statuses(),
+                                group=group,
+                                provider=provider,
+                                selected_status=selected_status,
+                                showback=showback)
     else:
         flash("User not found!", "warning")
         return redirect(url_for(SHOW_HOME_ROUTE))
@@ -246,6 +246,7 @@ def showdeployments(subject, showback):
 @deployments_bp.route("/<showback>/listall", methods=["GET", "POST"])
 @auth.authorized_with_valid_token
 def showalldeployments(showback):
+
     access_token = iam.token["access_token"]
 
     group = "None"
@@ -382,17 +383,18 @@ def showalldeployments(showback):
 @deployments_bp.route("/overview", methods=["GET", "POST"])
 @auth.authorized_with_valid_token
 def showdeploymentsoverview():
+
     access_token = iam.token["access_token"]
 
     only_remote = True
     piemaxvalues = app.config.get("FEATURE_MAX_PIE_SLICES", 0)
-    only_effective = False  # app.config.get("FEATURE_SHOW_BROKEN_DEPLOYMENTS", "no") == "no"
+    only_effective = False #app.config.get("FEATURE_SHOW_BROKEN_DEPLOYMENTS", "no") == "no"
 
     group = "None"
     provider = "None"
     selected_status = "actives"
     if request.method == "POST":
-        group = request.form.to_dict()["group"]
+        group =  request.form.to_dict()["group"]
         provider = request.form.to_dict()["provider"]
         selected_status = request.form.to_dict()["selected_status"]
 
@@ -409,11 +411,11 @@ def showdeploymentsoverview():
         if excluded_status is not None:
             deployments = app.orchestrator.get_deployments(
                 access_token, created_by="me", excluded_status=excluded_status
-            )
+        )
         else:
             deployments = app.orchestrator.get_deployments(
                 access_token, created_by="me"
-            )
+        )
     except Exception as e:
         flash("Error retrieving deployment list: \n" + str(e), "warning")
 
@@ -444,29 +446,29 @@ def showdeploymentsoverview():
             dep_provider = dep.provider_name or "UNKNOWN"
             if dep.region_name:
                 provider_ext = (dep_provider + "-" + dep.region_name).lower()
-                if providers_to_split and provider_ext in providers_to_split:
+                if  providers_to_split and provider_ext in providers_to_split:
                     dep_provider = dep_provider + "-" + dep.region_name.lower()
             if dep_provider and dep_provider not in providers_labels:
                 providers_labels.append(dep_provider)
 
-    # filter eventually provider
+    #filter eventually provider
     providers_to_filter = []
     if provider:
         providers_to_filter.append(provider)
         deployments = filter_provider(
-            deployments,
-            providers_to_filter,
-            True,
-            providers_to_split)
+                deployments,
+                providers_to_filter,
+                True,
+                providers_to_split)
 
-    # filter eventually group
+    #filter eventually group
     groups_to_filter = []
     if group:
         groups_to_filter.append(group)
         deployments = filter_group(
-            deployments,
-            groups_to_filter,
-            True)
+                deployments,
+                groups_to_filter,
+                True)
 
     # second round, count instances
     for dep in deployments:
@@ -481,7 +483,7 @@ def showdeploymentsoverview():
             dep_provider = dep.provider_name or "UNKNOWN"
             if dep.region_name:
                 provider_ext = (dep_provider + "-" + dep.region_name).lower()
-                if providers_to_split and provider_ext in providers_to_split:
+                if  providers_to_split and provider_ext in providers_to_split:
                     dep_provider = dep_provider + "-" + dep.region_name.lower()
 
             providers[dep_provider] = providers.get(dep_provider, 0) + 1
@@ -495,7 +497,7 @@ def showdeploymentsoverview():
         providers.pop("UNKNOWN")
 
     s_title = "All Deployment Status" if selected_status == "all" else "Deployment Status: " + selected_status
-    p_title = "All Groups" if not group else "Group: " + group
+    p_title= "All Groups" if not group else "Group: " + group
     pr_title = "All Providers" if not provider else "Provider: " + provider
 
     return render_template(
@@ -521,10 +523,10 @@ def showdeploymentsoverview():
         s_maxvalues=piemaxvalues
     )
 
-
 @deployments_bp.route("/depstats", methods=["GET", "POST"])
 @auth.authorized_with_valid_token
 def showdeploymentstats():
+
     access_token = iam.token["access_token"]
 
     only_remote = True
@@ -544,7 +546,7 @@ def showdeploymentstats():
             provider = data.get("provider")
             selected_status = data.get("selected_status")
         else:
-            group = request.form.to_dict()["group"]
+            group =  request.form.to_dict()["group"]
             provider = request.form.to_dict()["provider"]
             selected_status = request.form.to_dict()["selected_status"]
 
@@ -561,11 +563,11 @@ def showdeploymentstats():
         if excluded_status is not None:
             deployments = app.orchestrator.get_deployments(
                 access_token, excluded_status=excluded_status
-            )
+        )
         else:
             deployments = app.orchestrator.get_deployments(
                 access_token
-            )
+        )
     except Exception as e:
         flash("Error retrieving deployment list: \n" + str(e), "warning")
 
@@ -579,11 +581,11 @@ def showdeploymentstats():
         dstart = month_boundary(datestart, True)
         dend = month_boundary(dateend, False)
         hasfilterdate = True
-        deployments = filter_date_range(
-            deployments,
-            dstart,
-            dend,
-            True)
+        deployments =  filter_date_range(
+                deployments,
+                dstart,
+                dend,
+                True)
 
     # Initialize dictionaries for status, projects, and providers
     statuses = {"UNKNOWN": 0}
@@ -614,29 +616,29 @@ def showdeploymentstats():
             dep_provider = dep.provider_name or "UNKNOWN"
             if dep.region_name:
                 provider_ext = (dep_provider + "-" + dep.region_name).lower()
-                if providers_to_split and provider_ext in providers_to_split:
+                if  providers_to_split and provider_ext in providers_to_split:
                     dep_provider = dep_provider + "-" + dep.region_name.lower()
             if dep_provider and dep_provider not in providers_labels:
                 providers_labels.append(dep_provider)
 
-    # filter eventually provider
+    #filter eventually provider
     providers_to_filter = []
     if provider:
         providers_to_filter.append(provider)
         deployments = filter_provider(
-            deployments,
-            providers_to_filter,
-            True,
-            providers_to_split)
+                deployments,
+                providers_to_filter,
+                True,
+                providers_to_split)
 
-    # filter eventually group
+    #filter eventually group
     groups_to_filter = []
     if group:
         groups_to_filter.append(group)
         deployments = filter_group(
-            deployments,
-            groups_to_filter,
-            True)
+                deployments,
+                groups_to_filter,
+                True)
 
     # second round, count instances
     for dep in deployments:
@@ -651,7 +653,7 @@ def showdeploymentstats():
             dep_provider = dep.provider_name or "UNKNOWN"
             if dep.region_name:
                 provider_ext = (dep_provider + "-" + dep.region_name).lower()
-                if providers_to_split and provider_ext in providers_to_split:
+                if  providers_to_split and provider_ext in providers_to_split:
                     dep_provider = dep_provider + "-" + dep.region_name.lower()
 
             providers[dep_provider] = providers.get(dep_provider, 0) + 1
@@ -679,7 +681,7 @@ def showdeploymentstats():
             occurrences.pop("UNKNOWN")
         s_occurrences = dict(sorted(occurrences.items()))
         # add empty bins
-        if len(s_occurrences) > 0:
+        if  len(s_occurrences) > 0:
             k_occurrences = list(s_occurrences.keys())
             kocc = list(k_occurrences)
             datestart = kocc[0]
@@ -692,13 +694,13 @@ def showdeploymentstats():
             s_occurrences = dict(sorted(s_occurrences.items()))
 
         if len(s_occurrences.keys()) > 0:
-            return jsonify({"labels": list(s_occurrences.keys()),
-                            "values": list(s_occurrences.values()),
-                            "group": group,
-                            "provider": provider,
+            return jsonify({"labels":list(s_occurrences.keys()),
+                            "values":list(s_occurrences.values()),
+                            "group":group,
+                            "provider":provider,
                             "selected_status": selected_status,
                             "bar_colors": utils.gencolors("green", len(s_occurrences))
-                            })
+            })
 
         else:
             return jsonify({"error": "Template not found!"}), 404
@@ -743,7 +745,7 @@ def showdeploymentstats():
             v_occurrences.append(v)
 
         s_title = "All Deployment Status" if selected_status == "all" else "Deployment Status: " + selected_status
-        p_title = "All Groups" if not group else "Group: " + group
+        p_title= "All Groups" if not group else "Group: " + group
         pr_title = "All Providers" if not provider else "Provider: " + provider
         bar_title = "Deployments over time"
 
@@ -806,6 +808,7 @@ def lockdeployment(depid=None):
         return redirect(url_for(SHOW_HOME_ROUTE))
 
 
+
 @deployments_bp.route("/<depid>/unlock")
 @auth.authorized_with_valid_token
 def unlockdeployment(depid=None):
@@ -817,6 +820,7 @@ def unlockdeployment(depid=None):
     else:
         flash("Deployment not found!", "warning")
         return redirect(url_for(SHOW_HOME_ROUTE))
+
 
 
 @deployments_bp.route("/edit", methods=["POST"])
@@ -902,6 +906,7 @@ def process_deployment_data(dep):
     outputs: The processed outputs.
     stoutputs: The processed stoutputs.
     """
+
 
     try:
         i = dep.inputs.strip('"') if dep.inputs else None
@@ -1028,11 +1033,11 @@ def depinfradetails(depid=None):
 
 # PORTS MANAGEMENT
 def get_openstack_connection(
-        *,
-        endpoint: str,
-        provider_name: str,
-        provider_type: Optional[str] = None,
-        region_name: Optional[str] = None,
+    *,
+    endpoint: str,
+    provider_name: str,
+    provider_type: Optional[str] = None,
+    region_name: Optional[str] = None,
 ) -> openstack.connection.Connection:
     """Create openstack connection, to target project, using access token."""
     conn = None
@@ -1199,7 +1204,7 @@ def get_sec_groups(conn, server_id, public=True):
 def security_groups(depid=None):
     try:
         sec_groups = ""
-        subject = request.args.get("subject")
+        subject=request.args.get("subject")
         vm_provider = request.args.get("depProvider")
         vm_info = get_vm_info(depid)
         vm_id = vm_info["vm_id"]
@@ -1621,6 +1626,7 @@ def depreset(depid=None, mode="user"):
 @deployments_bp.route("/depupdate/<depid>")
 @auth.authorized_with_valid_token
 def depupdate(depid=None):
+
     dep = dbhelpers.get_deployment(depid)
 
     if dep is None:
@@ -1699,7 +1705,7 @@ def addnodes(depid):
 
         # do not trigger an update if nothing changes
         if not form_data.get("extra_opts.force_update") and all(
-                old_inputs.get(k) == v for k, v in new_inputs.items()
+            old_inputs.get(k) == v for k, v in new_inputs.items()
         ):
             message = (
                 f"Node addition Aborted for Deployment {dep.uuid}: No changes detected"
@@ -1760,12 +1766,12 @@ def updatedep():
         k: v
         for (k, v) in form_data.items()
         if not k.startswith("extra_opts.")
-           and k != "_depid"
-           and (
-                   k in stinputs
-                   and "updatable" in stinputs[k]
-                   and stinputs[k]["updatable"] is True
-           )
+        and k != "_depid"
+        and (
+            k in stinputs
+            and "updatable" in stinputs[k]
+            and stinputs[k]["updatable"] is True
+        )
     }
 
     app.logger.debug("Parameters: " + json.dumps(inputs))
@@ -1820,7 +1826,7 @@ def configure():
     _, _, tosca_gmetadata, _, _ = tosca.get()
 
     selected_group = request.args.get("selected_group", None)
-
+    
     ssh_pub_key = dbhelpers.get_ssh_pub_key(session["userid"])
     if not ssh_pub_key and app.config.get("FEATURE_REQUIRE_USER_SSH_PUBKEY") == "yes":
         flash(
@@ -1828,10 +1834,10 @@ def configure():
                 as no Public SSH key has been uploaded.",
             "danger",
         )
-
+    
     if selected_group is None:
         selected_group = session['selected_group']
-
+    
     if selected_group is not None:
         session["selected_group"] = selected_group
         templates = tosca_gmetadata[selected_group]["templates"]
@@ -1879,9 +1885,9 @@ def configure_select_scheduling(selected_tosca=None, multi_templates=True):
         access_token=access_token, deployment_type=template["deployment_type"]
     )
     # TODO: Consider saving this list in Redis for caching?)
-
+    
     ssh_pub_key = dbhelpers.get_ssh_pub_key(session["userid"])
-
+    
     return render_template(
         "chooseprovider.html",
         slas=slas,
@@ -1946,11 +1952,11 @@ def configure_form():
 
 
 def patch_template(
-        *,
-        access_token: str,
-        template: dict,
-        sla_id: Optional[str] = None,
-        region_name: Optional[str] = None,
+    *,
+    access_token: str,
+    template: dict,
+    sla_id: Optional[str] = None,
+    region_name: Optional[str] = None,
 ):
     if app.settings.use_fed_reg:
         user_group = fed_reg.retrieve_active_user_group(access_token=access_token)
@@ -1960,7 +1966,7 @@ def patch_template(
 
         # Manage group overrides
         for k, v in list(template["inputs"].items()):
-            # skip images override
+            #skip images override
             x = re.search("operating_system", k)
             if not x and "group_overrides" in v:
                 if user_group["name"] in v["group_overrides"]:
@@ -1978,7 +1984,7 @@ def patch_template(
         # patch flavors
         if flavors:
             for k in template["inputs"].keys():
-                if bool(re.match(pattern, k)):
+                if  bool(re.match(pattern, k)):
                     if re.search("gpu", k):
                         flavors = nogpu_flavors
                         break
@@ -2094,9 +2100,9 @@ def patch_template(
             for k, v in list(template["inputs"].items()):
                 x = re.search("operating_system", k)
                 if (
-                        x is not None
-                        and "group_overrides" in v
-                        and user_group["name"] in v["group_overrides"]
+                    x is not None
+                    and "group_overrides" in v
+                    and user_group["name"] in v["group_overrides"]
                 ):
                     overrides = v["group_overrides"][user_group["name"]]
                     template["inputs"][k] = {**v, **overrides}
@@ -2111,8 +2117,8 @@ def remove_sla_from_template(template):
             for policy in template["topology_template"]["policies"]:
                 for k, v in policy.items():
                     if "type" in v and (
-                            v["type"] == "tosca.policies.indigo.SlaPlacement"
-                            or v["type"] == "tosca.policies.Placement"
+                        v["type"] == "tosca.policies.indigo.SlaPlacement"
+                        or v["type"] == "tosca.policies.Placement"
                     ):
                         template["topology_template"]["policies"].remove(policy)
                         break
@@ -2123,8 +2129,8 @@ def remove_sla_from_template(template):
             for policy in template["policies"]:
                 for k, v in policy.items():
                     if "type" in v and (
-                            v["type"] == "tosca.policies.indigo.SlaPlacement"
-                            or v["type"] == "tosca.policies.Placement"
+                        v["type"] == "tosca.policies.indigo.SlaPlacement"
+                        or v["type"] == "tosca.policies.Placement"
                     ):
                         template["policies"].remove(policy)
                         break
@@ -2169,7 +2175,7 @@ def extract_inputs(form_data):
 
 def load_template(selected_template):
     with io.open(
-            os.path.join(app.settings.tosca_dir, selected_template), encoding="utf-8"
+        os.path.join(app.settings.tosca_dir, selected_template), encoding="utf-8"
     ) as stream:
         template = yaml.full_load(stream)
         stream.seek(0)
@@ -2237,8 +2243,8 @@ def process_list(key: str, inputs: dict, stinputs: dict, form_data: dict):
         try:
             json_data = json.loads(form_data[key])
             if (
-                    value["entry_schema"]["type"] == "map"
-                    and value["entry_schema"]["entry_schema"]["type"] == "string"
+                value["entry_schema"]["type"] == "map"
+                and value["entry_schema"]["entry_schema"]["type"] == "string"
             ):
                 array = []
                 for el in json_data:
@@ -2331,14 +2337,14 @@ def process_openstack_ec2credentials(key: str, inputs: dict, stinputs: dict):
                     for project in sla["projects"]:
                         _provider = project["provider"]
                         for quota in filter(
-                                lambda x: not x["usage"], project["quotas"]
+                            lambda x: not x["usage"], project["quotas"]
                         ):
                             service = quota["service"]
                             region = service["region"]
                             if (
-                                    service["type"] == "object-store"
-                                    and "s3" in service["name"]
-                                    and service["endpoint"].startswith(s3_url)
+                                service["type"] == "object-store"
+                                and "s3" in service["name"]
+                                and service["endpoint"].startswith(s3_url)
                             ):
                                 found = True
                                 break
@@ -2423,11 +2429,11 @@ def process_openstack_ec2credentials(key: str, inputs: dict, stinputs: dict):
                 )
 
                 secret_path = (
-                        session["userid"]
-                        + "/services_credential/"
-                        + urlparse(s3_url).netloc
-                        + "/"
-                        + session["active_usergroup"]
+                    session["userid"]
+                    + "/services_credential/"
+                    + urlparse(s3_url).netloc
+                    + "/"
+                    + session["active_usergroup"]
                 )
 
                 vaultclient.write_secret_dict(
@@ -2556,8 +2562,8 @@ def process_inputs(source_template, inputs, form_data, uuidgen_deployment):
 
     for k, v in list(stinputs.items()):
         if (
-                "group_overrides" in v
-                and session["active_usergroup"] in v["group_overrides"]
+            "group_overrides" in v
+            and session["active_usergroup"] in v["group_overrides"]
         ):
             overrides = v["group_overrides"][session["active_usergroup"]]
             stinputs[k] = {**v, **overrides}
@@ -2600,18 +2606,18 @@ def process_inputs(source_template, inputs, form_data, uuidgen_deployment):
 
 
 def create_deployment(
-        template,
-        inputs,
-        stinputs,
-        form_data,
-        selected_template,
-        source_template,
-        template_text,
-        additionaldescription,
-        params,
-        storage_encryption,
-        vault_secret_uuid,
-        vault_secret_key,
+    template,
+    inputs,
+    stinputs,
+    form_data,
+    selected_template,
+    source_template,
+    template_text,
+    additionaldescription,
+    params,
+    storage_encryption,
+    vault_secret_uuid,
+    vault_secret_key,
 ):
     access_token = iam.token["access_token"]
 
@@ -2750,7 +2756,7 @@ def retrydep(depid=None):
     - depid: str, the ID of the deployment
     """
     tosca_info, _, _, _, _ = tosca.get()
-
+    
     try:
         access_token = iam.token["access_token"]
     except Exception as e:
@@ -2801,8 +2807,8 @@ def retrydep(depid=None):
 
         for tmp_dep in deployments:
             if (
-                    tmp_name + str_retry in tmp_dep.description
-                    and "DELETE_COMPLETE" not in tmp_dep.status
+                tmp_name + str_retry in tmp_dep.description
+                and "DELETE_COMPLETE" not in tmp_dep.status
             ):
                 num_retry = 0
                 split_desc = tmp_dep.description.split(str_retry)
@@ -2846,13 +2852,13 @@ def retrydep(depid=None):
 
 
 def create_dep_method(
-        source_template,
-        selected_template,
-        additionaldescription,
-        inputs,
-        form_data,
-        template,
-        template_text,
+    source_template,
+    selected_template,
+    additionaldescription,
+    inputs,
+    form_data,
+    template,
+    template_text,
 ):
     access_token = iam.token["access_token"]
 
@@ -2992,8 +2998,8 @@ def add_storage_encryption(access_token, inputs):
     vault_secret_uuid = ""
     vault_secret_key = ""
     if (
-            "storage_encryption" in inputs
-            and inputs["storage_encryption"].lower() == "true"
+        "storage_encryption" in inputs
+        and inputs["storage_encryption"].lower() == "true"
     ):
         storage_encryption = 1
         vault_secret_key = "secret"

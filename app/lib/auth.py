@@ -33,22 +33,15 @@ def set_user_info():
     session["given_name"] = account_info_json["given_name"]
     session["family_name"] = account_info_json["family_name"]
     session["useremail"] = account_info_json["email"]
+    session["userrole"] = "user"
     session["gravatar"] = utils.avatar(account_info_json["email"], 26)
     session["organisation_name"] = account_info_json["organisation_name"]
 
-    #CLOUD-2833
-    #session["userrole"] = "user"
     user_groups = account_info_json["groups"]
-    if app.settings.iam_admin_groups:
-        session["userrole"] = "admin" if set(app.settings.iam_admin_groups).intersection(user_groups) else "user"
-    else:
-        session["userrole"] = "user"
-    #
-
     supported_groups = []
     if app.settings.iam_groups:
         supported_groups = list(set(app.settings.iam_groups) & set(user_groups))
-        if len(supported_groups) == 0 and session["userrole"] == "user":
+        if len(supported_groups) == 0:
             app.logger.warning(
                 "The user {} does not belong to any supported user group".format(user_id)
             )
