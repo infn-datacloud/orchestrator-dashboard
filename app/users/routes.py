@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import datetime
 from app.models.User import User
 from flask import (
     Blueprint,
@@ -141,7 +142,7 @@ def showuserstats():
     if not hasfilterdate and len(s_occurrences) > 0:
         kocc = list(k_occurrences)
         datestart = kocc[0]
-        dateend = kocc[len(kocc)-1]
+        dateend =  datetime.date.today().strftime("%Y-%m") # kocc[len(kocc)-1]
 
     # get full interval list
     months = months_list(datestart, dateend)
@@ -149,9 +150,11 @@ def showuserstats():
         if not month in s_occurrences:
             s_occurrences[month] = dict()
 
+    # new sort
     s_occurrences = dict(sorted(s_occurrences.items(), key=lambda item: item[0]))
     k_occurrences = list(s_occurrences.keys())
     v_occurrences = list()
+    # count instances
     for k in s_occurrences.values():
         v = 0
         for j in k.values():
@@ -161,14 +164,17 @@ def showuserstats():
     # get users list and count deployments
     s_users = dict()
     o_users = dict()
+    v_users = list()
     for occurrence in s_occurrences.values():
+        v = 0
         for keyu, c in occurrence.items():
+            v = v + 1
             if not keyu in s_users:
                 s_users[keyu] = 0
-            s_users[keyu] = s_users[keyu] + c
-            if not keyu in o_users:
                 user = dbhelpers.get_user(keyu)
                 o_users[keyu] = user
+            s_users[keyu] = s_users[keyu] + c
+        v_users.append(v)
 
     s_title = "Active users over time for all statuses" if selected_status == "all" else "Active users over time for status: " + selected_status
 
@@ -176,7 +182,7 @@ def showuserstats():
         "showuserstats.html",
         s_title=s_title,
         s_labels=list(k_occurrences),
-        s_values=list(v_occurrences),
+        s_values=list(v_users),
         s_colors=utils.gencolors("green", len(s_occurrences)),
         status_labels=get_all_statuses(),
         selected_status=selected_status,
