@@ -725,11 +725,11 @@ def showdeploymentstats():
             datestart = kocc[0]
             dateend = datetime.date.today().strftime("%Y-%m")  # kocc[len(kocc)-1]
 
-        # get full interval list
-        months = months_list(datestart, dateend)
-        for month in months:
-            if not month in s_occurrences:
-                s_occurrences[month] = dict()
+            # get full interval list
+            months = months_list(datestart, dateend)
+            for month in months:
+                if not month in s_occurrences:
+                    s_occurrences[month] = dict()
 
         # new sort
         s_occurrences = dict(sorted(s_occurrences.items(), key=lambda item: item[0]))
