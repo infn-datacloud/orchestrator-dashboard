@@ -284,7 +284,7 @@ def get_active_statuses():
 
 
 def get_inactive_statuses():
-    return list(["DELETE_COMPLETE","DELETE_IN_PROGRESS","CREATE_FAILED","DELETE_FAILED"])
+    return list(["CREATE_FAILED","DELETE_FAILED"])
 
 
 def build_excludedstatus_filter(status):
