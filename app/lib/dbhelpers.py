@@ -381,8 +381,8 @@ def filter_group(deployments, search_string_list, negate):
 
 def filter_template(deployments, search_string_list, negate):
     def iterator_func(x):
-        if x.selected_template in search_string_list or \
-                (nullorempty(x.selected_template) and "UNKNOWN" in search_string_list):
+        template = x.selected_template or "UNKNOWN"
+        if template in search_string_list:
             return negate
         return not negate
     return list(filter(iterator_func, deployments))
