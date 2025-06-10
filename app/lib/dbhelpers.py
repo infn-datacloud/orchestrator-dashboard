@@ -280,11 +280,11 @@ def get_all_statuses():
 
 
 def get_active_statuses():
-    return list(["CREATE_COMPLETE","CREATE_IN_PROGRESS","UPDATE_COMPLETE","UPDATE_IN_PROGRESS","UPDATE_FAILED","DELETE_IN_PROGRESS","DELETE_FAILED"])
+    return list(["CREATE_COMPLETE","CREATE_IN_PROGRESS","CREATE_FAILED","UPDATE_COMPLETE","UPDATE_IN_PROGRESS","UPDATE_FAILED","DELETE_IN_PROGRESS","DELETE_FAILED"])
 
 
 def get_inactive_statuses():
-    return list(["CREATE_FAILED","DELETE_FAILED"])
+    return list(["DELETE_COMPLETE"])
 
 
 def build_excludedstatus_filter(status):

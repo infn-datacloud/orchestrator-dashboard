@@ -430,13 +430,14 @@ def portfolio():
             )
             dbhelpers.add_object(user)
         else:
-            # update user data but role
+            # update user data
             dbhelpers.update_user(subject, dict(
                 name=session["username"],
                 username=session["preferred_username"],
                 given_name=session["given_name"],
                 family_name=session["family_name"],
                 email=email,
+                role=role,
                 organisation_name=session["organisation_name"],
                 picture=utils.avatar(email, 26),
                 active=1))
