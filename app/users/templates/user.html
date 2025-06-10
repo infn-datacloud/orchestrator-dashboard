@@ -66,36 +66,6 @@
                     <input type="text" class="form-control" id="organisation_name" name="organisation_name" placeholder="Organisation name" value="{{user.organisation_name}}" readonly>
                 </div>
 
-                <!--
-                <div class="form-group">
-                    <label for="role">Role</label>
-                    {% if ronly == 'False' %}
-                        <select id="role" name="role" class="form-control"  value="{{user,role}}"  {% if user.sub==session['userid'] %}disabled{% endif %}>
-                            <option {% if user.role=='user' %}selected{% endif %} value="user">User</option>
-                            <option {% if user.role=='user:s3' %}selected{% endif %} value="user:s3">User:S3</option>
-                            <option {% if user.role=='admin' %}selected{% endif %} value="admin">Admin</option>
-                        </select>
-                    {% else %}
-                        <input type="text" class="form-control" id="role" name="role" value="{{user.role}}" readonly>
-                    {% endif %}
-                </div>
-                <div class="form-group">
-                    <label for="active">Active</label>
-                    {% if ronly == 'False' %}
-                        <select id="active" name="active" class="form-control"  value="{{user.active}}" {% if user.sub==session['userid'] %}disabled{% endif %}>
-                            <option {% if user.active==0 %}selected{% endif %} value="0">Inactive</option>
-                            <option {% if user.active==1 %}selected{% endif %} value="1">Active</option>
-                        </select>
-                    {% else %}
-                        <input type="text" class="form-control" id="active" name="active" value="{% if user.active==0 %}Inactive{% else %}Active{% endif %}" readonly>
-                    {% endif %}
-                </div>
-                {% if user.sub==session['userid'] %}
-                <input type="hidden" name="role" value="{{user.role}}"/>
-                <input type="hidden" name="active" value="{{user.active}}"/>
-                -->
-
-                {% endif %}
                 <br/>
             </div>
         </div>
