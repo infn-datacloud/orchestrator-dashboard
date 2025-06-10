@@ -672,7 +672,8 @@ def showdeploymentstats():
     if templaterq is not None:
         occurrences = {"UNKNOWN": 0}
         for dep in deployments:
-            if dep.selected_template == templaterq:
+            if dep.selected_template == templaterq or \
+                    (nullorempty(dep.selected_template) and templaterq == "UNKNOWN"):
                 depdate = dep.creation_time.strftime("%Y-%m")
                 occurrences[depdate] = occurrences.get(depdate, 0) + 1
         if occurrences["UNKNOWN"] == 0:
