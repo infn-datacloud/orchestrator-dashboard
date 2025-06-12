@@ -38,7 +38,7 @@ UPLOAD_FOLDER = "./upload_swift/"
 
 #### LOOK AND FEEL SETTINGS
 WELCOME_MESSAGE = "Welcome! This is the PaaS Orchestrator Dashboard"
-NAVBAR_BRAND_TEXT = "PaaS Orchestrator Dashboard"
+NAVBAR_BRAND_TEXT = "Dashboard"
 NAVBAR_BRAND_ICON = "/static/home/images/orchestrator-logo.png"
 
 ### Template Paths

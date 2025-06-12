@@ -31,6 +31,7 @@ from app.models.Service import Service
 from app.models.UsersGroup import UsersGroup
 from app.models.User import User
 from app.models.Setting import Setting
+from app.models.DbVersion import DbVersion
 
 
 def add_object(object):
@@ -76,13 +77,13 @@ def update_deployment(depuuid, data):
     Deployment.query.filter_by(uuid=depuuid).update(data)
     db.session.commit()
 
-
+'''
 def get_user_deployments(user_sub, user_group = None):
     kwargs = {"sub": user_sub}
     if user_group is not None:
         kwargs["user_group"] = user_group
     return Deployment.query.filter_by(**kwargs).all()
-
+'''
 
 def get_deployment(uuid):
     return Deployment.query.get(uuid)
@@ -457,6 +458,7 @@ def cvdeployment(d):
     )
     return deployment
 
+'''
 
 def update_deployments(subject):
     issuer = app.settings.iam_url
@@ -465,7 +467,6 @@ def update_deployments(subject):
 
     # retrieve deployments from orchestrator
     access_token = iam.token["access_token"]
-    deployments_from_orchestrator = []
 
     deployments_from_orchestrator = app.orchestrator.get_deployments(
         access_token, created_by="{}@{}".format(subject, issuer)
@@ -493,6 +494,7 @@ def update_deployments_status(deployments_from_orchestrator, subject):
         if dep.remote != newremote:
             update_deployment(dep.uuid, dict(remote=newremote))
 
+'''
 
 def get_services(visibility, groups=[]):
     services = []
@@ -572,3 +574,7 @@ def get_settings():
 def update_setting(id, data):
     Setting.query.filter_by(id=id).update(data)
     db.session.commit()
+
+
+def get_dbversion():
+    return DbVersion.query.all()[0].version_num
