@@ -409,16 +409,10 @@ def portfolio():
         # if user not found, insert
         subject = session["userid"]
         email = session["useremail"]
-        #CLOUD-2833
         role = session["userrole"]
-        #
         user = dbhelpers.get_user(subject)
 
         if user is None:
-            # CLOUD-2833
-            #admins = json.dumps(app.config["ADMINS"])
-            #role = "admin" if email in admins else "user"
-            #
             user = User(
                 sub=subject,
                 name=session["username"],
@@ -445,10 +439,6 @@ def portfolio():
                 picture=utils.avatar(email, 26),
                 active=1))
 
-        # CLOUD-2833
-        #session["userrole"] = user.role  # role
-        #
-
         services = dbhelpers.get_services(visibility="public")
         services.extend(
             dbhelpers.get_services(visibility="private", groups=[session["active_usergroup"]])
@@ -458,7 +448,7 @@ def portfolio():
         )
 
         deps = []
-        excluded_status = build_excludedstatus_filter("actives")
+        excluded_status = build_excludedstatus_filter(list(["actives"]))
         try:
             if excluded_status is not None:
                 deps = app.orchestrator.get_deployments(
@@ -474,17 +464,6 @@ def portfolio():
         # sanitize data and filter undesired states
         if deps:
             deps = dbhelpers.sanitizedeployments(deps)["deployments"]
-
-
-        '''
-        try:
-            dbhelpers.update_deployments(session["userid"])
-        except Exception as e:
-            flash("Error retrieving deployment list: \n" + str(e), "warning")
-
-        deps = dbhelpers.get_user_deployments(session["userid"])
-
-        '''
 
         statuses = {}
         for dep in deps:

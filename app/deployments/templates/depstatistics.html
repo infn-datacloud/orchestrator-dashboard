@@ -1,6 +1,10 @@
 {% extends "base.html" %}
 {% block content %}
+
+<!-- depstatistics.html -->
+
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.6.2/dist/chart.min.js"></script>
+
 <style>
     .chart-container {
       width: 100%;
@@ -33,10 +37,11 @@
       margin-right: 10px;
     }
 </style>
+
 <div class="container-fluid">
 	{% set ar = namespace(found=false) %}
   	<br>
-    <div class="card shadow mb-4">    
+    <div class="card shadow mb-4">
         <div class="card-body">
             <div class="dashboard-template-header">
                 <div class="dashboard-template-image">
@@ -52,55 +57,90 @@
 						<i class="fas fa-sync-alt"></i>&nbsp;Refresh
 					</button>
                     &nbsp;
-                    <div>
-                        <button type="button" id="statusbutton" class="dashboard-button dashboard-button-small dashboard-button-primary dropdown-toggle dropdown-toggle-split" data-toggle="dropdown">
+                    <!-- Status selector -->
+                    <div class="dropdown">
+                        <button type="button" id="statusbutton" class="dashboard-button dashboard-button-small dashboard-button-primary dropdown-toggle dropdown-toggle-split"
+                                data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                             <span class='fas fa-list mr-2'></span>Status&nbsp;
                         </button>
-                        <div class="dropdown-menu">
-                            <a class={% if not selected_status or selected_status == 'all' %}"dropdown-item active"{% else %}"dropdown-item"{% endif %} href="javascript:;" onclick="processStatusSelect('all'); return true;">
-                                all
-                            </a>
-                            <a class={% if selected_status == 'actives' %}"dropdown-item active"{% else %}"dropdown-item"{% endif %} href="javascript:;" onclick="processStatusSelect('actives'); return true;">
-                                actives
-                            </a>
+                        <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+                            <div class="dropdown-item">
+                                <label class="form-check-label">
+                                    <input type="checkbox" class="form-check-input multi-check-status" value="all" data-exclusive="true"
+                                     {% if not selected_status or 'all' in selected_status %}checked{% endif %}>
+                                    all
+                                </label>
+                            </div>
+                            <div class="dropdown-item">
+                                <label class="form-check-label">
+                                    <input type="checkbox" class="form-check-input multi-check-status" value="actives" data-exclusive="true"
+                                        {% if not selected_status or 'actives' in selected_status %}checked{% endif %}>
+                                    actives
+                                </label>
+                            </div>
                             {% for deployment_status in status_labels %}
-                                <a class={% if selected_status == deployment_status %}"dropdown-item active"{% else %}"dropdown-item"{% endif %} href="javascript:;" onclick="processStatusSelect('{{deployment_status}}'); return true;">
-                                    {{deployment_status}}
-                                </a>
+                            <div class="dropdown-item">
+                                <label class="form-check-label">
+                                  <input type="checkbox" class="form-check-input multi-check-status"
+                                         value="{{ deployment_status }}"
+                                         {% if deployment_status in selected_status %}checked{% endif %}>
+                                    {{ deployment_status }}
+                                </label>
+                            </div>
                             {% endfor %}
                         </div>
-                    </div>&nbsp;
-                    <div>
-                        <button type="button" id="groupbutton" class="dashboard-button dashboard-button-small dashboard-button-primary dropdown-toggle dropdown-toggle-split" data-toggle="dropdown">
+                    </div>
+                    &nbsp;
+                    <!-- Group selector -->
+                    <div class="dropdown">
+                        <button type="button" id="groupbutton" class="dashboard-button dashboard-button-small dashboard-button-primary dropdown-toggle dropdown-toggle-split"
+                                data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                             <span class='fas fa-list mr-2'></span>Group&nbsp;
                         </button>
-                        <div class="dropdown-menu">
-                            <a class={% if not group or group == '' %}"dropdown-item active"{% else %}"dropdown-item"{% endif %} href="javascript:;" onclick="processGroupSelect(''); return true;">
-                                all
-                            </a>
+                        <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+                            <div class="dropdown-item">
+                                <label class="form-check-label">
+                                    <input type="checkbox" class="form-check-input multi-check-group" value="all" data-exclusive="true"
+                                     {% if not selected_group or 'all' in selected_group %}checked{% endif %}>
+                                    all
+                                </label>
+                            </div>
                             {% for user_group in groups_labels %}
-                                {% if user_group != "UNKNOWN" %}
-                                    <a class={% if group == user_group %}"dropdown-item active"{% else %}"dropdown-item"{% endif %} href="javascript:;" onclick="processGroupSelect('{{user_group}}'); return true;">
-                                        {{user_group}}
-                                    </a>
-                                {% endif %}
+                                <div class="dropdown-item">
+                                    <label class="form-check-label">
+                                      <input type="checkbox" class="form-check-input multi-check-group"
+                                             value="{{ user_group }}"
+                                             {% if user_group in selected_group %}checked{% endif %}>
+                                        {{ user_group }}
+                                    </label>
+                                </div>
                             {% endfor %}
                         </div>
-                    </div>&nbsp;
-                    <div>
-                        <button type="button" id="providerbutton" class="dashboard-button dashboard-button-small dashboard-button-primary dropdown-toggle dropdown-toggle-split" data-toggle="dropdown">
+                    </div>
+                    &nbsp;
+                    <!-- Provider selector -->
+                    <div class="dropdown">
+                        <button type="button" id="providerbutton" class="dashboard-button dashboard-button-small dashboard-button-primary dropdown-toggle dropdown-toggle-split"
+                                data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                             <span class='fas fa-list mr-2'></span>Provider&nbsp;
                         </button>
-                        <div class="dropdown-menu">
-                            <a class={% if not provider or provider == '' %}"dropdown-item active"{% else %}"dropdown-item"{% endif %} href="javascript:;" onclick="processProviderSelect(''); return true;">
-                                all
-                            </a>
+                        <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+                            <div class="dropdown-item">
+                                <label class="form-check-label">
+                                    <input type="checkbox" class="form-check-input multi-check-provider" value="all" data-exclusive="true"
+                                     {% if not selected_provider or 'all' in selected_provider %}checked{% endif %}>
+                                    all
+                                </label>
+                            </div>
                             {% for user_provider in providers_labels %}
-                                {% if user_provider != "UNKNOWN" %}
-                                    <a class={% if provider == user_provider %}"dropdown-item active"{% else %}"dropdown-item"{% endif %} href="javascript:;" onclick="processProviderSelect('{{user_provider}}'); return true;">
-                                        {{user_provider}}
-                                    </a>
-                                {% endif %}
+                                <div class="dropdown-item">
+                                    <label class="form-check-label">
+                                      <input type="checkbox" class="form-check-input multi-check-provider"
+                                             value="{{ user_provider }}"
+                                             {% if user_provider in selected_provider %}checked{% endif %}>
+                                        {{ user_provider }}
+                                    </label>
+                                </div>
                             {% endfor %}
                         </div>
                     </div>
@@ -124,9 +164,9 @@
             </div>
             <form id="tableform" action="{{ url_for('deployments_bp.showdeploymentstats') }}" method="post">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <input type="hidden" id="group" name="group" value={{ group }}>
-                <input type="hidden" id="provider" name="provider" value={{ provider }}>
-                <input type="hidden" id="selected_status" name="selected_status" value={{ selected_status }}>
+                <input type="hidden" id="selected_group" name="selected_group" value={{ selected_group | safe }}>
+                <input type="hidden" id="selected_provider" name="selected_provider" value={{ selected_provider | safe }}>
+                <input type="hidden" id="selected_status" name="selected_status" value={{ selected_status | safe}}>
                 <input type="hidden" id="selected_template" name="selected_template" value={{ selected_template }}>
             </form>
             <div class="container my-4">
@@ -151,18 +191,7 @@
 
             <div class="tab-content" id="nav-tabContent">
               <div class="tab-pane fade show active" id="nav-templates" role="tabpanel" aria-labelledby="nav-templates-tab">
-<!--
-            <div class="row" id="uttitle">
-                <div class="dashboard-template-image">
-                    <i class="fas fa-file-invoice"></i>
-                </div>
-                <div class="dashboard-template-title">
-                    Templates Usage
-                    <br/>
-                </div>
-            </div>
-            <div id="uttable">
-     -->
+
                 <!--Table-->
                 <div class="table-responsive">
                 <table id="tableStats" class="table table-bordered table-striped" width="100%" cellspacing="0">
@@ -192,43 +221,21 @@
                 </table>
                 </div>
                 <!--Table-->
-<!--
-            </div>
-            -->
               </div>
               <div class="tab-pane fade " id="nav-deployments" role="tabpanel" aria-labelledby="nav-deployments-tab">
                   <div id="barChartRow" class="row text-center"></div>
               </div>
             </div>
-
-
-
         </div>
     </div>
 </div>
 
+
 <script>
-
-
 
 function postMain() {
     $( "#tableform" ).submit();
     return true;
-}
-
-function processStatusSelect(status) {
-    document.getElementById("selected_status").value = status;
-    postMain();
-}
-
-function processGroupSelect(group) {
-    document.getElementById("group").value = group;
-    postMain();
-}
-
-function processProviderSelect(provider) {
-    document.getElementById("provider").value = provider;
-    postMain();
 }
 
 $('#tableStats').dataTable( {
@@ -254,9 +261,9 @@ let barChartInstance = null;
 
  $('#tableStats').on('click', 'button[data-value]', function () {
      const id = this.getAttribute('data-value');
-     var group = document.getElementById("group").value;
+     var selected_group = document.getElementById("selected_group").value;
      var selected_status = document.getElementById("selected_status").value;
-     var provider = document.getElementById("provider").value;
+     var selected_provider = document.getElementById("selected_provider").value;
      set_loading(true);
      fetch("{{ url_for('deployments_bp.showdeploymentstats') }}", {
         method: 'POST',
@@ -265,20 +272,21 @@ let barChartInstance = null;
             'x-csrf-token': '{{csrf_token()}}',
             'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ id: id, group: group, provider: provider, selected_status: selected_status })
+        body: JSON.stringify({ id: id, selected_group: selected_group, selected_provider: selected_provider, selected_status: selected_status })
      })
      .then(res => res.json())
      .then(data => {
         if (data.error) {
           alert("Error: " + data.error);
+          set_loading(false);
           return;
         }
 
         var labels = data.labels;
         var values = data.values;
-        document.getElementById("group").value = data.group;
+        document.getElementById("selected_group").value = data.selected_group;
         document.getElementById("selected_status").value = data.selected_status;
-        document.getElementById("provider").value = data.provider;
+        document.getElementById("selected_provider").value = data.selected_provider;
         var backgroundColors = data.bar_colors;
         document.getElementById("modalTitle").textContent = id;
         /*
@@ -584,6 +592,44 @@ function drawDeploymentsBar()
     );
 }
 
+function updateSelectedItems(name, dopost) {
+  const selected = [];
+  $('.multi-check-'+name+':checked').each(function () {
+    selected.push($(this).val());
+  });
+  $('#selected_'+name).val(JSON.stringify(selected));
+  if (dopost) {
+      postMain();
+  }
+}
+
+function UpdateMultiCheck(obj, name) {
+    const isExclusive = $(obj).data('exclusive') === true || $(obj).data('exclusive') === "true";
+    if (isExclusive && obj.checked) {
+      $('.multi-check-'+name).not(obj).prop('checked', false);
+    } else if (obj.checked) {
+      $('.multi-check-'+ name+'[data-exclusive="true"]').prop('checked', false);
+    }
+    updateSelectedItems(name, true);
+}
+
+$(document).ready(function () {
+  $('.multi-check-status').on('change', function () {
+   UpdateMultiCheck(this, 'status');
+  });
+  $('.multi-check-group').on('change', function () {
+   UpdateMultiCheck(this, 'group');
+  });
+  $('.multi-check-provider').on('change', function () {
+   UpdateMultiCheck(this, 'provider');
+  });
+
+  // Inizializza selezioni
+  updateSelectedItems('status', false);
+  updateSelectedItems('group', false);
+  updateSelectedItems('provider', false);
+});
+
 window.onload = function() {
 
     drawchart("status_chart",
@@ -622,14 +668,7 @@ window.onload = function() {
     navtab.style.display = validChartCount === 0 ? "none" : "flex";
     const navcontent = document.getElementById("nav-tabContent");
     navcontent.style.display = validChartCount === 0 ? "none" : "block";
-/*
-    const uttitle = document.getElementById("uttitle");
-    uttitle.style.display = validChartCount === 0 ? "none" : "flex";
-    const uttable = document.getElementById("uttable");
-    uttable.style.display = validChartCount === 0 ? "none" : "block";
-  */
 }
-
 
 </script>
 

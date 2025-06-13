@@ -282,17 +282,17 @@ def get_inactive_statuses():
 
 
 def build_excludedstatus_filter(status):
-    if status == "all":
+    if "all" in status:
         return None
-    if status == "actives":
+    if "actives" in status:
         slist = get_inactive_statuses()
-        sfilter = ""
+        sfilter = list()
     else:
         slist = get_all_statuses()
         sfilter = status
     excluded_status = ""
     for st in slist:
-        if st != sfilter:
+        if not st in sfilter:
             if excluded_status != "":
                 excluded_status += ","
             excluded_status += st
@@ -384,23 +384,25 @@ def filter_template(deployments, search_string_list, negate):
 
 def filter_provider(deployments, search_string_list, negate, providers_to_split):
     def iterator_func(x):
-        provider = x.provider_name or "UNKNOWN"
-        if x.region_name:
-            provider_ext = (provider + "-" + x.region_name).lower()
-            if providers_to_split and provider_ext in providers_to_split:
-                provider = provider + "-" + x.region_name.lower()
+        provider = buildprovidername(providers_to_split, x.provider_name, x.region_name)
         if provider in search_string_list:
             return negate
         return not negate
     return list(filter(iterator_func, deployments))
 
+def buildprovidername(providers_to_split, dep_provider, dep_region_name):
+    provider = dep_provider or "UNKNOWN"
+    if dep_region_name:
+        provider_ext = (provider + "-" + dep_region_name).lower()
+        if providers_to_split and provider_ext in providers_to_split:
+            return provider + "-" + dep_region_name.lower()
+    return provider
 
 def cvdeployments(deps):
     deployments = []
     for d in deps:
         deployments.append(cvdeployment(d))
     return deployments
-
 
 def nullorempty(value):
     return True if value is None or value == "" or value == "None" else False
