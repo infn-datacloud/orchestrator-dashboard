@@ -35,6 +35,7 @@ from app.extensions import csrf, tosca
 from app.iam import iam
 from app.lib import auth, dbhelpers, openstack, redis_helper, utils
 from app.models.User import User
+from app.lib.dbhelpers import get_dbversion, build_excludedstatus_filter
 
 home_bp = Blueprint(
     "home_bp",
@@ -68,7 +69,8 @@ def show_info():
         iam_url=app.settings.iam_url,
         orchestrator_url=app.settings.orchestrator_url,
         orchestrator_conf=app.settings.orchestrator_conf,
-        vault_url=app.config.get("VAULT_URL")
+        vault_url=app.config.get("VAULT_URL"),
+        dbversion=get_dbversion()
     )
 
 
@@ -402,15 +404,21 @@ def portfolio():
     """
 
     if session.get("userid"):
+        access_token = iam.token["access_token"]
         # check database
         # if user not found, insert
         subject = session["userid"]
         email = session["useremail"]
+        #CLOUD-2833
+        role = session["userrole"]
+        #
         user = dbhelpers.get_user(subject)
-        if user is None:
-            admins = json.dumps(app.config["ADMINS"])
-            role = "admin" if email in admins else "user"
 
+        if user is None:
+            # CLOUD-2833
+            #admins = json.dumps(app.config["ADMINS"])
+            #role = "admin" if email in admins else "user"
+            #
             user = User(
                 sub=subject,
                 name=session["username"],
@@ -425,18 +433,21 @@ def portfolio():
             )
             dbhelpers.add_object(user)
         else:
-            # update user data but role
+            # update user data
             dbhelpers.update_user(subject, dict(
                 name=session["username"],
                 username=session["preferred_username"],
                 given_name=session["given_name"],
                 family_name=session["family_name"],
                 email=email,
+                role=role,
                 organisation_name=session["organisation_name"],
                 picture=utils.avatar(email, 26),
                 active=1))
 
-        session["userrole"] = user.role  # role
+        # CLOUD-2833
+        #session["userrole"] = user.role  # role
+        #
 
         services = dbhelpers.get_services(visibility="public")
         services.extend(
@@ -445,7 +456,27 @@ def portfolio():
         templates_info, enable_template_groups = check_template_access(
             session["usergroups"], session["active_usergroup"]
         )
-        
+
+        deps = []
+        excluded_status = build_excludedstatus_filter("actives")
+        try:
+            if excluded_status is not None:
+                deps = app.orchestrator.get_deployments(
+                    access_token, created_by="me", excluded_status=excluded_status
+                )
+            else:
+                deps = app.orchestrator.get_deployments(
+                    access_token, created_by="me"
+                )
+        except Exception as e:
+            flash("Error retrieving deployment list: \n" + str(e), "warning")
+
+        # sanitize data and filter undesired states
+        if deps:
+            deps = dbhelpers.sanitizedeployments(deps)["deployments"]
+
+
+        '''
         try:
             dbhelpers.update_deployments(session["userid"])
         except Exception as e:
@@ -453,12 +484,13 @@ def portfolio():
 
         deps = dbhelpers.get_user_deployments(session["userid"])
 
+        '''
 
         statuses = {}
         for dep in deps:
             status = dep.status if dep.status else "UNKNOWN"
-            if status != "DELETE_COMPLETE" and dep.remote == 1:
-                statuses[status] = 1 if status not in statuses else statuses[status] + 1
+            #if status != "DELETE_COMPLETE" and dep.remote == 1:
+            statuses[status] = 1 if status not in statuses else statuses[status] + 1
 
         return render_template(
             app.config.get("PORTFOLIO_TEMPLATE"),

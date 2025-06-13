@@ -149,7 +149,7 @@
 									{% endif %}
 									{{deployment.status}}
 								</td>
-								<td><a href="{{ url_for('users_bp.show_user', subject=deployment.sub, ronly=True) }}">{{deployment.sub}}</a></td>
+								<td><a href="{{ url_for('users_bp.show_user', subject=deployment.sub, ronly=True) }}">{{deployment.user.name}}</a></td>
 								<td>{{deployment.creation_time}}</td>
 								<td>{{deployment.update_time}}</td>
 								<td>{{deployment.endpoint}}</td>

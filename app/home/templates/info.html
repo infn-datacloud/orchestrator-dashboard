@@ -7,19 +7,36 @@
         <div class="card-body">
             <div class="dashboard-template-header">
                 <div class="dashboard-template-image">
-                    <i class="fas fa-cog"></i>
+                    <i class="fas fa-info-circle"></i>
                 </div>
-            
                 <div class="dashboard-template-title">
                     Info
                 </div>
             </div>
 
             <ul class="nav nav-tabs">
-                <li class="nav-item"><a class="nav-link active" data-toggle="tab" href="#conf_endpoints">Infrastructure Endpoints</a></li>
+                <!--
+                <li class="nav-item"><a class="nav-link active" data-toggle="tab" href="#app_info">
+                    <i class="fas fa-info-circle"></i>&nbsp;Application</a></li>
+                -->
+                <li class="nav-item"><a class="nav-link active" data-toggle="tab" href="#conf_endpoints">
+                    <i class="fas fa-network-wired"></i>&nbsp;Infrastructure Endpoints</a></li>
             </ul>
 
             <div class="tab-content">
+                <!--
+                <div class="tab-pane fade show active" id=app_info>
+                    <br>
+                    PaaS Dashboard
+                    <br>
+                    Application version:
+                    <br>
+                    Database version: {{ dbversion }}
+                    <br>
+                    <br>
+                    Created by I.N.F.N. - Istituto Nazionale di Fisica Nucleare
+                </div>
+                -->
                 <div class="tab-pane fade show active" id=conf_endpoints>
                     <br>
                     <div class="table-responsive">

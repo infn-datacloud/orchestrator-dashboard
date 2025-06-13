@@ -31,6 +31,7 @@ from app.models.Service import Service
 from app.models.UsersGroup import UsersGroup
 from app.models.User import User
 from app.models.Setting import Setting
+from app.models.DbVersion import DbVersion
 
 
 def add_object(object):
@@ -75,13 +76,6 @@ def delete_ssh_key(subject):
 def update_deployment(depuuid, data):
     Deployment.query.filter_by(uuid=depuuid).update(data)
     db.session.commit()
-
-
-def get_user_deployments(user_sub, user_group = None):
-    kwargs = {"sub": user_sub}
-    if user_group is not None:
-        kwargs["user_group"] = user_group
-    return Deployment.query.filter_by(**kwargs).all()
 
 
 def get_deployment(uuid):
@@ -280,11 +274,11 @@ def get_all_statuses():
 
 
 def get_active_statuses():
-    return list(["CREATE_COMPLETE","CREATE_IN_PROGRESS","UPDATE_COMPLETE","UPDATE_IN_PROGRESS","UPDATE_FAILED"])
+    return list(["CREATE_COMPLETE","CREATE_IN_PROGRESS","CREATE_FAILED","UPDATE_COMPLETE","UPDATE_IN_PROGRESS","UPDATE_FAILED","DELETE_IN_PROGRESS","DELETE_FAILED"])
 
 
 def get_inactive_statuses():
-    return list(["DELETE_COMPLETE","DELETE_IN_PROGRESS","CREATE_FAILED","DELETE_FAILED"])
+    return list(["DELETE_COMPLETE"])
 
 
 def build_excludedstatus_filter(status):
@@ -381,7 +375,8 @@ def filter_group(deployments, search_string_list, negate):
 
 def filter_template(deployments, search_string_list, negate):
     def iterator_func(x):
-        if x.selected_template in search_string_list:
+        template = x.selected_template or "UNKNOWN"
+        if template in search_string_list:
             return negate
         return not negate
     return list(filter(iterator_func, deployments))
@@ -455,42 +450,6 @@ def cvdeployment(d):
         updatable=d.updatable,
     )
     return deployment
-
-
-def update_deployments(subject):
-    issuer = app.settings.iam_url
-    if not issuer.endswith("/"):
-        issuer += "/"
-
-    # retrieve deployments from orchestrator
-    access_token = iam.token["access_token"]
-    deployments_from_orchestrator = []
-
-    deployments_from_orchestrator = app.orchestrator.get_deployments(
-        access_token, created_by="{}@{}".format(subject, issuer)
-    )
-
-    update_deployments_status(deployments_from_orchestrator, subject)
-
-
-def update_deployments_status(deployments_from_orchestrator, subject):
-    if not deployments_from_orchestrator:
-        return
-
-    iids = sanitizedeployments(deployments_from_orchestrator)["iids"]
-
-    # retrieve deployments from DB
-    deployments = cvdeployments(get_user_deployments(subject))
-    for dep in deployments:
-        newremote = dep.remote
-        if dep.uuid not in iids:
-            if dep.remote == 1:
-                newremote = 0
-        else:
-            if dep.remote == 0:
-                newremote = 1
-        if dep.remote != newremote:
-            update_deployment(dep.uuid, dict(remote=newremote))
 
 
 def get_services(visibility, groups=[]):
@@ -571,3 +530,7 @@ def get_settings():
 def update_setting(id, data):
     Setting.query.filter_by(id=id).update(data)
     db.session.commit()
+
+
+def get_dbversion():
+    return DbVersion.query.all()[0].version_num
