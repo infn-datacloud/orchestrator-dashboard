@@ -77,13 +77,6 @@ def update_deployment(depuuid, data):
     Deployment.query.filter_by(uuid=depuuid).update(data)
     db.session.commit()
 
-'''
-def get_user_deployments(user_sub, user_group = None):
-    kwargs = {"sub": user_sub}
-    if user_group is not None:
-        kwargs["user_group"] = user_group
-    return Deployment.query.filter_by(**kwargs).all()
-'''
 
 def get_deployment(uuid):
     return Deployment.query.get(uuid)
@@ -458,43 +451,6 @@ def cvdeployment(d):
     )
     return deployment
 
-'''
-
-def update_deployments(subject):
-    issuer = app.settings.iam_url
-    if not issuer.endswith("/"):
-        issuer += "/"
-
-    # retrieve deployments from orchestrator
-    access_token = iam.token["access_token"]
-
-    deployments_from_orchestrator = app.orchestrator.get_deployments(
-        access_token, created_by="{}@{}".format(subject, issuer)
-    )
-
-    update_deployments_status(deployments_from_orchestrator, subject)
-
-
-def update_deployments_status(deployments_from_orchestrator, subject):
-    if not deployments_from_orchestrator:
-        return
-
-    iids = sanitizedeployments(deployments_from_orchestrator)["iids"]
-
-    # retrieve deployments from DB
-    deployments = cvdeployments(get_user_deployments(subject))
-    for dep in deployments:
-        newremote = dep.remote
-        if dep.uuid not in iids:
-            if dep.remote == 1:
-                newremote = 0
-        else:
-            if dep.remote == 0:
-                newremote = 1
-        if dep.remote != newremote:
-            update_deployment(dep.uuid, dict(remote=newremote))
-
-'''
 
 def get_services(visibility, groups=[]):
     services = []

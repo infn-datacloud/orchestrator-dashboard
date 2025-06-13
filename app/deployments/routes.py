@@ -121,7 +121,6 @@ def showdeployments(subject, showback):
         group = "None"
         provider = "None"
         selected_status = "actives"
-        #only_remote = True
         datestart = None
         dateend = None
         if request.method == "POST":
@@ -177,8 +176,6 @@ def showdeployments(subject, showback):
 
         # first round, load labels (names)
         for dep in deployments:
-            #if only_remote == False or dep.remote == 1:
-
             user_group = dep.user_group or "UNKNOWN"
             if user_group and user_group not in groups_labels:
                 groups_labels.append(user_group)
@@ -252,7 +249,6 @@ def showalldeployments(showback):
     provider = "None"
     selected_status = "actives"
     selected_template = "None"
-    #only_remote = True
     datestart = None
     dateend = None
     if request.method == "POST":
@@ -313,8 +309,6 @@ def showalldeployments(showback):
 
     # first round, load labels (names)
     for dep in deployments:
-        #if only_remote == False or dep.remote == 1:
-
         user_group = dep.user_group or "UNKNOWN"
         if user_group and user_group not in groups_labels:
             groups_labels.append(user_group)
@@ -384,7 +378,6 @@ def showalldeployments(showback):
 def showdeploymentsoverview():
     access_token = iam.token["access_token"]
 
-    #only_remote = True
     piemaxvalues = app.config.get("FEATURE_MAX_PIE_SLICES", 0)
     only_effective = False  # app.config.get("FEATURE_SHOW_BROKEN_DEPLOYMENTS", "no") == "no"
 
@@ -435,8 +428,6 @@ def showdeploymentsoverview():
 
     # first round, load labels (names)
     for dep in deployments:
-        #if only_remote == False or dep.remote == 1:
-
         user_group = dep.user_group or "UNKNOWN"
         if user_group and user_group not in groups_labels:
             groups_labels.append(user_group)
@@ -471,8 +462,6 @@ def showdeploymentsoverview():
     # second round, count instances
     for dep in deployments:
         status = dep.status or "UNKNOWN"
-        #if (only_remote == False or dep.remote == 1) and \
-        #        (only_effective == False or dep.selected_template):
         if (only_effective == False or dep.selected_template):
             statuses[status] = statuses.get(status, 0) + 1
 
@@ -528,7 +517,6 @@ def showdeploymentsoverview():
 def showdeploymentstats():
     access_token = iam.token["access_token"]
 
-    #only_remote = True
     piemaxvalues = app.config.get("FEATURE_MAX_PIE_SLICES", 0)
     only_effective = app.config.get("FEATURE_SHOW_BROKEN_DEPLOYMENTS", "no") == "no"
     group = "None"
@@ -606,8 +594,6 @@ def showdeploymentstats():
 
     # first round, load labels (names)
     for dep in deployments:
-        #if only_remote == False or dep.remote == 1:
-
         user_group = dep.user_group or "UNKNOWN"
         if user_group and user_group not in groups_labels:
             groups_labels.append(user_group)
@@ -642,8 +628,6 @@ def showdeploymentstats():
     # second round, count instances
     for dep in deployments:
         status = dep.status or "UNKNOWN"
-        #if (only_remote == False or dep.remote == 1) and \
-        #        (only_effective == False or dep.selected_template):
         if (only_effective == False or dep.selected_template):
             statuses[status] = statuses.get(status, 0) + 1
 
