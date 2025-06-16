@@ -10,18 +10,18 @@
     </div>
 
     <div class="dashboard-report-container">
-        <div class="dashboard-report" title="Completed: {{ s_values['COMPLETE'] }}" style="color: #43A047;">
+        <div class="dashboard-report" title="Deployments Completed: {{ s_values['COMPLETE'] }}" style="color: #43A047;">
             <div class="dashboard-report-text">
-                <i class="fas fa-check-circle"></i>&nbsp;&nbsp;Completed
+                <i class="fas fa-check-circle"></i>&nbsp;&nbsp;Deployments Completed
             </div>
             <div class="dashboard-report-count">
                 {{ s_values['COMPLETE'] }}
             </div>
         </div>
 
-        <div class="dashboard-report" title="In progress: {{ s_values['PROGRESS'] }}" style="color: #FF9800;">
+        <div class="dashboard-report" title="Deployments In progress: {{ s_values['PROGRESS'] }}" style="color: #FF9800;">
             <div class="dashboard-report-text">
-                <i class="fas fa-clock"></i>&nbsp;&nbsp;In progress
+                <i class="fas fa-clock"></i>&nbsp;&nbsp;Deployments In progress
             </div>
             <div class="dashboard-report-count">
                 {{ s_values['PROGRESS'] }}
@@ -31,9 +31,9 @@
             </div>
         </div>
 
-        <div class="dashboard-report" title="Failed: {{ s_values['FAILED']}}" style="color: #DD2C00;">
+        <div class="dashboard-report" title="Deployments Failed: {{ s_values['FAILED']}}" style="color: #DD2C00;">
             <div class="dashboard-report-text">
-                <i class="fas fa-times-circle"></i>&nbsp;&nbsp;Failed
+                <i class="fas fa-times-circle"></i>&nbsp;&nbsp;Deployments Failed
             </div>
             <div class="dashboard-report-count">
                 {{ s_values['FAILED'] }}
