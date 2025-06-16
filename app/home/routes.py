@@ -448,7 +448,7 @@ def portfolio():
         )
 
         deps = []
-        excluded_status = build_excludedstatus_filter(list(["portfolio"]))
+        excluded_status = build_excludedstatus_filter(list(["actives"]))
         try:
             deps = app.orchestrator.get_deployments(
                 access_token, created_by="me", excluded_status=excluded_status
@@ -460,10 +460,22 @@ def portfolio():
         if deps:
             deps = dbhelpers.sanitizedeployments(deps)["deployments"]
 
-        statuses = {}
+        statuses = dict()
+        statuses["COMPLETE"] = 0
+        statuses["PROGRESS"] = 0
+        statuses["FAILED"] = 0
+
         for dep in deps:
             status = dep.status if dep.status else "UNKNOWN"
-            statuses[status] = 1 if status not in statuses else statuses[status] + 1
+            if "FAILED" in status:
+                statuses["FAILED"] = statuses["FAILED"] + 1
+            else :
+                if "PROGRESS" in status:
+                    statuses["PROGRESS"] = statuses["PROGRESS"] + 1
+                else:
+                    if status == "CREATE_COMPLETE" or status == "UPDATE_COMPLETE":
+                        statuses["COMPLETE"] = statuses["COMPLETE"] + 1
+
 
         return render_template(
             app.config.get("PORTFOLIO_TEMPLATE"),

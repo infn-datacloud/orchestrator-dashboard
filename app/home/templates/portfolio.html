@@ -10,37 +10,33 @@
     </div>
 
     <div class="dashboard-report-container">
-        <div class="dashboard-report" title="Creation completed: {{ s_values['CREATE_COMPLETE'] if s_values['CREATE_COMPLETE'] != undefined else 0 }}" style="color: #43A047;">
+        <div class="dashboard-report" title="Completed: {{ s_values['COMPLETE'] }}" style="color: #43A047;">
             <div class="dashboard-report-text">
-                <i class="fas fa-check-circle"></i>&nbsp;&nbsp;Creation completed
+                <i class="fas fa-check-circle"></i>&nbsp;&nbsp;Completed
             </div>
             <div class="dashboard-report-count">
-                {{ s_values['CREATE_COMPLETE'] if s_values['CREATE_COMPLETE'] != undefined else 0 }}
+                {{ s_values['COMPLETE'] }}
             </div>
         </div>
 
-        <div class="dashboard-report" title="Creation in progress: {{ s_values['CREATE_IN_PRORGESS'] if s_values['CREATE_IN_PROGRESS'] != undefined else 0 }}" style="color: #FF9800;">
+        <div class="dashboard-report" title="In progress: {{ s_values['PROGRESS'] }}" style="color: #FF9800;">
             <div class="dashboard-report-text">
-                <i class="fas fa-clock"></i>&nbsp;&nbsp;Creation in progress
+                <i class="fas fa-clock"></i>&nbsp;&nbsp;In progress
             </div>
             <div class="dashboard-report-count">
-            {% if s_values['CREATE_IN_PROGRESS'] != undefined %}
-                {{ s_values['CREATE_IN_PROGRESS'] }}
-                {% if s_values['CREATE_IN_PROGRESS'] > 0 %}
+                {{ s_values['PROGRESS'] }}
+                {% if s_values['PROGRESS'] > 0 %}
                     {% set ar.found = true %}
                 {% endif %}
-            {% else %}
-                0
-            {% endif %}
             </div>
         </div>
 
-        <div class="dashboard-report" title="Creation failed: {{ s_values['CREATE_FAILED'] if s_values['CREATE_FAILED'] != undefined else 0 }}" style="color: #DD2C00;">
+        <div class="dashboard-report" title="Failed: {{ s_values['FAILED']}}" style="color: #DD2C00;">
             <div class="dashboard-report-text">
-                <i class="fas fa-times-circle"></i>&nbsp;&nbsp;Creation failed
+                <i class="fas fa-times-circle"></i>&nbsp;&nbsp;Failed
             </div>
             <div class="dashboard-report-count">
-                {{ s_values['CREATE_FAILED'] if s_values['CREATE_FAILED'] != undefined else 0 }}
+                {{ s_values['FAILED'] }}
             </div>
         </div>
     </div>
