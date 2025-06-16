@@ -281,6 +281,11 @@ def get_inactive_statuses():
     return list(["DELETE_COMPLETE"])
 
 
+def get_portfolio_statuses():
+    return list(["UPDATE_COMPLETE","UPDATE_IN_PROGRESS","UPDATE_FAILED","DELETE_COMPLETE","DELETE_IN_PROGRESS","DELETE_FAILED"])
+
+
+
 def build_excludedstatus_filter(status):
     if "all" in status:
         return None
@@ -288,8 +293,12 @@ def build_excludedstatus_filter(status):
         slist = get_inactive_statuses()
         sfilter = list()
     else:
-        slist = get_all_statuses()
-        sfilter = status
+        if "portfolio" in status:
+            slist = get_portfolio_statuses()
+            sfilter = list()
+        else:
+            slist = get_all_statuses()
+            sfilter = status
     excluded_status = ""
     for st in slist:
         if not st in sfilter:

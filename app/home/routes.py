@@ -448,16 +448,11 @@ def portfolio():
         )
 
         deps = []
-        excluded_status = build_excludedstatus_filter(list(["actives"]))
+        excluded_status = build_excludedstatus_filter(list(["portfolio"]))
         try:
-            if excluded_status is not None:
-                deps = app.orchestrator.get_deployments(
-                    access_token, created_by="me", excluded_status=excluded_status
-                )
-            else:
-                deps = app.orchestrator.get_deployments(
-                    access_token, created_by="me"
-                )
+            deps = app.orchestrator.get_deployments(
+                access_token, created_by="me", excluded_status=excluded_status
+            )
         except Exception as e:
             flash("Error retrieving deployment list: \n" + str(e), "warning")
 
@@ -468,7 +463,6 @@ def portfolio():
         statuses = {}
         for dep in deps:
             status = dep.status if dep.status else "UNKNOWN"
-            #if status != "DELETE_COMPLETE" and dep.remote == 1:
             statuses[status] = 1 if status not in statuses else statuses[status] + 1
 
         return render_template(
