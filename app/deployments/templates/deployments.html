@@ -43,7 +43,7 @@
                         <i class="fas fa-arrow-left"></i>&nbsp;Back
                     </button>
                     {% endif %}
-					<button type="button" class="dashboard-button dashboard-button-outline-no-border" title="Refresh" onclick='postMain();'>
+					<button type="button" class="dashboard-button dashboard-button-outline-no-border" title="Refresh" onclick='postMain(true);'>
 						<i class="fas fa-sync-alt"></i>&nbsp;Refresh
 					</button>
                     &nbsp;
@@ -325,7 +325,7 @@
 </div>
 
 {% if ar.found %}
-	<script>setTimeout(function(){postMain();},30000);</script>
+	<script>setTimeout(function(){postMain(false);},30000);</script>
 {% endif %}
 
 <script src="/static/home/js/dep_query_selector.js"></script>
@@ -375,7 +375,9 @@ $('#tableUserDeployments').dataTable( {
     {% endif %}
 });
 
-function postMain() {
+function postMain(showwait) {
+    if (showwait)
+        set_loading(true)
     $( "#tableform" ).submit();
     return true;
 }

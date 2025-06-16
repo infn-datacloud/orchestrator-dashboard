@@ -75,7 +75,7 @@
                 </div>
                 <div class="dashboard-template-header-buttons">
 
-					<button type="button" id="refreshbutton" class="dashboard-button dashboard-button-outline-no-border" onclick='postMain();'>
+					<button type="button" id="refreshbutton" class="dashboard-button dashboard-button-outline-no-border" onclick='postMain(true);'>
 						<i class="fas fa-sync-alt"></i>&nbsp;Refresh
 					</button>
 
@@ -191,7 +191,9 @@
 
 <script>
 
-function postMain() {
+function postMain(showwait) {
+    if (showwait)
+        set_loading(true)
     $( "#tableform" ).submit();
     return true;
 }
@@ -297,7 +299,7 @@ function updateSelectedItems(name, dopost) {
   });
   $('#selected_'+name).val(JSON.stringify(selected));
   if (dopost) {
-      postMain();
+      postMain(true);
   }
 }
 
@@ -390,7 +392,7 @@ $('#tableUsers').dataTable( {
 </script>
 
 {% if ar.found %}
-	<script>setTimeout(function(){postMain();},30000);</script>
+	<script>setTimeout(function(){postMain(false);},30000);</script>
 {% endif %}
 
 {% endblock %}

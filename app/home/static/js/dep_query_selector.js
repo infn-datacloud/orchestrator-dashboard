@@ -5,7 +5,7 @@ function updateSelectedItems(name, dopost) {
   });
   $('#selected_'+name).val(JSON.stringify(selected));
   if (dopost) {
-      postMain();
+      postMain(true);
   }
 }
 
