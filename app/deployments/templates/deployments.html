@@ -47,95 +47,9 @@
 						<i class="fas fa-sync-alt"></i>&nbsp;Refresh
 					</button>
                     &nbsp;
-                    <!-- Status selector -->
-                    <div class="dropdown">
-                        <button type="button" id="statusbutton" class="dashboard-button dashboard-button-small dashboard-button-primary dropdown-toggle dropdown-toggle-split"
-                                data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                            <span class='fas fa-list mr-2'></span>Status&nbsp;
-                        </button>
-                        <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
-                            <div class="dropdown-item">
-                                <label class="form-check-label">
-                                    <input type="checkbox" class="form-check-input multi-check-status" value="all" data-exclusive="true"
-                                     {% if not selected_status or 'all' in selected_status %}checked{% endif %}>
-                                    all
-                                </label>
-                            </div>
-                            <div class="dropdown-item">
-                                <label class="form-check-label">
-                                    <input type="checkbox" class="form-check-input multi-check-status" value="actives" data-exclusive="true"
-                                        {% if not selected_status or 'actives' in selected_status %}checked{% endif %}>
-                                    actives
-                                </label>
-                            </div>
-                            {% for deployment_status in status_labels %}
-                            <div class="dropdown-item">
-                                <label class="form-check-label">
-                                  <input type="checkbox" class="form-check-input multi-check-status"
-                                         value="{{ deployment_status }}"
-                                         {% if deployment_status in selected_status %}checked{% endif %}>
-                                    {{ deployment_status }}
-                                </label>
-                            </div>
-                            {% endfor %}
-                        </div>
-                    </div>
-                    &nbsp;
-                    <!-- Group selector -->
-                    <div class="dropdown">
-                        <button type="button" id="groupbutton" class="dashboard-button dashboard-button-small dashboard-button-primary dropdown-toggle dropdown-toggle-split"
-                                data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                            <span class='fas fa-list mr-2'></span>Group&nbsp;
-                        </button>
-                        <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
-                            <div class="dropdown-item">
-                                <label class="form-check-label">
-                                    <input type="checkbox" class="form-check-input multi-check-group" value="all" data-exclusive="true"
-                                     {% if not selected_group or 'all' in selected_group %}checked{% endif %}>
-                                    all
-                                </label>
-                            </div>
-                            {% for user_group in groups_labels %}
-                                <div class="dropdown-item">
-                                    <label class="form-check-label">
-                                      <input type="checkbox" class="form-check-input multi-check-group"
-                                             value="{{ user_group }}"
-                                             {% if user_group in selected_group %}checked{% endif %}>
-                                        {{ user_group }}
-                                    </label>
-                                </div>
-                            {% endfor %}
-                        </div>
-                    </div>
-                    &nbsp;
-                    <!-- Provider selector -->
-                    <div class="dropdown">
-                        <button type="button" id="providerbutton" class="dashboard-button dashboard-button-small dashboard-button-primary dropdown-toggle dropdown-toggle-split"
-                                data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                            <span class='fas fa-list mr-2'></span>Provider&nbsp;
-                        </button>
-                        <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
-                            <div class="dropdown-item">
-                                <label class="form-check-label">
-                                    <input type="checkbox" class="form-check-input multi-check-provider" value="all" data-exclusive="true"
-                                     {% if not selected_provider or 'all' in selected_provider %}checked{% endif %}>
-                                    all
-                                </label>
-                            </div>
-                            {% for user_provider in providers_labels %}
-                                <div class="dropdown-item">
-                                    <label class="form-check-label">
-                                      <input type="checkbox" class="form-check-input multi-check-provider"
-                                             value="{{ user_provider }}"
-                                             {% if user_provider in selected_provider %}checked{% endif %}>
-                                        {{ user_provider }}
-                                    </label>
-                                </div>
-                            {% endfor %}
-                        </div>
-                    </div>
-                    {% if subject == 'me' %}
-                    &nbsp;
+                    {% include "dep_query_selector.html" %}
+
+                    {% if subject == 'me' %}&nbsp;
 					<button type="button" class="dashboard-button dashboard-button-primary" title="New deployment" onclick='location.href="{{ url_for('home_bp.home') }}"'>
 						New deployment<i class="fas fa-plus"></i>
 					</button>
@@ -414,31 +328,10 @@
 	<script>setTimeout(function(){postMain();},30000);</script>
 {% endif %}
 
+<script src="/static/home/js/dep_query_selector.js"></script>
+
 <script>
 
-$(document).ready(() => {
-});
-
-function updateSelectedItems(name, dopost) {
-  const selected = [];
-  $('.multi-check-'+name+':checked').each(function () {
-    selected.push($(this).val());
-  });
-  $('#selected_'+name).val(JSON.stringify(selected));
-  if (dopost) {
-      postMain();
-  }
-}
-
-function UpdateMultiCheck(obj, name) {
-    const isExclusive = $(obj).data('exclusive') === true || $(obj).data('exclusive') === "true";
-    if (isExclusive && obj.checked) {
-      $('.multi-check-'+name).not(obj).prop('checked', false);
-    } else if (obj.checked) {
-      $('.multi-check-'+ name+'[data-exclusive="true"]').prop('checked', false);
-    }
-    updateSelectedItems(name, true);
-}
 
 $(document).ready(function () {
   $(".deleteBtn").click(() => {
@@ -447,20 +340,7 @@ $(document).ready(function () {
 	$(this).addClass("disabled", true);
 	$(this).html( `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Deleting...` );
   });
-  $('.multi-check-status').on('change', function () {
-   UpdateMultiCheck(this, 'status');
-  });
-  $('.multi-check-group').on('change', function () {
-   UpdateMultiCheck(this, 'group');
-  });
-  $('.multi-check-provider').on('change', function () {
-   UpdateMultiCheck(this, 'provider');
-  });
-
-  // Inizializza selezioni
-  updateSelectedItems('status', false);
-  updateSelectedItems('group', false);
-  updateSelectedItems('provider', false);
+  initializeMultiCheck();
 });
 
 
