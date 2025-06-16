@@ -2,7 +2,7 @@
 {% block content %}
 
 <div class="container mt-2" id="cardsContainer" xmlns="http://www.w3.org/1999/html">
-
+    {% set ar = namespace(found=false) %}
     <!-- REPORT -->
     <div class="dashboard-title">
         <i class="fas fa-chart-bar"></i>
@@ -24,7 +24,14 @@
                 <i class="fas fa-clock"></i>&nbsp;&nbsp;Creation in progress
             </div>
             <div class="dashboard-report-count">
-                {{ s_values['CREATE_IN_PROGRESS'] if s_values['CREATE_IN_PROGRESS'] != undefined else 0 }}
+            {% if s_values['CREATE_IN_PROGRESS'] != undefined %}
+                {{ s_values['CREATE_IN_PROGRESS'] }}
+                {% if s_values['CREATE_IN_PROGRESS'] > 0 %}
+                    {% set ar.found = true %}
+                {% endif %}
+            {% else %}
+                0
+            {% endif %}
             </div>
         </div>
 
@@ -353,6 +360,10 @@
 <!-- close container -->
 <script src="/static/js/catalogue.js"></script>
 <link rel="stylesheet" href="/static/css/catalogue.css">
+
+{% if ar.found %}
+	<script>setTimeout(function(){location.reload();},30000);</script>
+{% endif %}
 
 <script>
 
