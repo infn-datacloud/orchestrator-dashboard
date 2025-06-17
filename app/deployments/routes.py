@@ -99,7 +99,6 @@ def get_deployments_kwargs(subject):
 
 class InputValidationError(Exception):
     """Exception raised for errors in the input validation process."""
-
     pass
 
 
@@ -131,31 +130,23 @@ def showdeployments(subject, showback):
                 selected_group = json.loads(dr.get("selected_group"))
             if "selected_provider" in dr:
                 selected_provider = json.loads(dr.get("selected_provider"))
-            if "start_date" in dr:
-                datestart = dr.get("start_date")
-            if "end_date" in dr:
-                dateend = dr.get("end_date")
-            selected_status = json.loads(dr.get("selected_status"))
-
-        if nullorempty(datestart):
-            datestart = None
-        if nullorempty(dateend):
-            dateend = None
+            if "selected_status" in dr:
+                selected_status = json.loads(dr.get("selected_status"))
+            datestart = dr.get("start_date")
+            dateend = dr.get("end_date")
+            if nullorempty(datestart):
+                datestart = None
+            if nullorempty(dateend):
+                dateend = None
 
         excluded_status = build_excludedstatus_filter(selected_status)
 
         # only_effective = app.config.get("FEATURE_SHOW_BROKEN_DEPLOYMENTS", "no") == "no"
-        deployments = []
         try:
-            if excluded_status is not None:
-                deployments = app.orchestrator.get_deployments(
-                    access_token, created_by=created_by, excluded_status=excluded_status
-                )
-            else:
-                deployments = app.orchestrator.get_deployments(
-                    access_token, created_by=created_by
-                )
+            deployments = app.orchestrator.get_deployments(
+                access_token, created_by=created_by, excluded_status=excluded_status)
         except Exception as e:
+            deployments = list()
             flash("Error retrieving deployment list: \n" + str(e), "warning")
 
         if deployments:
@@ -165,8 +156,8 @@ def showdeployments(subject, showback):
         if providers_to_split:
             providers_to_split = providers_to_split.lower()
 
-        groups_labels = []
-        providers_labels = []
+        groups_labels = list()
+        providers_labels = list()
 
         # first round, load labels (names)
         for dep in deployments:
@@ -178,6 +169,7 @@ def showdeployments(subject, showback):
             if dep_provider and dep_provider not in providers_labels:
                 providers_labels.append(dep_provider)
 
+        # add "personal" groups if not in deployments list
         if subject == 'me':
             for g in session['supported_usergroups']:
                 if g not in groups_labels:
@@ -234,7 +226,7 @@ def showalldeployments(showback):
     selected_group = list()
     selected_provider = list()
     selected_status = list(["actives"])
-    selected_template = "None"
+    selected_template = None
     datestart = None
     dateend = None
 
@@ -244,20 +236,16 @@ def showalldeployments(showback):
             selected_group = json.loads(dr.get("selected_group"))
         if "selected_provider" in dr:
             selected_provider = json.loads(dr.get("selected_provider"))
-        if "date_start" in dr:
-            datestart = dr.get("date_start")
-        if "date_end" in dr:
-            datestart = dr.get("date_end")
         if "selected_status" in dr:
             selected_status = json.loads(dr.get("selected_status"))
         if "selected_template" in dr:
             selected_template = dr.get("selected_template")
-
-    if nullorempty(datestart):
-        datestart = None
-
-    if nullorempty(dateend):
-        dateend = None
+        datestart = dr.get("date_start")
+        dateend = dr.get("date_end")
+        if nullorempty(datestart):
+            datestart = None
+        if nullorempty(dateend):
+            dateend = None
 
     if (selected_template == "None"):
         selected_template = None
@@ -265,17 +253,12 @@ def showalldeployments(showback):
     excluded_status = build_excludedstatus_filter(selected_status)
 
     # only_effective = app.config.get("FEATURE_SHOW_BROKEN_DEPLOYMENTS", "no") == "no"
-    deployments = []
     try:
-        if excluded_status is not None:
-            deployments = app.orchestrator.get_deployments(
-                access_token, excluded_status=excluded_status
-            )
-        else:
-            deployments = app.orchestrator.get_deployments(
-                access_token
-            )
+        deployments = app.orchestrator.get_deployments(
+            access_token, excluded_status=excluded_status
+        )
     except Exception as e:
+        deployments = list()
         flash("Error retrieving deployment list: \n" + str(e), "warning")
 
     if deployments:
@@ -285,8 +268,8 @@ def showalldeployments(showback):
     if providers_to_split:
         providers_to_split = providers_to_split.lower()
 
-    groups_labels = []
-    providers_labels = []
+    groups_labels = list()
+    providers_labels = list()
 
     # first round, load labels (names)
     for dep in deployments:
@@ -359,23 +342,22 @@ def showdeploymentsoverview():
     selected_status = list(["actives"])
 
     if request.method == "POST":
-        selected_group = json.loads(request.form.to_dict()["selected_group"])
-        selected_provider = json.loads(request.form.to_dict()["selected_provider"])
-        selected_status = json.loads(request.form.to_dict()["selected_status"])
+        dr = request.form.to_dict()
+        if "selected_group" in dr:
+            selected_group = json.loads(dr.get("selected_group"))
+        if "selected_provider" in dr:
+            selected_provider = json.loads(dr.get("selected_provider"))
+        if "selected_status" in dr:
+            selected_status = json.loads(dr.get("selected_status"))
 
     excluded_status = build_excludedstatus_filter(selected_status)
 
-    deployments = []
     try:
-        if excluded_status is not None:
-            deployments = app.orchestrator.get_deployments(
-                access_token, created_by="me", excluded_status=excluded_status
-            )
-        else:
-            deployments = app.orchestrator.get_deployments(
-                access_token, created_by="me"
-            )
+        deployments = app.orchestrator.get_deployments(
+            access_token, created_by="me", excluded_status=excluded_status
+        )
     except Exception as e:
+        deployments = list()
         flash("Error retrieving deployment list: \n" + str(e), "warning")
 
     # sanitize data and filter undesired states
@@ -383,16 +365,16 @@ def showdeploymentsoverview():
         deployments = dbhelpers.sanitizedeployments(deployments)["deployments"]
 
     # Initialize dictionaries for status, projects, and providers
-    statuses = {"UNKNOWN": 0}
-    groups = {"UNKNOWN": 0}
-    providers = {"UNKNOWN": 0}
+    statuses = dict()
+    groups = dict()
+    providers = dict()
 
     providers_to_split = app.config.get("PROVIDER_NAMES_TO_SPLIT", None)
     if providers_to_split:
         providers_to_split = providers_to_split.lower()
 
-    groups_labels = []
-    providers_labels = []
+    groups_labels = list()
+    providers_labels = list()
 
     # first round, load labels (names)
     for dep in deployments:
@@ -430,14 +412,6 @@ def showdeploymentsoverview():
 
             dep_provider = buildprovidername(providers_to_split, dep.provider_name, dep.region_name)
             providers[dep_provider] = providers.get(dep_provider, 0) + 1
-
-    # remove unused UNKNOWN entries
-    if groups["UNKNOWN"] == 0:
-        groups.pop("UNKNOWN")
-    if statuses["UNKNOWN"] == 0:
-        statuses.pop("UNKNOWN")
-    if providers["UNKNOWN"] == 0:
-        providers.pop("UNKNOWN")
 
     s_title = "All Deployment Status" if "all" in selected_status else "Deployment Status: " + ",".join(selected_status)
     p_title = "All Groups" if "all" in selected_group else "Group: " + ",".join(selected_group)
@@ -491,23 +465,22 @@ def showdeploymentstats():
             selected_provider = json.loads(data.get("selected_provider"))
             selected_status = json.loads(data.get("selected_status"))
         else:
-            selected_group = json.loads(request.form.to_dict()["selected_group"])
-            selected_provider = json.loads(request.form.to_dict()["selected_provider"])
-            selected_status = json.loads(request.form.to_dict()["selected_status"])
+            dr = request.form.to_dict()
+            if "selected_group" in dr:
+                selected_group = json.loads(dr.get("selected_group"))
+            if "selected_provider" in dr:
+                selected_provider = json.loads(dr.get("selected_provider"))
+            if "selected_status" in dr:
+                selected_status = json.loads(dr.get("selected_status"))
 
     excluded_status = build_excludedstatus_filter(selected_status)
 
     try:
-        if excluded_status is not None:
-            deployments = app.orchestrator.get_deployments(
-                access_token, excluded_status=excluded_status
-            )
-        else:
-            deployments = app.orchestrator.get_deployments(
-                access_token
-            )
+        deployments = app.orchestrator.get_deployments(
+            access_token, excluded_status=excluded_status
+        )
     except Exception as e:
-        deployments = []
+        deployments = list()
         flash("Error retrieving deployment list: \n" + str(e), "warning")
 
     # sanitize data and filter undesired states
@@ -530,8 +503,8 @@ def showdeploymentstats():
     if providers_to_split:
         providers_to_split = providers_to_split.lower()
 
-    groups_labels = []
-    providers_labels = []
+    groups_labels = list()
+    providers_labels = list()
 
     # first round, load labels for group and providers (names)
     for dep in deployments:
@@ -559,11 +532,11 @@ def showdeploymentstats():
             True)
 
     # Initialize dictionaries for status, projects, and providers
-    statuses = {"UNKNOWN": 0}
-    groups = {"UNKNOWN": 0}
-    providers = {"UNKNOWN": 0}
-    templates = {"UNKNOWN": 0}
-    occurrences = {"UNKNOWN": 0}
+    statuses = dict()
+    groups = dict()
+    providers = dict()
+    templates = dict()
+    occurrences = dict()
 
     t_info, _, _, _, _ = tosca.get()
 
@@ -588,18 +561,6 @@ def showdeploymentstats():
             if templaterq is not None and template == templaterq:
                 depdate = dep.creation_time.strftime("%Y-%m")
                 occurrences[depdate] = occurrences.get(depdate, 0) + 1
-
-    # remove unused UNKNOWN entries
-    if groups["UNKNOWN"] == 0:
-        groups.pop("UNKNOWN")
-    if statuses["UNKNOWN"] == 0:
-        statuses.pop("UNKNOWN")
-    if providers["UNKNOWN"] == 0:
-        providers.pop("UNKNOWN")
-    if templates["UNKNOWN"] == 0:
-        templates.pop("UNKNOWN")
-    if occurrences["UNKNOWN"] == 0:
-        occurrences.pop("UNKNOWN")
 
     if templaterq is not None:
         s_occurrences = dict(sorted(occurrences.items()))
