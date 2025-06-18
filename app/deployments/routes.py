@@ -538,7 +538,7 @@ def showdeploymentstats():
     templates = dict()
     occurrences = dict()
 
-    t_info, _, _, _, _ = tosca.get()
+    t_info = tosca.getinfo()
 
     for info in t_info:
         templates[info] = 0
@@ -1701,7 +1701,7 @@ def updatedep():
 @deployments_bp.route("/configure", methods=["GET"])
 @auth.authorized_with_valid_token
 def configure():
-    _, _, tosca_gmetadata, _, _ = tosca.get()
+    tosca_gmetadata = tosca.getmetadata()
 
     selected_group = request.args.get("selected_group", None)
 
@@ -1753,7 +1753,7 @@ def configure_select_scheduling(selected_tosca=None, multi_templates=True):
     if not selected_tosca:
         selected_tosca = request.args.get("selected_tosca")  # Changed from form to args
 
-    tosca_info, _, _, _, _ = tosca.get()
+    tosca_info = tosca.getinfo()
     template = tosca_info.get(os.path.normpath(selected_tosca), None)
     if template is None:
         flash("Error getting template (not found)", "danger")
@@ -1790,7 +1790,7 @@ def configure_form():
         flash("Error getting template (not found)", "danger")
         return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **SHOW_DEPLOYMENTS_KWARGS))
 
-    tosca_info, _, _, _, _ = tosca.get()
+    tosca_info = tosca.getinfo()
     template = copy.deepcopy(tosca_info[os.path.normpath(selected_tosca)])
 
     sched_type = request.args.get(
@@ -1867,112 +1867,219 @@ def patch_template(
                         flavors = nogpu_flavors
                         break
 
+            # define some keys
+            k_os_distribution = "os_distribution"
+            k_os_version = "os_version"
+            k_valid_values = "valid_values"
+            k_greater_or_equal = "greater_or_equal"
+            k_inputs = "inputs"
+            k_constraints = "constraints"
+            k_set = "set"
+            k_def_mem = "mem_size"
+            k_def_cpu = "num_cpus"
+            k_def_disk = "disk_size"
+            k_def_gpus = "num_gpus"
+            k_def_gpu_model = "gpu_model"
+
             # override template flavors with provider flavors
-            for k, v in list(template["inputs"].items()):
+            for k, v in list(template[k_inputs].items()):
                 # search for flavors key and rename if needed
                 x = bool(re.match(pattern, k))
-                if x is True and "constraints" in v:
+                if x is True and k_constraints in v:
                     k_flavors = k
                     k_cpu = None
                     k_mem = None
                     k_disk = None
                     k_gpus = None
                     k_gpu_model = None
-                    # search for cpu key
-                    for ff in v["constraints"]:
-                        if k_cpu:
-                            break
-                        for fk in ff["set"].keys():
-                            x = re.search("num_cpus", fk)
-                            if x is not None:
-                                k_cpu = fk
-                                break
-                    # search for mem key
-                    for ff in v["constraints"]:
-                        if k_mem:
-                            break
-                        for fk in ff["set"].keys():
-                            x = re.search("mem_size", fk)
-                            if x is not None:
-                                k_mem = fk
-                                break
-                    # search for disk key
-                    for ff in v["constraints"]:
-                        if k_disk:
-                            break
-                        for fk in ff["set"].keys():
-                            x = re.search("disk_size", fk)
-                            if x is not None:
-                                k_disk = fk
-                                break
-                    # search for gpu key
-                    for ff in v["constraints"]:
-                        if k_gpus:
-                            break
-                        for fk in ff["set"].keys():
-                            x = re.search("num_gpus", fk)
-                            if x is not None:
-                                k_gpus = fk
-                                break
-                    # search for gpu model key
-                    for ff in v["constraints"]:
-                        if k_gpu_model:
-                            break
-                        for fk in ff["set"].keys():
-                            x = re.search("gpu_model", fk)
-                            if x is not None:
-                                k_gpu_model = fk
-                                break
-                    # if renaming needed
-                    if k_mem or k_cpu or k_disk or k_gpus or k_gpu_model:
-                        if not k_mem:
-                            k_mem = "mem_size"
+                    for ff in v[k_constraints]:
+                        # search for cpu key
                         if not k_cpu:
-                            k_cpu = "num_cpus"
+                            for fk in ff[k_set].keys():
+                                if re.search("num_cpus", fk):
+                                    k_cpu = fk
+                                    break
+                        # search for mem key
+                        if not k_mem:
+                            for fk in ff[k_set].keys():
+                                if re.search("mem_size", fk):
+                                    k_mem = fk
+                                    break
+                        # search for disk key
                         if not k_disk:
-                            k_disk = "disk_size"
+                            for fk in ff[k_set].keys():
+                                if re.search("disk_size", fk):
+                                    k_disk = fk
+                                    break
+                        # search for gpu key
                         if not k_gpus:
-                            k_gpus = "num_gpus"
+                            for fk in ff[k_set].keys():
+                                if re.search("num_gpus", fk):
+                                    k_gpus = fk
+                                    break
+                        # search for gpu model key
                         if not k_gpu_model:
-                            k_gpu_model = "gpu_model"
-                        rflavors = []
-                        if re.search("gpu", k_flavors):
-                            ff = gpu_flavors
-                        else:
-                            ff = flavors
-                        for f in ff:
-                            flavor = {
-                                "value": f["value"],
-                                "label": f["label"],
-                                "set": {
-                                    k_cpu: "{}".format(f["set"]["num_cpus"]),
-                                    k_mem: "{}".format(f["set"]["mem_size"]),
-                                    k_disk: "{}".format(f["set"]["disk_size"]),
-                                    k_gpus: "{}".format(f["set"]["num_gpus"]),
-                                    k_gpu_model: "{}".format(f["set"]["gpu_model"]),
-                                },
-                            }
-                            rflavors.append(flavor)
-                        template["inputs"][k_flavors]["constraints"] = rflavors
+                            for fk in ff[k_set].keys():
+                                if re.search("gpu_model", fk):
+                                    k_gpu_model = fk
+                                    break
+
+                    if not k_mem:
+                        k_mem = k_def_mem
+                    if not k_cpu:
+                        k_cpu = k_def_cpu
+                    if not k_disk:
+                        k_disk = k_def_disk
+                    if not k_gpus:
+                        k_gpus = k_def_gpus
+                    if not k_gpu_model:
+                        k_gpu_model = k_def_gpu_model
+
+                    rflavors = list()
+
+                    if re.search("gpu", k_flavors):
+                        ff = gpu_flavors
                     else:
-                        if re.search("gpu", k_flavors):
-                            template["inputs"][k_flavors]["constraints"] = gpu_flavors
-                        else:
-                            template["inputs"][k_flavors]["constraints"] = flavors
+                        ff = flavors
+
+                    #parse constraints
+                    valid_values = dict()
+                    greater_or_equal = dict()
+
+                    if k_mem in template[k_inputs] and (not k_mem in valid_values or not k_mem in greater_or_equal):
+                        if k_constraints in template[k_inputs][k_mem]:
+                            for c in template[k_inputs][k_mem][k_constraints]:
+                                if isinstance(c, dict):
+                                    if k_valid_values in c:
+                                        valid_values[k_mem] = c.get(k_valid_values)
+                                    if k_greater_or_equal in c:
+                                        greater_or_equal[k_mem] = c.get(k_greater_or_equal).split(" ")[0]
+
+                    if k_disk in template[k_inputs] and (not k_disk in valid_values or not k_disk in greater_or_equal):
+                        if k_constraints in template[k_inputs][k_disk]:
+                            for c in template[k_inputs][k_disk][k_constraints]:
+                                if isinstance(c, dict):
+                                    if k_valid_values in c:
+                                        valid_values[k_disk] = c.get(k_valid_values)
+                                    if k_greater_or_equal in c:
+                                        greater_or_equal[k_disk] = c.get(k_greater_or_equal).split(" ")[0]
+
+                    if k_cpu in template[k_inputs] and (not k_cpu in valid_values or not k_cpu in greater_or_equal):
+                        if k_constraints in template[k_inputs][k_cpu]:
+                            for c in template[k_inputs][k_cpu][k_constraints]:
+                                if isinstance(c, dict):
+                                    if k_valid_values in c:
+                                        valid_values[k_cpu] = c.get(k_valid_values)
+                                    if k_greater_or_equal in c:
+                                        greater_or_equal[k_cpu] = c.get(k_greater_or_equal)
+
+                    if k_gpus in template[k_inputs] and (not k_gpus in valid_values or not k_gpus in greater_or_equal):
+                        if k_constraints in template[k_inputs][k_gpus]:
+                            for c in template[k_inputs][k_gpus][k_constraints]:
+                                if isinstance(c, dict):
+                                    if k_valid_values in c:
+                                        valid_values[k_gpus] = c.get(k_valid_values)
+                                    if k_greater_or_equal in c:
+                                        greater_or_equal[k_gpus] = c.get(k_greater_or_equal)
+
+                    if k_gpu_model in template[k_inputs] and not k_gpu_model in valid_values:
+                        if k_constraints in template[k_inputs][k_gpu_model]:
+                            for c in template[k_inputs][k_gpu_model][k_constraints]:
+                                if isinstance(c, dict):
+                                    if k_valid_values in c:
+                                        valid_values[k_gpu_model] = c.get(k_valid_values)
+
+                    for f in ff:
+                        #filter constraints
+                        if k_cpu in valid_values:
+                            if not f[k_set][k_def_cpu] in valid_values[k_cpu]:
+                                continue
+                        if k_cpu in greater_or_equal:
+                            if int(f[k_set][k_def_cpu]) < int(greater_or_equal[k_cpu]):
+                                continue
+
+                        if k_disk in valid_values:
+                            if not f[k_set][k_def_disk].lower() in valid_values[k_disk].lower():
+                                continue
+                        if k_disk in greater_or_equal:
+                            if float(f[k_set][k_def_disk].split(" ")[0]) < float(greater_or_equal[k_disk]):
+                                continue
+
+                        if k_mem in valid_values:
+                            if not f[k_set][k_def_mem].lower() in valid_values[k_mem].lower():
+                                continue
+                        if k_mem in greater_or_equal:
+                            if float(f[k_set][k_def_mem].split(" ")[0]) < float(greater_or_equal[k_mem]):
+                                continue
+
+                        if k_gpus in valid_values:
+                            if not f[k_set][k_def_gpus] in valid_values[k_gpus]:
+                                continue
+                        if k_gpus in greater_or_equal:
+                            if int(f[k_set][k_def_gpus]) < int(greater_or_equal[k_gpus]):
+                                continue
+
+                        if k_gpu_model in valid_values:
+                            if not f[k_set][k_def_gpu_model].lower() in valid_values[k_gpu_model].lower():
+                                continue
+
+
+                        flavor = {
+                            "value": f["value"],
+                            "label": f["label"],
+                            k_set: {
+                                k_cpu: "{}".format(f[k_set][k_def_cpu]),
+                                k_mem: "{}".format(f[k_set][k_def_mem]),
+                                k_disk: "{}".format(f[k_set][k_def_disk]),
+                                k_gpus: "{}".format(f[k_set][k_def_gpus]),
+                                k_gpu_model: "{}".format(f[k_set][k_def_gpu_model]),
+                            },
+                        }
+                        rflavors.append(flavor)
+
+                    template[k_inputs][k_flavors][k_constraints] = rflavors
+
                     if "group_overrides" in v:
-                        del template["inputs"][k_flavors]["group_overrides"]
+                        del template[k_inputs][k_flavors]["group_overrides"]
 
         # patch images
+        l_images = list()
+
+        # load constraints
+        if k_os_distribution in template[k_inputs] and not k_os_distribution in valid_values:
+            if k_constraints in template[k_inputs][k_os_distribution]:
+                for c in template[k_inputs][k_os_distribution][k_constraints]:
+                    if isinstance(c, dict):
+                        if k_valid_values in c:
+                            valid_values[k_os_distribution] = c.get(k_valid_values)
+
+        if k_os_version in template[k_inputs] and not k_os_version in valid_values:
+            if k_constraints in template[k_inputs][k_os_version]:
+                for c in template[k_inputs][k_os_version][k_constraints]:
+                    if isinstance(c, dict):
+                        if k_valid_values in c:
+                            valid_values[k_os_version] = c.get(k_valid_values)
+
         if images:
-            # override template flavors with provider flavors
-            for k, v in list(template["inputs"].items()):
-                # search for flavors key and rename if needed
+
+            for i in images:
+                if k_os_distribution in valid_values and k_os_distribution in i[k_set]:
+                    if not i[k_set].get(k_os_distribution).lower() in  valid_values[k_os_distribution]:
+                        continue
+                if k_os_version in valid_values and k_os_version in i[k_set]:
+                    if not i[k_set].get(k_os_version).lower() in map(str,valid_values[k_os_version]):
+                        continue
+                l_images.append(i)
+
+            # override template operating_system with provider operating_system
+            for k, v in list(template[k_inputs].items()):
+                # search for operating_system key and rename if needed
                 x = re.search("operating_system", k)
-                if x is not None and "constraints" in v:
+                if x is not None and k_constraints in v:
                     k_images = k
-                    template["inputs"][k_images]["constraints"] = images
+                    template[k_inputs][k_images][k_constraints] = l_images
                     if "group_overrides" in v:
-                        del template["inputs"][k_images]["group_overrides"]
+                        del template[k_inputs][k_images]["group_overrides"]
         else:
             # Manage possible overrides
             for k, v in list(template["inputs"].items()):
@@ -1983,8 +2090,8 @@ def patch_template(
                         and user_group["name"] in v["group_overrides"]
                 ):
                     overrides = v["group_overrides"][user_group["name"]]
-                    template["inputs"][k] = {**v, **overrides}
-                    del template["inputs"][k]["group_overrides"]
+                    template[k_inputs][k] = {**v, **overrides}
+                    del template[k_inputs][k]["group_overrides"]
 
     return template
 
@@ -2587,7 +2694,7 @@ def create_deployment(
 @deployments_bp.route("/submit", methods=["POST"])
 @auth.authorized_with_valid_token
 def createdep():
-    tosca_info, _, _, _, tosca_text = tosca.get()
+    tosca_info = tosca.getinfo()
     access_token = iam.token["access_token"]
     # validate input
     request_template = os.path.normpath(request.args.get("selectedTemplate"))
@@ -2633,7 +2740,7 @@ def retrydep(depid=None):
     Parameters:
     - depid: str, the ID of the deployment
     """
-    tosca_info, _, _, _, _ = tosca.get()
+    tosca_info = tosca.getinfo()
 
     try:
         access_token = iam.token["access_token"]

@@ -49,15 +49,13 @@ class ToscaInfo:
 
     def reload(self):
         tosca_templates = self._loadtoscatemplates()
-        tosca_info, tosca_text = self._extractalltoscainfo(tosca_templates)
+        tosca_info = self._extractalltoscainfo(tosca_templates)
         tosca_gmetadata, tosca_gversion = self._loadmetadata()
 
         self.redis_client.set("tosca_templates", json.dumps(tosca_templates))
+        self.redis_client.set("tosca_info", json.dumps(tosca_info))
         self.redis_client.set("tosca_gmetadata", json.dumps(tosca_gmetadata))
         self.redis_client.set("tosca_gversion", tosca_gversion)
-        self.redis_client.set("tosca_info", json.dumps(tosca_info))
-        self.redis_client.set("tosca_text", json.dumps(tosca_text))
-
 
 
     def _loadmetadata(self):
@@ -94,18 +92,15 @@ class ToscaInfo:
 
     def _extractalltoscainfo(self, tosca_templates):
         tosca_info = {}
-        tosca_text = {}
         for tosca in tosca_templates:
             with io.open(
                     os.path.join(self.tosca_dir, tosca), encoding="utf-8"
             ) as stream:
                 template = yaml.full_load(stream)
                 tosca_info[tosca] = self.extracttoscainfo(template, tosca)
-                stream.seek(0)
-                tosca_text[tosca] = stream.read()
                 # info = self.extracttoscainfo(template, tosca)
                 # tosca_info[info.get('id')] = info
-        return tosca_info, tosca_text
+        return tosca_info
 
     def extracttoscainfo(self, template, tosca):
         tosca_info = {
@@ -245,17 +240,28 @@ class ToscaInfo:
         return tosca_info
 
     def get(self):
+        serialised_value = self.redis_client.get("tosca_info")
+        tosca_info = json.loads(serialised_value)
         serialised_value = self.redis_client.get("tosca_templates")
         tosca_templates = json.loads(serialised_value)
         serialised_value = self.redis_client.get("tosca_gmetadata")
-        tosca_gversion = self.redis_client.get("tosca_gversion")
         tosca_gmetadata = json.loads(serialised_value)
+        tosca_gversion = self.redis_client.get("tosca_gversion")
+        return tosca_info, tosca_templates, tosca_gmetadata, tosca_gversion
+
+    def getinfo(self):
         serialised_value = self.redis_client.get("tosca_info")
         tosca_info = json.loads(serialised_value)
-        serialised_value = self.redis_client.get("tosca_text")
-        tosca_text = json.loads(serialised_value)
-        return tosca_info, tosca_templates, tosca_gmetadata, tosca_gversion, tosca_text
+        return tosca_info
 
+    def getversion(self):
+        tosca_gversion = self.redis_client.get("tosca_gversion")
+        return tosca_gversion
+
+    def getmetadata(self):
+        serialised_value = self.redis_client.get("tosca_gmetadata")
+        tosca_gmetadata = json.loads(serialised_value)
+        return tosca_gmetadata
 
 # Helper functions
 def getdeploymenttype(nodes):
