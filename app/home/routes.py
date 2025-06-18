@@ -409,16 +409,10 @@ def portfolio():
         # if user not found, insert
         subject = session["userid"]
         email = session["useremail"]
-        #CLOUD-2833
         role = session["userrole"]
-        #
         user = dbhelpers.get_user(subject)
 
         if user is None:
-            # CLOUD-2833
-            #admins = json.dumps(app.config["ADMINS"])
-            #role = "admin" if email in admins else "user"
-            #
             user = User(
                 sub=subject,
                 name=session["username"],
@@ -445,10 +439,6 @@ def portfolio():
                 picture=utils.avatar(email, 26),
                 active=1))
 
-        # CLOUD-2833
-        #session["userrole"] = user.role  # role
-        #
-
         services = dbhelpers.get_services(visibility="public")
         services.extend(
             dbhelpers.get_services(visibility="private", groups=[session["active_usergroup"]])
@@ -458,16 +448,11 @@ def portfolio():
         )
 
         deps = []
-        excluded_status = build_excludedstatus_filter("actives")
+        excluded_status = build_excludedstatus_filter(list(["actives"]))
         try:
-            if excluded_status is not None:
-                deps = app.orchestrator.get_deployments(
-                    access_token, created_by="me", excluded_status=excluded_status
-                )
-            else:
-                deps = app.orchestrator.get_deployments(
-                    access_token, created_by="me"
-                )
+            deps = app.orchestrator.get_deployments(
+                access_token, created_by="me", excluded_status=excluded_status
+            )
         except Exception as e:
             flash("Error retrieving deployment list: \n" + str(e), "warning")
 
@@ -475,22 +460,22 @@ def portfolio():
         if deps:
             deps = dbhelpers.sanitizedeployments(deps)["deployments"]
 
+        statuses = dict()
+        statuses["COMPLETE"] = 0
+        statuses["PROGRESS"] = 0
+        statuses["FAILED"] = 0
 
-        '''
-        try:
-            dbhelpers.update_deployments(session["userid"])
-        except Exception as e:
-            flash("Error retrieving deployment list: \n" + str(e), "warning")
-
-        deps = dbhelpers.get_user_deployments(session["userid"])
-
-        '''
-
-        statuses = {}
         for dep in deps:
             status = dep.status if dep.status else "UNKNOWN"
-            #if status != "DELETE_COMPLETE" and dep.remote == 1:
-            statuses[status] = 1 if status not in statuses else statuses[status] + 1
+            if "FAILED" in status:
+                statuses["FAILED"] = statuses["FAILED"] + 1
+            else :
+                if "PROGRESS" in status:
+                    statuses["PROGRESS"] = statuses["PROGRESS"] + 1
+                else:
+                    if status == "CREATE_COMPLETE" or status == "UPDATE_COMPLETE":
+                        statuses["COMPLETE"] = statuses["COMPLETE"] + 1
+
 
         return render_template(
             app.config.get("PORTFOLIO_TEMPLATE"),

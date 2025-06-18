@@ -75,7 +75,7 @@
                 </div>
                 <div class="dashboard-template-header-buttons">
 
-					<button type="button" id="refreshbutton" class="dashboard-button dashboard-button-outline-no-border" onclick='postMain();'>
+					<button type="button" id="refreshbutton" class="dashboard-button dashboard-button-outline-no-border" onclick='postMain(true);'>
 						<i class="fas fa-sync-alt"></i>&nbsp;Refresh
 					</button>
 
@@ -89,26 +89,45 @@
                       <input type="text" id="end-picker" class="date-field" placeholder="YYYY-MM" value="{{ dateend }}" >
                     </div>
                     &nbsp;
-                    <div>
-                        <button type="button" id="statusbutton" class="dashboard-button dashboard-button-small dashboard-button-primary dropdown-toggle dropdown-toggle-split" data-toggle="dropdown">
+                    <!-- Status selector -->
+                    <div class="dropdown">
+                        <button type="button" id="statusbutton" class="dashboard-button dashboard-button-small dashboard-button-primary dropdown-toggle dropdown-toggle-split"
+                                data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                             <span class='fas fa-list mr-2'></span>Status&nbsp;
                         </button>
-                        <div class="dropdown-menu">
-                            <a class={% if not selected_status or selected_status == 'all' %}"dropdown-item active"{% else %}"dropdown-item"{% endif %} href="javascript:;" onclick="processStatusSelect('all'); return true;">
-                                all
-                            </a>
-                            <a class={% if not selected_status or selected_status == 'actives' %}"dropdown-item active"{% else %}"dropdown-item"{% endif %} href="javascript:;" onclick="processStatusSelect('actives'); return true;">
-                                actives
-                            </a>
+                        <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+                            <div class="dropdown-item">
+                                <label class="form-check-label">
+                                    <input type="checkbox" class="form-check-input multi-check-status" value="all" data-exclusive="true"
+                                     {% if not selected_status or 'all' in selected_status %}checked{% endif %}>
+                                    all
+                                </label>
+                            </div>
+                            <div class="dropdown-item">
+                                <label class="form-check-label">
+                                    <input type="checkbox" class="form-check-input multi-check-status" value="actives" data-exclusive="true"
+                                        {% if not selected_status or 'actives' in selected_status %}checked{% endif %}>
+                                    actives
+                                </label>
+                            </div>
+                            {% for deployment_status in status_labels %}
+                            <div class="dropdown-item">
+                                <label class="form-check-label">
+                                  <input type="checkbox" class="form-check-input multi-check-status"
+                                         value="{{ deployment_status }}"
+                                         {% if deployment_status in selected_status %}checked{% endif %}>
+                                    {{ deployment_status }}
+                                </label>
+                            </div>
+                            {% endfor %}
                         </div>
-                    </div>&nbsp;
-                    &nbsp;
+                    </div>
                 </div>
             </div>
 
             <form id="tableform" action="{{ url_for('users_bp.showuserstats') }}" method="post">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <input type="hidden" id="selected_status" name="selected_status" value={{ selected_status }}>
+                <input type="hidden" id="selected_status" name="selected_status" value={{ selected_status | safe}}>
                 <input type="hidden" name="start_date" id="start_date" value="{{ datestart }}">
                 <input type="hidden" name="end_date" id="end_date" value="{{ dateend }}">
             </form>
@@ -172,14 +191,11 @@
 
 <script>
 
-function postMain() {
+function postMain(showwait) {
+    if (showwait)
+        set_loading(true)
     $( "#tableform" ).submit();
     return true;
-}
-
-function processStatusSelect(status) {
-    document.getElementById("selected_status").value = status;
-    postMain();
 }
 
 $('#tableUsers').on('click', 'button[data-id]', function () {
@@ -276,6 +292,36 @@ function drawbarchart(chartidx, title, subtitle, labels, values, colors) {
   }
 }
 
+function updateSelectedItems(name, dopost) {
+  const selected = [];
+  $('.multi-check-'+name+':checked').each(function () {
+    selected.push($(this).val());
+  });
+  $('#selected_'+name).val(JSON.stringify(selected));
+  if (dopost) {
+      postMain(true);
+  }
+}
+
+function UpdateMultiCheck(obj, name) {
+    const isExclusive = $(obj).data('exclusive') === true || $(obj).data('exclusive') === "true";
+    if (isExclusive && obj.checked) {
+      $('.multi-check-'+name).not(obj).prop('checked', false);
+    } else if (obj.checked) {
+      $('.multi-check-'+ name+'[data-exclusive="true"]').prop('checked', false);
+    }
+    updateSelectedItems(name, true);
+}
+
+$(document).ready(function () {
+  $('.multi-check-status').on('change', function () {
+   UpdateMultiCheck(this, 'status');
+  });
+
+  // Inizializza selezioni
+  updateSelectedItems('status', false);
+});
+
 window.onload = function() {
 
     drawbarchart("users_chart",
@@ -346,7 +392,7 @@ $('#tableUsers').dataTable( {
 </script>
 
 {% if ar.found %}
-	<script>setTimeout(function(){postMain();},30000);</script>
+	<script>setTimeout(function(){postMain(false);},30000);</script>
 {% endif %}
 
 {% endblock %}

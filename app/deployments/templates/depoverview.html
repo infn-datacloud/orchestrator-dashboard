@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
+    <!-- depoverview.html -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.6.2/dist/chart.min.js"></script>
 <style>
     .chart-container {
@@ -48,70 +49,18 @@
                 </div>
                 <div class="dashboard-template-header-buttons">
 
-					<button type="button" id="refreshbutton" class="dashboard-button dashboard-button-outline-no-border" onclick='postMain();'>
+					<button type="button" id="refreshbutton" class="dashboard-button dashboard-button-outline-no-border" onclick='postMain(true);'>
 						<i class="fas fa-sync-alt"></i>&nbsp;Refresh
 					</button>
                     &nbsp;
-                    <div>
-                        <button type="button" id="statusbutton" class="dashboard-button dashboard-button-small dashboard-button-primary dropdown-toggle dropdown-toggle-split" data-toggle="dropdown">
-                            <span class='fas fa-list mr-2'></span>Status&nbsp;
-                        </button>
-                        <div class="dropdown-menu">
-                            <a class={% if not selected_status or selected_status == 'all' %}"dropdown-item active"{% else %}"dropdown-item"{% endif %} href="javascript:;" onclick="processStatusSelect('all'); return true;">
-                                all
-                            </a>
-                            <a class={% if selected_status == 'actives' %}"dropdown-item active"{% else %}"dropdown-item"{% endif %} href="javascript:;" onclick="processStatusSelect('actives'); return true;">
-                                actives
-                            </a>
-                            {% for deployment_status in status_labels %}
-                                <a class={% if selected_status == deployment_status %}"dropdown-item active"{% else %}"dropdown-item"{% endif %} href="javascript:;" onclick="processStatusSelect('{{deployment_status}}'); return true;">
-                                    {{deployment_status}}
-                                </a>
-                            {% endfor %}
-                        </div>
-                    </div>&nbsp;
-                    <div>
-                        <button type="button" id="groupbutton" class="dashboard-button dashboard-button-small dashboard-button-primary dropdown-toggle dropdown-toggle-split" data-toggle="dropdown">
-                            <span class='fas fa-list mr-2'></span>Group&nbsp;
-                        </button>
-                        <div class="dropdown-menu">
-                            <a class={% if not group or group == '' %}"dropdown-item active"{% else %}"dropdown-item"{% endif %} href="javascript:;" onclick="processGroupSelect(''); return true;">
-                                all
-                            </a>
-                            {% for user_group in groups_labels %}
-                                {% if user_group != "UNKNOWN" %}
-                                    <a class={% if group == user_group %}"dropdown-item active"{% else %}"dropdown-item"{% endif %} href="javascript:;" onclick="processGroupSelect('{{user_group}}'); return true;">
-                                        {{user_group}}
-                                    </a>
-                                {% endif %}
-                            {% endfor %}
-                        </div>
-                    </div>&nbsp;
-                    <div>
-                        <button type="button" id="providerbutton" class="dashboard-button dashboard-button-small dashboard-button-primary dropdown-toggle dropdown-toggle-split" data-toggle="dropdown">
-                            <span class='fas fa-list mr-2'></span>Provider&nbsp;
-                        </button>
-                        <div class="dropdown-menu">
-                            <a class={% if not provider or provider == '' %}"dropdown-item active"{% else %}"dropdown-item"{% endif %} href="javascript:;" onclick="processProviderSelect(''); return true;">
-                                all
-                            </a>
-                            {% for user_provider in providers_labels %}
-                                {% if user_provider != "UNKNOWN" %}
-                                    <a class={% if provider == user_provider %}"dropdown-item active"{% else %}"dropdown-item"{% endif %} href="javascript:;" onclick="processProviderSelect('{{user_provider}}'); return true;">
-                                        {{user_provider}}
-                                    </a>
-                                {% endif %}
-                            {% endfor %}
-                        </div>
-                    </div>
-                    &nbsp;
+                    {% include "dep_query_selector.html" %}
                 </div>
             </div>
             <form id="tableform" action="{{ url_for('deployments_bp.showdeploymentsoverview') }}" method="post">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <input type="hidden" id="group" name="group" value={{ group }}>
-                <input type="hidden" id="provider" name="provider" value={{ provider }}>
-                <input type="hidden" id="selected_status" name="selected_status" value={{ selected_status }}>
+                <input type="hidden" id="selected_group" name="selected_group" value={{ selected_group | safe}}>
+                <input type="hidden" id="selected_provider" name="selected_provider" value={{ selected_provider | safe}}>
+                <input type="hidden" id="selected_status" name="selected_status" value={{ selected_status | safe}}>
             </form>
             <div class="container my-4">
                 <div id="no-data-message"
@@ -126,27 +75,20 @@
     </div>
 </div>
 
+<script src="/static/home/js/dep_query_selector.js"></script>
+
 <script>
 
-function postMain() {
+function postMain(showwait) {
+    if (showwait)
+        set_loading(true)
     $( "#tableform" ).submit();
     return true;
 }
 
-function processStatusSelect(status) {
-    document.getElementById("selected_status").value = status;
-    postMain();
-}
-
-function processGroupSelect(group) {
-    document.getElementById("group").value = group;
-    postMain();
-}
-
-function processProviderSelect(provider) {
-    document.getElementById("provider").value = provider;
-    postMain();
-}
+$(document).ready(function () {
+  initializeMultiCheck();
+});
 
 let validChartCount = 0;
 
@@ -314,7 +256,7 @@ window.onload = function() {
 </script>
 
 {% if ar.found %}
-	<script>setTimeout(function(){postMain();},30000);</script>
+	<script>setTimeout(function(){postMain(false);},30000);</script>
 {% endif %}
 
 {% endblock %}

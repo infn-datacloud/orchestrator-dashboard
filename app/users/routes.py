@@ -17,6 +17,7 @@ from app.models.User import User
 from flask import (
     Blueprint,
     flash,
+    json,
     render_template,
     request,
     session,
@@ -48,27 +49,13 @@ def show_users():
     return render_template("users.html", users=users)
 
 
-#@users_bp.route("/<subject>/<ronly>", methods=["GET", "POST"])
 @users_bp.route("/<subject>")
 @auth.authorized_with_valid_token
 @auth.only_for_admin
 def show_user(subject):
-#def show_user(subject, ronly):
-    '''
-    if request.method == "POST":
-        # cannot change its own role
-        if session["userid"] == subject:
-            role = session["userrole"]
-        else:
-            role = request.form["role"]
-        active = request.form["active"]
-        # update database
-        dbhelpers.update_user(subject, dict(role=role, active=bool(active)))
-    '''
     user = dbhelpers.get_user(subject)
     if user is not None:
         return render_template("user.html", user=user)
-        #return render_template("user.html", user=user, ronly=ronly)
     else:
         return render_template(app.config.get("HOME_TEMPLATE"))
 
@@ -83,9 +70,10 @@ def showuserstats():
     only_effective = app.config.get("FEATURE_SHOW_BROKEN_DEPLOYMENTS", "no") == "no"
     datestart = None
     dateend = None
-    selected_status = "actives"
+    selected_status = list(["actives"])
+
     if request.method == "POST":
-        selected_status = request.form.to_dict()["selected_status"]
+        selected_status = json.loads(request.form.to_dict()["selected_status"])
         datestart = request.form.to_dict()["start_date"]
         dateend = request.form.to_dict()["end_date"]
 
@@ -139,7 +127,6 @@ def showuserstats():
             datelist[sub] = datelist[sub]  + 1
         occurrences[depdate] = datelist
 
-
     s_occurrences = dict(sorted(occurrences.items(), key=lambda item: item[0]))
     k_occurrences = list(s_occurrences.keys())
     # get default date interval if not user defined
@@ -180,7 +167,7 @@ def showuserstats():
             s_users[keyu] = s_users[keyu] + c
         v_users.append(v)
 
-    s_title = "Active users over time for all statuses" if selected_status == "all" else "Active users over time for status: " + selected_status
+    s_title = "Active users over time for all statuses" if "all" in selected_status else "Active users over time for status: " + ",".join(selected_status)
 
     return render_template(
         "showuserstats.html",
