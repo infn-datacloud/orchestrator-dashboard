@@ -112,6 +112,7 @@ If you want to run the application outside the docker image provided in the repo
 | IAM_CLIENT_ID | ID of the client registered in IAM | yes | 
 | IAM_CLIENT_SECRET | Secret of the client registered in IAM | yes |
 | IAM_BASE_URL | IAM url | yes |
+| IAM_SCOPE | IAM allowed scopes | yes |
 | ORCHESTRATOR_URL | Orchestrator service URL | no |
 | SLAM_URL | SLAM service URL | yes |
 | CMDB_URL | CMDB service URL | no |
@@ -120,9 +121,10 @@ If you want to run the application outside the docker image provided in the repo
 | SQLALCHEMY_DATABASE_URI | Complete URL to the database | yes |
 | REDIS_URL | Complete URL to the redis instance. If not set the application tries to contact the localhost. | no |
 | CALLBACK_URL | URL contacted by the orchestrator to update the dashboard  | yes |
-| ADMINS | List of admin emails. Each email in the list must be written within single quotes. | no | 
+| ADMINS | List of admin emails. Each email in the list must be written within single quotes. (**DEPRECATED**) | no | 
 | SUPPORT_EMAIL | Email for user support | no |
 | IAM_GROUP_MEMBERSHIP | List of user's groups to use in the application. | no |
+| IAM_ADMIN_GROUPS | List of IAM groups which the administrators belong to | yes | 
 | CONFIGURATION_PROFILE | Choose dashboard graphics | no |
 | LOG_LEVEL | Application log level. Must be upper case. | no |
 | ENABLE_HTTPS | Enable HTTPS **only when running the start.sh script**. | no |
@@ -134,10 +136,12 @@ If you want to run the application outside the docker image provided in the repo
 | FEATURE_DEPLOYMENT_SORT_COLUMN | Initial column used for sorting deployments list (user view) | no |
 | FEATURE_HIDDEN_ADMIN_DEPLOYMENT_COLUMNS | List of columns to hide in deployments list (admin view) | no |
 | FEATURE_HIDDEN_DEPLOYMENT_SORT_COLUMN | Initial column used for sorting deployments list (admin view) | no |
+| FEATURE_MAX_PIE_SLICES | Maximum number of slices in the pie chart (0 for no limit) (admin view) | no |
+| FEATURE_SHOW_BROKEN_DEPLOYMENTS | Show deployments without reference to the template (UNKNOWN template) in statistics (admin view) | no |
 | FEATURE_UPDATE_DEPLOYMENT | Enable update/remove advanced option when updating deployments (**DEPRECATED** - Related graphic is not up to date). | no |
 | FEATURE_VAULT_INTEGRATION | Enable vault integration. | no |
 | FEATURE_REQUIRE_USER_SSH_PUBKEY | Enable section to add user's SSH public key. _Depends on `FEATURE_VAULT_INTEGRATION` since SSH public keys are stored in the vault._ **This is mandatory to submit any deployment.** | no |
-| FEATURE_S3CREDS_MENU | Enable menu for S3 credentials creation. **DEPRECATED** | no |
+| FEATURE_S3CREDS_MENU | Enable menu for S3 credentials creation. (**DEPRECATED**) | no |
 | PROVIDER_NAMES_TO_SPLIT | List of provider names to split in provider name and region name. | no |
 | MAIL_SERVER | SMTP server | no |
 | MAIL_PORT | SMTP server port | no |

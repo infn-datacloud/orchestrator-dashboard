@@ -4,6 +4,7 @@ CONFIGURATION_PROFILE = "default"
 IAM_CLIENT_ID = "XXX-XXX-XXX-XXX-XXX"
 IAM_CLIENT_SECRET = "************"
 IAM_BASE_URL = "https://iam.example.com"
+IAM_ADMIN_GROUPS = ["developers", "datacloud/orchestrator"]
 
 ORCHESTRATOR_URL = "https://orchestrator.example.com"
 CALLBACK_URL = "https://dashboard.example.com/callback"
@@ -25,7 +26,6 @@ MAIL_SENDER = "admin@orchestrator-dashboard"
 
 ### ADMIN SETTINGS
 SUPPORT_EMAIL = "support@ba.infn.it"
-ADMINS = "['admin@ba.infn.it']"
 
 FEATURE_ADVANCED_MENU = "no"
 FEATURE_UPDATE_DEPLOYMENT = "no"
@@ -38,7 +38,7 @@ UPLOAD_FOLDER = "./upload_swift/"
 
 #### LOOK AND FEEL SETTINGS
 WELCOME_MESSAGE = "Welcome! This is the PaaS Orchestrator Dashboard"
-NAVBAR_BRAND_TEXT = "PaaS Orchestrator Dashboard"
+NAVBAR_BRAND_TEXT = "Dashboard"
 NAVBAR_BRAND_ICON = "/static/home/images/orchestrator-logo.png"
 
 ### Template Paths

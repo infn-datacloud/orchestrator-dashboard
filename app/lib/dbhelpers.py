@@ -13,12 +13,15 @@
 # limitations under the License.
 
 import ast
-import datetime
+from datetime import datetime, date
+import calendar
+
 from typing import Any, Optional
 
 from dateutil import parser
 from flask import current_app as app
 from flask import json
+from flask import session
 
 from app.extensions import db
 from app.iam import iam
@@ -28,6 +31,7 @@ from app.models.Service import Service
 from app.models.UsersGroup import UsersGroup
 from app.models.User import User
 from app.models.Setting import Setting
+from app.models.DbVersion import DbVersion
 
 
 def add_object(object):
@@ -72,13 +76,6 @@ def delete_ssh_key(subject):
 def update_deployment(depuuid, data):
     Deployment.query.filter_by(uuid=depuuid).update(data)
     db.session.commit()
-
-
-def get_user_deployments(user_sub, user_group = None):
-    kwargs = {"sub": user_sub}
-    if user_group is not None:
-        kwargs["user_group"] = user_group
-    return Deployment.query.filter_by(**kwargs).all()
 
 
 def get_deployment(uuid):
@@ -142,8 +139,8 @@ def sanitizedeployments(deployments):
         dep_json["creationTime"] = dt.strftime("%Y-%m-%d %H:%M:%S")
         dt = parser.parse(dep_json["updateTime"])
         dep_json["updateTime"] = dt.strftime("%Y-%m-%d %H:%M:%S")
-        update_time = datetime.datetime.strptime(dep_json["updateTime"], "%Y-%m-%d %H:%M:%S")
-        creation_time = datetime.datetime.strptime(dep_json["creationTime"], "%Y-%m-%d %H:%M:%S")
+        update_time = datetime.strptime(dep_json["updateTime"], "%Y-%m-%d %H:%M:%S")
+        creation_time = datetime.strptime(dep_json["creationTime"], "%Y-%m-%d %H:%M:%S")
 
         providername = dep_json["cloudProviderName"] if "cloudProviderName" in dep_json else ""
         # Older deployments saved as provider name both the provider name and the
@@ -159,7 +156,7 @@ def sanitizedeployments(deployments):
         provider_type = get_provider_type(dep_json)
         max_length = 65535
         status_reason = dep_json.get("statusReason", "")[:max_length]
-
+        subject = dep_json["createdBy"]["subject"]
         vphid = dep_json["physicalId"] if "physicalId" in dep_json else ""
 
         dep = get_deployment(uuid)
@@ -171,6 +168,7 @@ def sanitizedeployments(deployments):
                 or dep.provider_type != provider_type
                 or dep.region_name != region_name
                 or str(dep.status_reason or "") != status_reason
+                #or dep.sub != subject
             ):
                 dep.update_time = update_time
                 dep.physicalId = vphid
@@ -179,13 +177,13 @@ def sanitizedeployments(deployments):
                 dep.task = dep_json["task"]
                 dep.links = json.dumps(dep_json["links"])
                 dep.remote = 1
+                #dep.sub = subject
                 dep.provider_name = providername
                 dep.provider_type = provider_type
                 dep.region_name = region_name
                 dep.status_reason = status_reason
 
-                db.session.add(dep)
-                db.session.commit()
+                add_object(dep)
 
             deps.append(dep)
         else:
@@ -206,21 +204,21 @@ def sanitizedeployments(deployments):
 
             try:
                 #check user existence
-                subject = dep_json["createdBy"]["subject"]
                 user = get_user(subject)
                 #create inactive unknown user if not exists
                 if user is None:
                     user = User(
                         sub=subject,
                         name="unknown",
-                        username="unknown",
+                        username=subject,
                         given_name="unknown",
                         family_name="unknown",
                         email="unknown",
-                        organisation_name="unknown",
+                        organisation_name=session["organisation_name"],
                         role="user",
                         active=0
                     )
+
                     add_object(user)
 
                 deployment = Deployment(
@@ -260,8 +258,7 @@ def sanitizedeployments(deployments):
                     updatable=0,
                 )
 
-                db.session.add(deployment)
-                db.session.commit()
+                add_object(deployment)
 
                 deps.append(deployment)
             except Exception:
@@ -270,6 +267,94 @@ def sanitizedeployments(deployments):
     result["deployments"] = deps
     result["iids"] = iids
     return result
+
+
+def get_all_statuses():
+    return list(["CREATE_COMPLETE","CREATE_IN_PROGRESS","CREATE_FAILED","UPDATE_COMPLETE","UPDATE_IN_PROGRESS","UPDATE_FAILED","DELETE_COMPLETE","DELETE_IN_PROGRESS","DELETE_FAILED"])
+
+
+def get_active_statuses():
+    return list(["CREATE_COMPLETE","CREATE_IN_PROGRESS","CREATE_FAILED","UPDATE_COMPLETE","UPDATE_IN_PROGRESS","UPDATE_FAILED","DELETE_IN_PROGRESS","DELETE_FAILED"])
+
+
+def get_inactive_statuses():
+    return list(["DELETE_COMPLETE"])
+
+
+def build_excludedstatus_filter(status):
+    if "all" in status:
+        return None
+    if "actives" in status:
+        slist = get_inactive_statuses()
+        sfilter = list()
+    else:
+        slist = get_all_statuses()
+        sfilter = status
+    excluded_status = ""
+    for st in slist:
+        if not st in sfilter:
+            if excluded_status != "":
+                excluded_status += ","
+            excluded_status += st
+    return excluded_status
+
+
+def month_boundary(ym_str: str, first_day: bool = True) -> date:
+    """
+    Converte una stringa 'YYYY-MM' in una data:
+    - Se first_day è True, restituisce il primo giorno del mese
+    - Se False, restituisce l'ultimo giorno del mese
+    - Se errore ritorna None
+    """
+    try:
+        dt = datetime.strptime(ym_str, "%Y-%m")
+    except ValueError:
+        return None
+
+    year, month = dt.year, dt.month
+
+    if first_day:
+        return date(year, month, 1)
+    else:
+        last_day = calendar.monthrange(year, month)[1]
+        return date(year, month, last_day)
+
+
+def months_list(start, end):
+    """Restituisce una lista di stringhe 'YYYY-MM' tra due date (incluse).
+    I parametri possono essere oggetti `date` o stringhe 'YYYY-MM'.
+    """
+    if isinstance(start, str):
+        start_date = datetime.strptime(start, "%Y-%m").date()
+    else:
+        start_date = date(start.year, start.month, 1)
+
+    if isinstance(end, str):
+        end_date = datetime.strptime(end, "%Y-%m").date()
+    else:
+        end_date = date(end.year, end.month, 1)
+
+    # Genera la lista
+    result = []
+    current = start_date
+
+    while current <= end_date:
+        result.append(current.strftime("%Y-%m"))
+        if current.month == 12:
+            current = date(current.year + 1, 1, 1)
+        else:
+            current = date(current.year, current.month + 1, 1)
+
+    return result
+
+
+def filter_date_range(deployments, start, end, negate):
+    def iterator_func(x):
+        if (start is None or x.creation_time.date() >= start) and \
+                (end is None or x.creation_time.date() <= end):
+            return negate
+        return not negate
+    return list(filter(iterator_func, deployments))
 
 
 def filter_status(deployments, search_string_list, negate):
@@ -288,18 +373,30 @@ def filter_group(deployments, search_string_list, negate):
     return list(filter(iterator_func, deployments))
 
 
+def filter_template(deployments, search_string_list, negate):
+    def iterator_func(x):
+        template = x.selected_template or "UNKNOWN"
+        if template in search_string_list:
+            return negate
+        return not negate
+    return list(filter(iterator_func, deployments))
+
+
 def filter_provider(deployments, search_string_list, negate, providers_to_split):
     def iterator_func(x):
-        provider = x.provider_name or "UNKNOWN"
-        if x.region_name:
-            provider_ext = (provider + "-" + x.region_name).lower()
-            if providers_to_split and provider_ext in providers_to_split:
-                provider = provider + "-" + x.region_name.lower()
+        provider = buildprovidername(providers_to_split, x.provider_name, x.region_name)
         if provider in search_string_list:
             return negate
         return not negate
     return list(filter(iterator_func, deployments))
 
+def buildprovidername(providers_to_split, dep_provider, dep_region_name):
+    provider = dep_provider or "UNKNOWN"
+    if dep_region_name:
+        provider_ext = (provider + "-" + dep_region_name).lower()
+        if providers_to_split and provider_ext in providers_to_split:
+            return provider + "-" + dep_region_name.lower()
+    return provider
 
 def cvdeployments(deps):
     deployments = []
@@ -307,40 +404,41 @@ def cvdeployments(deps):
         deployments.append(cvdeployment(d))
     return deployments
 
+def nullorempty(value):
+    return True if value is None or value == "" or value == "None" else False
+
+def notnullorempty(value):
+    return not nullorempty(value)
+
+def defaulttoempty(value):
+    return value if value is not None else ""
 
 def cvdeployment(d):
     deployment = Deployment(
         uuid=d.uuid,
         creation_time=d.creation_time,
         update_time=d.update_time,
-        physicalId="" if d.physicalId is None else d.physicalId,
+        physicalId=defaulttoempty(d.physicalId),
         description=d.description,
         status=d.status,
         status_reason=d.status_reason,
-        outputs=json.loads(d.outputs.replace("\n", "\\n"))
-        if (d.outputs is not None and d.outputs != "") else "",
-        stoutputs=json.loads(d.stoutputs.replace("\n", "\\n"))
-        if (d.stoutputs is not None and d.stoutputs != "") else "",
+        outputs=json.loads(d.outputs.replace("\n", "\\n")) if notnullorempty(d.outputs) else "",
+        stoutputs=json.loads(d.stoutputs.replace("\n", "\\n")) if notnullorempty(d.stoutputs) else "",
         task=d.task,
-        links=json.loads(d.links.replace("\n", "\\n"))
-        if (d.links is not None and d.links != "") else "",
+        links=json.loads(d.links.replace("\n", "\\n")) if notnullorempty(d.links) else "",
         sub=d.sub,
         template=d.template,
-        template_parameters=d.template_parameters
-        if d.template_parameters is not None else "",
-        template_metadata=d.template_metadata
-        if d.template_metadata is not None else "",
+        template_parameters=defaulttoempty(d.template_parameters),
+        template_metadata=defaulttoempty(d.template_metadata),
         selected_template=d.selected_template,
-        inputs=json.loads(d.inputs.replace("\n", "\\n"))
-        if (d.inputs is not None and d.inputs != "") else "",
-        stinputs=json.loads(d.stinputs.replace("\n", "\\n"))
-        if (d.stinputs is not None and d.stinputs != "") else "",
+        inputs=json.loads(d.inputs.replace("\n", "\\n")) if notnullorempty(d.inputs) else "",
+        stinputs=json.loads(d.stinputs.replace("\n", "\\n")) if notnullorempty(d.stinputs) else "",
         params=d.params,
         deployment_type=d.deployment_type,
-        provider_name="" if d.provider_name is None else d.provider_name,
+        provider_name=defaulttoempty(d.provider_name),
         provider_type=d.provider_type,
         region_name=d.region_name,
-        user_group="" if d.user_group is None else d.user_group,
+        user_group=defaulttoempty(d.user_group),
         endpoint=d.endpoint,
         remote=d.remote,
         locked=d.locked,
@@ -348,48 +446,12 @@ def cvdeployment(d):
         feedback_required=d.feedback_required,
         keep_last_attempt=d.keep_last_attempt,
         storage_encryption=d.storage_encryption,
-        vault_secret_uuid="" if d.vault_secret_uuid is None else d.vault_secret_uuid,
-        vault_secret_key="" if d.vault_secret_key is None else d.vault_secret_key,
+        vault_secret_uuid=defaulttoempty(d.vault_secret_uuid),
+        vault_secret_key=defaulttoempty(d.vault_secret_key),
         elastic=d.elastic,
         updatable=d.updatable,
     )
     return deployment
-
-
-def update_deployments(subject):
-    issuer = app.settings.iam_url
-    if not issuer.endswith("/"):
-        issuer += "/"
-
-    # retrieve deployments from orchestrator
-    access_token = iam.token["access_token"]
-    deployments_from_orchestrator = []
-
-    deployments_from_orchestrator = app.orchestrator.get_deployments(
-        access_token, created_by="{}@{}".format(subject, issuer)
-    )
-
-    update_deployments_status(deployments_from_orchestrator, subject)
-
-
-def update_deployments_status(deployments_from_orchestrator, subject):
-    if not deployments_from_orchestrator:
-        return
-
-    iids = sanitizedeployments(deployments_from_orchestrator)["iids"]
-
-    # retrieve deployments from DB
-    deployments = cvdeployments(get_user_deployments(subject))
-    for dep in deployments:
-        newremote = dep.remote
-        if dep.uuid not in iids:
-            if dep.remote == 1:
-                newremote = 0
-        else:
-            if dep.remote == 0:
-                newremote = 1
-        if dep.remote != newremote:
-            update_deployment(dep.uuid, dict(remote=newremote))
 
 
 def get_services(visibility, groups=[]):
@@ -470,3 +532,7 @@ def get_settings():
 def update_setting(id, data):
     Setting.query.filter_by(id=id).update(data)
     db.session.commit()
+
+
+def get_dbversion():
+    return DbVersion.query.all()[0].version_num

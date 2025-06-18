@@ -7,9 +7,6 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&display=swap" rel="stylesheet">
-    <!-- BS4-->
-    <link rel="stylesheet" href="{{ url_for('static', filename='bootstrap-4.3.1/css/bootstrap.min.css') }}" />
-    <script src="{{ url_for('static', filename='bootstrap-4.3.1/js/bootstrap.min.js') }}"></script>
     <!-- jQuery -->
     <script src="{{ url_for('static', filename='js/jquery-3.4.1.min.js') }}"></script>
     <script src='https://cdnjs.cloudflare.com/ajax/libs/jquery/2.2.2/jquery.min.js'></script>
@@ -17,7 +14,9 @@
     <script type="text/javascript" src="{{ url_for('static', filename='ace-1.4.8/js/mode-json.min.js') }}"></script>
     <script type="text/javascript" src="{{ url_for('static', filename='ace-1.4.8/js/mode-yaml.min.js') }}"></script>
     <script src="{{ url_for('static', filename='popper.js-1.14.7/umd/popper.min.js') }}"></script>
+    <!-- BS4-->
     <script src="{{ url_for('static', filename='bootstrap-4.3.1/js/bootstrap.min.js') }}"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='bootstrap-4.3.1/css/bootstrap.min.css') }}" />
     <!-- DataTables -->
     <link href="{{ url_for('static', filename='DataTables/datatables.min.css') }}" rel="stylesheet">
     <script src="{{ url_for('static', filename='DataTables/datatables.min.js') }}"></script>
@@ -119,7 +118,7 @@
                                     <i class="fas fa-chart-pie"></i>
                                     Overview
                                 </a>
-                                <a class="navbar-left-dropdown-children-item navbar-left-link" href="{{ url_for("deployments_bp.showdeployments") }}" title="List">
+                                <a class="navbar-left-dropdown-children-item navbar-left-link" href="{{ url_for("deployments_bp.showdeployments", subject='me', showback=False) }}" title="List">
                                     <i class="fas fa-list-ul"></i>
                                     List
                                 </a>
@@ -193,13 +192,17 @@
                                         <i class="fas fa-users"></i>
                                         Users
                                     </a>
-                                    <a class="navbar-left-dropdown-children-item navbar-left-link" href="{{ url_for("deployments_bp.showalldeployments") }}" title="Deployments list">
+                                    <a class="navbar-left-dropdown-children-item navbar-left-link" href="{{ url_for("users_bp.showuserstats") }}" title="Users statistics">
+                                        <i class="fas fa-chart-pie"></i>
+                                        Users statistics
+                                    </a>
+                                    <a class="navbar-left-dropdown-children-item navbar-left-link" href="{{ url_for("deployments_bp.showalldeployments", showback=False) }}" title="Deployments list">
                                         <i class="fas fa-list-ul"></i>
                                         Deployments list
                                     </a>
-                                    <a class="navbar-left-dropdown-children-item navbar-left-link" href="{{ url_for("deployments_bp.showdeploymentstats") }}" title="Usage statistics">
+                                    <a class="navbar-left-dropdown-children-item navbar-left-link" href="{{ url_for("deployments_bp.showdeploymentstats") }}" title="Deployments statistics">
                                         <i class="fas fa-chart-pie"></i>
-                                        Usage statistics
+                                        Deployments statistics
                                     </a>
                                     <a class="navbar-left-dropdown-children-item navbar-left-link" href="{{ url_for("services_bp.list_as_admin") }}" title="Services">
                                         <i class="fas fa-cogs"></i>
@@ -250,9 +253,9 @@
 
                             <!-- ROLE -->
                             {% if session['active_usergroup'] != None and 'gets3creds' not in request.path and 'overview' not in request.path %}   
-                                <div class="navbar-left-user-profile-role" title="Role">
+                                <div class="navbar-left-user-profile-role" title="Role" {% if session['supported_usergroups']|length <= 1 or 'configure' in request.path %} style="cursor: default; color: var(--color-secondary)" {% endif %}>
                                     <div class="navbar-left-dropdown-parent-text">{{ session['active_usergroup'] }}</div>
-                                    {% if session['supported_usergroups']|length > 1 %}
+                                    {% if session['supported_usergroups']|length > 1 and 'configure' not in request.path %}
                                         <div class="navbar-left-dropdown-parent-icon">
                                             <i class="fas fa-caret-down"></i>
                                         </div>

@@ -65,6 +65,9 @@ instance/
 .vscode/**
 !.vscode/launch.json
 
+# PyCharm
+.idea/
+
 # macOS
 .DS_Store
 .AppleDouble
