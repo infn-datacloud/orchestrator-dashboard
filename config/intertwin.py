@@ -2,7 +2,7 @@
 WELCOME_MESSAGE = "Welcome to the interTwin Dashboard!"
 NAVBAR_BRAND_TEXT = "Dashboard"
 NAVBAR_BRAND_ICON = "/static/home/images/intertwin/intertwin-logo-white.png"
-FAVICON_PATH = "/static/home/images/intertwin/intertwin-logo.ico"
+FAVICON_PATH = "/static/home/images/intertwin/favicon_io"
 HELP_PAGE_URL = "https://servicedesk.infn.it/plugins/servlet/desk/portal/50"
 BRAND_COLOR_1 = "#ffffff"
 BRAND_COLOR_2 = "#ef8200"
