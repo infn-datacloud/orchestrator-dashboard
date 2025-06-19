@@ -458,7 +458,7 @@ def portfolio():
 
         # sanitize data and filter undesired states
         if deps:
-            deps = dbhelpers.sanitizedeployments(deps)["deployments"]
+            deps = dbhelpers.sanitizedeployments(deps)
 
         statuses = dict()
         statuses["COMPLETE"] = 0

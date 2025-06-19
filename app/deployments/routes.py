@@ -150,7 +150,7 @@ def showdeployments(subject, showback):
             flash("Error retrieving deployment list: \n" + str(e), "warning")
 
         if deployments:
-            deployments = dbhelpers.sanitizedeployments(deployments)["deployments"]
+            deployments = dbhelpers.sanitizedeployments(deployments)
 
         providers_to_split = app.config.get("PROVIDER_NAMES_TO_SPLIT", None)
         if providers_to_split:
@@ -262,7 +262,7 @@ def showalldeployments(showback):
         flash("Error retrieving deployment list: \n" + str(e), "warning")
 
     if deployments:
-        deployments = dbhelpers.sanitizedeployments(deployments)["deployments"]
+        deployments = dbhelpers.sanitizedeployments(deployments)
 
     providers_to_split = app.config.get("PROVIDER_NAMES_TO_SPLIT", None)
     if providers_to_split:
@@ -362,7 +362,7 @@ def showdeploymentsoverview():
 
     # sanitize data and filter undesired states
     if deployments:
-        deployments = dbhelpers.sanitizedeployments(deployments)["deployments"]
+        deployments = dbhelpers.sanitizedeployments(deployments)
 
     # Initialize dictionaries for status, projects, and providers
     statuses = dict()
@@ -485,7 +485,7 @@ def showdeploymentstats():
 
     # sanitize data and filter undesired states
     if deployments:
-        deployments = dbhelpers.sanitizedeployments(deployments)["deployments"]
+        deployments = dbhelpers.sanitizedeployments(deployments)
 
     # filter eventually dates
     hasfilterdate = False
@@ -2786,8 +2786,8 @@ def retrydep(depid=None):
         flash("Error retrieving deployment list: \n" + str(e), "danger")
 
     if deployments:
-        result = dbhelpers.sanitizedeployments(deployments)
-        deployments = result["deployments"]
+        deployments = dbhelpers.sanitizedeployments(deployments)
+
         app.logger.debug("Deployments: " + str(deployments))
 
         for tmp_dep in deployments:
