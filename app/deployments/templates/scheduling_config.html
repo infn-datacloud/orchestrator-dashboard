@@ -12,14 +12,42 @@
 		</div>
 		<span class="text-muted">Select a deployment provider or let the system choose automatically</span>
 	</div>
-	<div id="manschedConf" class="form-group">
-		<label>Provider</label>
-		<select class="js-example-basic-single js-states form-control" id="selectSLA" name="extra_opts.selectedSLA">
-			{% for sla in slas %}
-			<option name="selectedSLA" {% if sla_id == sla.id%}{{"selected"}}{% endif %} value="{{sla.id}}_{{sla.region_name}}">{{sla.sitename}}: {{sla.service_type}}</option>
-			{% endfor %}
-		</select>
-		<span class="text-muted">List of allowed providers</span>
+	<div id="manschedConf">
+		<div class="form-check" style="margin: 1em 0;">
+			<input type="checkbox" class="form-check-input" id="storageBinded">
+			<label class="form-check-label" for="storageBinded">Storage binded (Rucio)</label>
+		</div>
+		<div class="form-group" id="rucioFileNameContainer">
+			<label for="rucioFileName">File name</label>
+			<div style="display: flex; align-items: center;">
+				<input type="text" class="form-control" id="rucioFileName" placeholder="example_name" value="">&nbsp;
+				<div  style="cursor: pointer; font-size: 1em; padding: .5em; color: var(--color-primary);" title="Search RSE" onclick="search_RSE()" tabindex=0>
+					<i class="fas fa-search"></i>
+				</div>
+			</div>
+			<div style="margin: 1em 0;" id="rucioSpinner">
+				<i class="fas fa-spinner fa-spin"></i>&nbsp;
+				<label>Searching for available RSE...</label>
+			</div>
+			<div style="margin: 1em 0; color: #C62828" id="rucioLabelFailure">
+				<i class="far fa-times-circle"></i>&nbsp;
+				<label>No matching RSE and providers found for the specified name</label>
+			</div>
+			<div style="margin: 1em 0; color: #2E7D32" id="rucioLabelSuccess">
+				<i class="far fa-check-circle"></i>&nbsp;
+				<label>RSE found! Choose one provider from the list above</label>
+			</div>
+		</div>
+		
+		<div class="form-group">
+			<label>Provider</label>
+			<select class="js-example-basic-single js-states form-control" id="selectSLA" name="extra_opts.selectedSLA">
+				{% for sla in slas %}
+				<option name="selectedSLA" {% if sla_id == sla.id%}{{"selected"}}{% endif %} value="{{sla.id}}_{{sla.region_name}}">{{sla.sitename}}: {{sla.service_type}}</option>
+				{% endfor %}
+			</select>
+			<span class="text-muted">List of allowed providers</span>
+		</div>
 	</div>
 </div>
 
@@ -32,20 +60,131 @@
 </style>
 
 <script>
-	$(document).ready(function () {
-		function hideSelectSla() {
-			if ($("#mansched").is(":checked")){
-				$('#manschedConf').show();
-			}
-			else {
-				$('#manschedConf').hide();
-			}
+	function hideSelectSla() {
+		if ($("#mansched").is(":checked")){
+			$('#manschedConf').show();
 		}
+		else {
+			$('#manschedConf').hide();
+		}
+	}
 
-		$("input[name='extra_opts.schedtype']").click(function() {
-			hideSelectSla();
+	$('#storageBinded').on('change', async () => {
+		$("#rucioFileNameContainer").hide();
+		$("#rucioLabelFailure").hide();
+		$("#rucioLabelSuccess").hide();
+
+		resetSlaSelect()
+
+		if ($('#storageBinded').is(":checked")) {
+			$("button[type='submit']").prop('disabled', 'disabled');
+			$("#selectSLA").prop('disabled', 'disabled');
+			$("#rucioFileNameContainer").show();
+
+			await search_RSE();
+		} else {
+			$("button[type='submit']").prop('disabled', '');
+			$("#selectSLA").prop('disabled', '');
+		}
+	})
+	
+	$('#rucioFileName').on('keyup', async () => {
+		await search_RSE();
+	})
+
+	async function search_RSE() {
+		$("#rucioLabelFailure").hide();
+		$("#rucioLabelSuccess").hide();
+		$("button[type='submit']").prop('disabled', 'disabled');
+		$("#selectSLA").prop('disabled', 'disabled');
+		
+		let rucio_connector_url = "{{ rucio_connector_url }}";
+		let scope = "user.{{session['preferred_username']}}";
+		let name = $('#rucioFileName').val();
+
+		let slas = JSON.parse('{{ slas | tojson }}');
+		
+		filter_sla_select(slas, [])
+
+		if (name && scope) {
+			$("#rucioSpinner").show();
+
+			await $.get(rucio_connector_url + "/replicas?scope=" + scope + "&name=" + name, (data, status) => {
+				$("#rucioLabelFailure").hide();
+				$("#rucioLabelSuccess").hide();
+				$("button[type='submit']").prop('disabled', 'disabled');
+				$("#selectSLA").prop('disabled', 'disabled');
+
+				let filtered_slas = filter_sla_select(slas, data)
+
+				if (data && data.length > 0 && filtered_slas.length > 0) {
+					$("#rucioLabelSuccess").show();
+
+					$("button[type='submit']").prop('disabled', '');
+					$("#selectSLA").prop('disabled', '');
+				} else {
+					$("#rucioLabelFailure").show();
+				}
+
+				$("#rucioSpinner").hide();
+			});
+		}
+	}
+
+	const currentSlaId = "{{ sla_id }}";
+
+	function populate_sla_options(slasList) {
+		const selectEl = document.getElementById("selectSLA");
+		selectEl.innerHTML = ""; // Clear options
+		let hasSelected = false;
+
+		slasList.forEach((sla, index) => {
+			const option = document.createElement("option");
+			option.value = `${sla.id}_${sla.region_name}`;
+			option.textContent = `${sla.sitename}: ${sla.service_type}`;
+
+			if (sla.id === currentSlaId) {
+				option.selected = true;
+				hasSelected = true;
+			}
+
+			selectEl.appendChild(option);
 		});
 
+		// If nothing was selected, select the first
+		if (!hasSelected && selectEl.options.length > 0) {
+			selectEl.options[0].selected = true;
+		}
+	}
+
+	function filter_sla_select(slas, rse) {
+		const filtered = slas.filter(sla =>
+			sla.rses.some(r => rse.includes(r))
+		);
+		populate_sla_options(filtered);
+
+		return filtered;
+	}
+
+	function resetSlaSelect() {
+		const slas = JSON.parse('{{ slas | tojson }}');
+		populate_sla_options(slas); // Use full original list
+	}
+
+	$("input[name='extra_opts.schedtype']").click(() => {
 		hideSelectSla();
+	});
+
+	$("#autosched").click(() => {
+		if ($('#storageBinded').is(":checked")) {
+			$('#storageBinded').click();
+		}
+	});
+
+	$(document).ready(function () {
+		hideSelectSla();
+
+		$("#rucioFileNameContainer").hide();
+		$("#rucioSpinner").hide();
 	});
 </script>

@@ -32,5 +32,6 @@
   "FEATURE_HIDDEN_DEPLOYMENT_SORT_COLUMN": "4, 'desc'",
   "FEATURE_VAULT_INTEGRATION": "yes",
   "EXTERNAL_LINKS": [ { "url": "https://paas-pre.cloud.infn.it/status-page", "menu_item_name": "Services status" } ],
-  "LOG_LEVEL": "info"
+  "LOG_LEVEL": "info",
+  "RUCIO_CONNECTOR_URL": "http://127.0.0.1:8000"
 }

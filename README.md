@@ -154,6 +154,7 @@ If you want to run the application outside the docker image provided in the repo
 | LDAP_BASE | | no |
 | LDAP_BIND_USER | | no |
 | LDAP_BIND_PASSWORD | | no |
+| RUCIO_CONNECTOR_URL | Url to the Rucio connector | no | 
 
 Ldap variables are mandatory to run services like Sync&Share.
 

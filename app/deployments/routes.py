@@ -1765,14 +1765,44 @@ def configure_select_scheduling(selected_tosca=None, multi_templates=True):
     # TODO: Consider saving this list in Redis for caching?)
 
     ssh_pub_key = dbhelpers.get_ssh_pub_key(session["userid"])
+    slas_rse = map_slas_rse(slas)
+    rucio_connector_url = app.settings.rucio_connector_url
 
     return render_template(
         "chooseprovider.html",
-        slas=slas,
+        slas=slas_rse,
         selected_tosca=selected_tosca,
         steps=steps,
         ssh_pub_key=ssh_pub_key,
+        rucio_connector_url=rucio_connector_url,
     )
+    
+def map_slas_rse(slas):
+    for sla in slas:
+        match (sla["region_name"], sla["provider_name"]):
+            # BARI
+            case ("bari", "BACKBONE"):
+                sla["rses"] = ["BARI_USERDISK"]
+            
+            case ("RegionOne", "RECAS-BARI"):
+                sla["rses"] = ["BARI_USERDISK"]
+                
+            # CNAF
+            case ("cnaf", "BACKBONE"):
+                sla["rses"] = ["CNAF_USERDISK", "CNAF_USERTAPE"]
+                
+            case ("tier1", "CLOUD-CNAF-T1"):
+                sla["rses"] = ["CNAF_USERDISK", "CNAF_USERTAPE"]
+                
+            # NAPOLI
+            case ("RegionOne", "CLOUD-IBISCO-NAPOLI"):
+                sla["rses"] = ["NAPOLI_USERDISK"]
+                
+            # VENETO
+            case ("regionOne", "CLOUD-VENETO"):
+                sla["rses"] = ["LNL_USERDISK", "CLOUDVENETO_USERDISK"]          
+        
+    return slas
 
 
 @deployments_bp.route("/configure_form", methods=["GET"])
