@@ -31,6 +31,7 @@ randomcolor
 sshpubkeys
 jsonschema[format]
 semver==3.0.4
+oauthlib==3.2.2
 ###### tests
 #pytest
 #pytest-cov
