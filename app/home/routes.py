@@ -116,7 +116,7 @@ def show_settings():
 
     groups = app.settings.iam_groups
     repository_configuration = app.settings.repository_configuration
-    _, _, _, tosca_gversion, _ = tosca.get()
+    tosca_gversion = tosca.getversion()
 
     return render_template(
         "settings.html",
@@ -370,7 +370,7 @@ def check_template_access(user_groups, active_group):
     - templates_info: information about the accessible templates
     - enable_template_groups: a boolean indicating whether template groups are enabled
     """
-    tosca_info, _, tosca_gmetadata, tosca_gversion, _ = tosca.get()
+    tosca_info, _, tosca_gmetadata, tosca_gversion = tosca.get()
     templates_data = tosca_gmetadata if tosca_gmetadata else tosca_info
     enable_template_groups = bool(tosca_gmetadata)
 
@@ -458,7 +458,7 @@ def portfolio():
 
         # sanitize data and filter undesired states
         if deps:
-            deps = dbhelpers.sanitizedeployments(deps)["deployments"]
+            deps = dbhelpers.sanitizedeployments(deps)
 
         statuses = dict()
         statuses["COMPLETE"] = 0
