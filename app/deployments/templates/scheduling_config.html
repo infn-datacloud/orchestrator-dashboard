@@ -1,6 +1,7 @@
 <div id="confScheduling">
 	<div class="form-group">
 		<label>Scheduling type</label>
+		{{ csrf_token() }}
 		<br>
 		<div class="form-check">
 			<input id="autosched" class="form-check-input" type="radio" name="extra_opts.schedtype" value="auto" checked>
@@ -99,7 +100,8 @@
 		$("#selectSLA").prop('disabled', 'disabled');
 		
 		let rucio_connector_url = "{{ rucio_connector_url }}";
-		let scope = "user.{{session['preferred_username']}}";
+		/* let scope = "user.{{session['preferred_username']}}"; */
+		let scope = "user.atroja"
 		let name = $('#rucioFileName').val();
 
 		let slas = JSON.parse('{{ slas | tojson }}');
@@ -109,24 +111,34 @@
 		if (name && scope) {
 			$("#rucioSpinner").show();
 
-			await $.get(rucio_connector_url + "/replicas?scope=" + scope + "&name=" + name, (data, status) => {
-				$("#rucioLabelFailure").hide();
-				$("#rucioLabelSuccess").hide();
-				$("button[type='submit']").prop('disabled', 'disabled');
-				$("#selectSLA").prop('disabled', 'disabled');
+			$.ajax({
+				url: rucio_connector_url + "/rse?did_scope=" + scope + "&did_name=" + name,
+				method: "GET",
+				headers: {
+					"Authorization": "Bearer {{ csrf_token() }}"
+				},
+				success: (data, status) => {
+					$("#rucioLabelFailure").hide();
+					$("#rucioLabelSuccess").hide();
+					$("button[type='submit']").prop('disabled', 'disabled');
+					$("#selectSLA").prop('disabled', 'disabled');
 
-				let filtered_slas = filter_sla_select(slas, data)
+					let filtered_slas = filter_sla_select(slas, data);
 
-				if (data && data.length > 0 && filtered_slas.length > 0) {
-					$("#rucioLabelSuccess").show();
+					if (data && data.length > 0 && filtered_slas.length > 0) {
+						$("#rucioLabelSuccess").show();
 
-					$("button[type='submit']").prop('disabled', '');
-					$("#selectSLA").prop('disabled', '');
-				} else {
-					$("#rucioLabelFailure").show();
+						$("button[type='submit']").prop('disabled', '');
+						$("#selectSLA").prop('disabled', '');
+					} else {
+						$("#rucioLabelFailure").show();
+					}
+
+					$("#rucioSpinner").hide();
+				},
+				error: (xhr, status, error) => {
+					console.error("Error:", status, error);
 				}
-
-				$("#rucioSpinner").hide();
 			});
 		}
 	}
