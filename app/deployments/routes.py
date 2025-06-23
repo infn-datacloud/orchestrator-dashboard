@@ -2044,6 +2044,7 @@ def patch_template(
 
         # patch images
         l_images = list()
+        valid_values = dict()
 
         # load constraints
         if k_os_distribution in template[k_inputs] and not k_os_distribution in valid_values:
