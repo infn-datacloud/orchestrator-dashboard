@@ -33,7 +33,14 @@ from markupsafe import Markup
 
 from app.extensions import csrf, tosca
 from app.iam import iam
-from app.lib import auth, dbhelpers, openstack, redis_helper, utils
+from app.lib import (
+    auth,
+    dbhelpers,
+    iam_groups,
+    openstack,
+    redis_helper,
+    utils
+)
 from app.models.User import User
 from app.lib.dbhelpers import get_dbversion, build_excludedstatus_filter
 
@@ -113,7 +120,7 @@ def show_settings():
             app.settings.iam_groups = groups
             auth.update_user_info()
 
-
+    ig = iam_groups.get_all_groups()
     groups = app.settings.iam_groups
     repository_configuration = app.settings.repository_configuration
     tosca_gversion = tosca.getversion()
