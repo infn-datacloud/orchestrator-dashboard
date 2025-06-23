@@ -88,10 +88,6 @@
 		}
 	})
 	
-	$('#rucioFileName').on('keyup', async () => {
-		await debouncedSearchRSE();
-	})
-
 	function debounce(func, delay) {
 			let timer;
 			return function (...args) {
@@ -100,57 +96,68 @@
 			};
 		}
 
-	const debouncedSearchRSE = debounce(search_RSE, 300);
+		let currentRequest = null;
 
-	async function search_RSE() {
-		$("#rucioLabelFailure").hide();
-		$("#rucioLabelSuccess").hide();
-		$("button[type='submit']").prop('disabled', 'disabled');
-		$("#selectSLA").prop('disabled', 'disabled');
-		
-		let rucio_connector_url = "{{ rucio_connector_url }}";
-		let scope = "user.{{session['preferred_username']}}";
-		let name = $('#rucioFileName').val();
+		const debouncedSearchRSE = debounce(search_RSE, 500);
 
-		let slas = JSON.parse('{{ slas | tojson }}');
-		
-		filter_sla_select(slas, [])
+		$('#rucioFileName').on('keyup', () => {
+			debouncedSearchRSE();
+		});
 
-		if (name && scope) {
-			$("#rucioSpinner").show();
+		async function search_RSE() {
+			$("#rucioLabelFailure").hide();
+			$("#rucioLabelSuccess").hide();
+			$("button[type='submit']").prop('disabled', 'disabled');
+			$("#selectSLA").prop('disabled', 'disabled');
 
-			$.ajax({
-				url: rucio_connector_url + "/rse?did_scope=" + scope + "&did_name=" + name,
-				method: "GET",
-				headers: {
-					"Authorization": "Bearer {{ csrf_token() }}"
-				},
-				success: (data, status) => {
-					$("#rucioSpinner").show();
-					$("#rucioLabelFailure").hide();
-					$("#rucioLabelSuccess").hide();
-					$("button[type='submit']").prop('disabled', 'disabled');
-					$("#selectSLA").prop('disabled', 'disabled');
+			let rucio_connector_url = "{{ rucio_connector_url }}";
+			let scope = "user.{{session['preferred_username']}}";
+			let name = $('#rucioFileName').val();
 
-					let filtered_slas = filter_sla_select(slas, data);
+			let slas = JSON.parse('{{ slas | tojson }}');
 
-					if (data && data.length > 0 && filtered_slas.length > 0) {
-						$("#rucioLabelSuccess").show();
+			filter_sla_select(slas, []);
 
-						$("button[type='submit']").prop('disabled', '');
-						$("#selectSLA").prop('disabled', '');
-					} else {
-						$("#rucioLabelFailure").show();
-					}
+			if (name && scope) {
+				$("#rucioSpinner").show();
 
-					$("#rucioSpinner").hide();
-				},
-				error: (xhr, status, error) => {
-					console.error("Error:", status, error);
+				if (currentRequest && currentRequest.readyState !== 4) {
+					currentRequest.abort();
 				}
-			});
+
+				currentRequest = $.ajax({
+					url: rucio_connector_url + "/rse?did_scope=" + scope + "&did_name=" + name,
+					method: "GET",
+					headers: {
+						"Authorization": "Bearer {{ csrf_token() }}"
+					},
+					success: (data, status) => {
+						$("#rucioLabelFailure").hide();
+						$("#rucioLabelSuccess").hide();
+						$("button[type='submit']").prop('disabled', 'disabled');
+						$("#selectSLA").prop('disabled', 'disabled');
+
+						let filtered_slas = filter_sla_select(slas, data);
+
+						if (data && data.length > 0 && filtered_slas.length > 0) {
+							$("#rucioLabelSuccess").show();
+							$("button[type='submit']").prop('disabled', '');
+							$("#selectSLA").prop('disabled', '');
+						} else {
+							$("#rucioLabelFailure").show();
+						}
+
+						$("#rucioSpinner").hide();
+					},
+					error: (xhr, status, error) => {
+						if (status !== "abort") {
+							console.error("Error:", status, error);
+						}
+						$("#rucioSpinner").hide();
+					}
+				});
+			}
 		}
-	}
 
 	const currentSlaId = "{{ sla_id }}";
 
