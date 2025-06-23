@@ -89,8 +89,18 @@
 	})
 	
 	$('#rucioFileName').on('keyup', async () => {
-		await search_RSE();
+		await debouncedSearchRSE();
 	})
+
+	function debounce(func, delay) {
+			let timer;
+			return function (...args) {
+				clearTimeout(timer);
+				timer = setTimeout(() => func.apply(this, args), delay);
+			};
+		}
+
+	const debouncedSearchRSE = debounce(search_RSE, 300);
 
 	async function search_RSE() {
 		$("#rucioLabelFailure").hide();
@@ -99,8 +109,7 @@
 		$("#selectSLA").prop('disabled', 'disabled');
 		
 		let rucio_connector_url = "{{ rucio_connector_url }}";
-		/* let scope = "user.{{session['preferred_username']}}"; */
-		let scope = "user.atroja"
+		let scope = "user.{{session['preferred_username']}}";
 		let name = $('#rucioFileName').val();
 
 		let slas = JSON.parse('{{ slas | tojson }}');
@@ -117,6 +126,7 @@
 					"Authorization": "Bearer {{ csrf_token() }}"
 				},
 				success: (data, status) => {
+					$("#rucioSpinner").show();
 					$("#rucioLabelFailure").hide();
 					$("#rucioLabelSuccess").hide();
 					$("button[type='submit']").prop('disabled', 'disabled');
