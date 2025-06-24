@@ -1,4 +1,4 @@
-# Copyright (c) Istituto Nazionale di Fisica Nucleare (INFN). 2019-2020
+# Copyright (c) Istituto Nazionale di Fisica Nucleare (INFN). 2019-2025
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,10 +20,11 @@ from flask import current_app as app
 from flask import json, redirect, render_template, session, url_for
 
 from app.iam import iam
-from app.lib import utils
+from app.lib import iam_groups, utils
 
 
 def set_user_info():
+    access_token = iam.token["access_token"]
     account_info = iam.get("/userinfo")
     account_info_json = account_info.json()
     user_id = account_info_json["sub"]
@@ -36,14 +37,11 @@ def set_user_info():
     session["gravatar"] = utils.avatar(account_info_json["email"], 26)
     session["organisation_name"] = account_info_json["organisation_name"]
 
-    #CLOUD-2833
-    #session["userrole"] = "user"
     user_groups = account_info_json["groups"]
     if app.settings.iam_admin_groups:
         session["userrole"] = "admin" if set(app.settings.iam_admin_groups).intersection(user_groups) else "user"
     else:
         session["userrole"] = "user"
-    #
 
     supported_groups = []
     if app.settings.iam_groups:
@@ -56,13 +54,13 @@ def set_user_info():
     session["supported_usergroups"] = supported_groups
     if "active_usergroup" not in session:
         session["active_usergroup"] = next(iter(supported_groups), None)
-
-
+    session["iam_groups"] = iam_groups.get_all_groups(access_token)
     iam_configuration = iam.get(".well-known/openid-configuration").json()
     session["iss"] = iam_configuration["issuer"]
 
 
 def update_user_info():
+    access_token = iam.token["access_token"]
     account_info = iam.get("/userinfo")
     account_info_json = account_info.json()
     user_id = account_info_json["sub"]
@@ -71,7 +69,7 @@ def update_user_info():
     supported_groups = []
     if app.settings.iam_groups:
         supported_groups = list(set(app.settings.iam_groups) & set(user_groups))
-        if len(supported_groups) == 0:
+        if len(supported_groups) == 0 and session["userrole"] == "user":
             app.logger.warning(
                 "The user {} does not belong to any supported user group".format(user_id)
             )
@@ -79,7 +77,9 @@ def update_user_info():
     session["supported_usergroups"] = supported_groups
     if "active_usergroup" not in session:
         session["active_usergroup"] = next(iter(supported_groups), None)
-
+    if session["active_usergroup"] not in supported_groups:
+        session["active_usergroup"] = next(iter(supported_groups), None)
+    session["iam_groups"] = iam_groups.get_all_groups(access_token)
 
 def authorized_with_valid_token(f):
     @wraps(f)
