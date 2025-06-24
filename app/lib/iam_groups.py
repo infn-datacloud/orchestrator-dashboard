@@ -36,7 +36,7 @@ def get_all_groups(
 
     try:
         while True:
-            response = requests.get(url, headers=headers, params=params, timeout=timeout)
+            response = requests.get(url, headers=headers, timeout=timeout)
             response.raise_for_status()
             totalResults = int(response.json()["totalResults"])
             resources = response.json()["Resources"]

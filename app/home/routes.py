@@ -85,6 +85,8 @@ def show_info():
 @auth.authorized_with_valid_token
 def show_settings():
 
+    access_token = iam.token["access_token"]
+
     if request.method == "POST" and session["userrole"].lower() == "admin":
 
         operation = request.form.to_dict()["operation"]
@@ -120,7 +122,7 @@ def show_settings():
             app.settings.iam_groups = groups
             auth.update_user_info()
 
-    ig = iam_groups.get_all_groups()
+    all_groups = iam_groups.get_all_groups(access_token)
     groups = app.settings.iam_groups
     repository_configuration = app.settings.repository_configuration
     tosca_gversion = tosca.getversion()
@@ -133,7 +135,8 @@ def show_settings():
         vault_url=app.config.get("VAULT_URL"),
         tosca_settings=repository_configuration,
         tosca_version="{0:c}.{1:c}.{2:c}".format(tosca_gversion[0], tosca_gversion[2], tosca_gversion[4]),
-        groups=groups
+        groups=groups,
+        all_groups=all_groups
     )
 
 
