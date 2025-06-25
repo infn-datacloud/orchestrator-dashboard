@@ -213,7 +213,14 @@ def redis_listener(redis_url):
 
     for message in pubsub.listen():
         if message["type"] == "message":
-            data = message["data"].decode()
+            obj = message["data"]
+            if isinstance(obj, str):
+                data = obj
+            else:
+                if isinstance(obj, bytes):
+                    data = obj.decode()
+                else:
+                    data = None
             if data == "tosca_reload":
                 try:
                     tosca.reload("broadcast")
