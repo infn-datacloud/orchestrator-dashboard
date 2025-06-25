@@ -124,8 +124,7 @@ def show_settings():
 
             except Exception as error:
                 handle_configuration_reload_error(error)
-
-    all_groups = get_all_groups()
+    session["iam_groups"] = all_groups = get_all_groups()
     groups = app.settings.iam_groups
     repository_configuration = app.settings.repository_configuration
     tosca_gversion = tosca.getversion()

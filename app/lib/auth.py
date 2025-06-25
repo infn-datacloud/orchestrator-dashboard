@@ -77,7 +77,6 @@ def update_user_info():
         session["active_usergroup"] = next(iter(supported_groups), None)
     if session["active_usergroup"] not in supported_groups:
         session["active_usergroup"] = next(iter(supported_groups), None)
-    session["iam_groups"] = get_all_groups()
 
 def authorized_with_valid_token(f):
     @wraps(f)
