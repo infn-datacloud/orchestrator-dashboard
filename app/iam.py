@@ -77,17 +77,15 @@ def get_all_groups():
     itemsPerPage = 10
     startIndex = 1
     totalGroups = 0
-
     params = []
-    params.append("startIndex={}".format(startIndex))
-    params.append("itemsPerPage={}".format(itemsPerPage))
-    str_params = "?{}".format("&".join(params))
-    url = f"/iam/group/search{str_params}"
-
     groups = list()
 
     try:
         while True:
+            params.append("startIndex={}".format(startIndex))
+            params.append("itemsPerPage={}".format(itemsPerPage))
+            str_params = "?{}".format("&".join(params))
+            url = f"/iam/group/search{str_params}"
             response = iam.get(url)
             response.raise_for_status()
             totalResults = int(response.json()["totalResults"])
@@ -101,14 +99,10 @@ def get_all_groups():
             if totalGroups < totalResults:
                 startIndex += itemsPerPage
                 params.clear()
-                params.append("startIndex={}".format(startIndex))
-                params.append("itemsPerPage={}".format(itemsPerPage))
-                str_params = "?{}".format("&".join(params))
-                url = f"/iam/group/search{str_params}"
             else:
                 break
     except Exception as e:
-        raise Exception("Error retrieving iam groups list: {}".format(str(e)))
+        raise Exception("Error retrieving IAM groups list: {}".format(str(e)))
     return groups
 
 iam = LocalProxy(lambda: g.flask_dance_iam)

@@ -59,7 +59,7 @@ class ToscaInfo:
         self.redis_client.set("tosca_gmetadata", json.dumps(tosca_gmetadata))
         self.redis_client.set("tosca_gversion", tosca_gversion)
 
-        self.app.logger.debug(f"Reloading tosca configuration on {mode}")
+        self.app.logger.info(f"Reloading tosca configuration on {mode}")
 
     def _loadmetadata(self):
         mpath = url_path_join(self.tosca_metadata_dir, "metadata.yml")

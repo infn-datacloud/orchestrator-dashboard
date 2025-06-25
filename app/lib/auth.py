@@ -27,6 +27,7 @@ def set_user_info():
     account_info = iam.get("/userinfo")
     account_info_json = account_info.json()
     user_id = account_info_json["sub"]
+
     session["userid"] = user_id
     session["username"] = account_info_json["name"]
     session["preferred_username"] = account_info_json["preferred_username"]

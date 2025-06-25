@@ -107,7 +107,6 @@ def show_settings():
             try:
                 r = redis_helper.get_redis(app.config.get("REDIS_URL"))
                 r.publish("broadcast_tosca_reload", "tosca_reload")
-
             except Exception as error:
                 handle_configuration_reload_error(error)
 
@@ -121,9 +120,9 @@ def show_settings():
             try:
                 r = redis_helper.get_redis(app.config.get("REDIS_URL"))
                 r.publish("broadcast_tosca_reload", "tosca_reload")
-
             except Exception as error:
                 handle_configuration_reload_error(error)
+
     session["iam_groups"] = all_groups = get_all_groups()
     groups = app.settings.iam_groups
     repository_configuration = app.settings.repository_configuration
