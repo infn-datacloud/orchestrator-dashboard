@@ -15,11 +15,9 @@ import json
 import os
 import redis
 from logging.config import dictConfig
-
 from flask import Flask, flash
 from flask_migrate import upgrade
 from werkzeug.middleware.proxy_fix import ProxyFix
-
 from app.deployments.routes import deployments_bp
 from app.errors.routes import errors_bp
 from app.extensions import (
@@ -211,14 +209,14 @@ def register_blueprints(app):
 def redis_listener(redis_url):
     r = redis_helper.get_redis(redis_url)
     pubsub = r.pubsub()
-    pubsub.subscribe("broadcast_channel")
+    pubsub.subscribe("broadcast_tosca_reload")
 
     for message in pubsub.listen():
         if message["type"] == "message":
             data = message["data"].decode()
             if data == "tosca_reload":
                 try:
-                    tosca.reload()
+                    tosca.reload("broadcast")
                 except Exception as err:
                     flash(f"Unexpected {err=}, {type(err)=}", "danger")
 

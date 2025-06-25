@@ -32,11 +32,10 @@ from flask import current_app as app
 from markupsafe import Markup
 
 from app.extensions import csrf, tosca
-from app.iam import iam
+from app.iam import iam, get_all_groups
 from app.lib import (
     auth,
     dbhelpers,
-    iam_groups,
     openstack,
     redis_helper,
     utils
@@ -85,8 +84,6 @@ def show_info():
 @auth.authorized_with_valid_token
 def show_settings():
 
-    access_token = iam.token["access_token"]
-
     if request.method == "POST" and session["userrole"].lower() == "admin":
 
         operation = request.form.to_dict()["operation"]
@@ -109,7 +106,7 @@ def show_settings():
 
             try:
                 r = redis_helper.get_redis(app.config.get("REDIS_URL"))
-                r.publish("broadcast_channel", "tosca_reload")
+                r.publish("broadcast_tosca_reload", "tosca_reload")
 
             except Exception as error:
                 handle_configuration_reload_error(error)
@@ -121,8 +118,14 @@ def show_settings():
             groups = request.form.getlist("iamgroups[]")
             app.settings.iam_groups = groups
             auth.update_user_info()
+            try:
+                r = redis_helper.get_redis(app.config.get("REDIS_URL"))
+                r.publish("broadcast_tosca_reload", "tosca_reload")
 
-    all_groups = iam_groups.get_all_groups(access_token)
+            except Exception as error:
+                handle_configuration_reload_error(error)
+
+    all_groups = get_all_groups()
     groups = app.settings.iam_groups
     repository_configuration = app.settings.repository_configuration
     tosca_gversion = tosca.getversion()

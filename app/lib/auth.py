@@ -19,12 +19,11 @@ import requests
 from flask import current_app as app
 from flask import json, redirect, render_template, session, url_for
 
-from app.iam import iam
-from app.lib import iam_groups, utils
+from app.iam import iam, get_all_groups
+from app.lib import utils
 
 
 def set_user_info():
-    access_token = iam.token["access_token"]
     account_info = iam.get("/userinfo")
     account_info_json = account_info.json()
     user_id = account_info_json["sub"]
@@ -54,13 +53,12 @@ def set_user_info():
     session["supported_usergroups"] = supported_groups
     if "active_usergroup" not in session:
         session["active_usergroup"] = next(iter(supported_groups), None)
-    session["iam_groups"] = iam_groups.get_all_groups(access_token)
+    session["iam_groups"] = get_all_groups()
     iam_configuration = iam.get(".well-known/openid-configuration").json()
     session["iss"] = iam_configuration["issuer"]
 
 
 def update_user_info():
-    access_token = iam.token["access_token"]
     account_info = iam.get("/userinfo")
     account_info_json = account_info.json()
     user_id = account_info_json["sub"]
@@ -79,7 +77,7 @@ def update_user_info():
         session["active_usergroup"] = next(iter(supported_groups), None)
     if session["active_usergroup"] not in supported_groups:
         session["active_usergroup"] = next(iter(supported_groups), None)
-    session["iam_groups"] = iam_groups.get_all_groups(access_token)
+    session["iam_groups"] = get_all_groups()
 
 def authorized_with_valid_token(f):
     @wraps(f)
