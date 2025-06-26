@@ -32,8 +32,14 @@ from flask import current_app as app
 from markupsafe import Markup
 
 from app.extensions import csrf, tosca
-from app.iam import iam
-from app.lib import auth, dbhelpers, openstack, redis_helper, utils
+from app.iam import iam, get_all_groups
+from app.lib import (
+    auth,
+    dbhelpers,
+    openstack,
+    redis_helper,
+    utils
+)
 from app.models.User import User
 from app.lib.dbhelpers import get_dbversion, build_excludedstatus_filter
 
@@ -100,8 +106,7 @@ def show_settings():
 
             try:
                 r = redis_helper.get_redis(app.config.get("REDIS_URL"))
-                r.publish("broadcast_channel", "tosca_reload")
-
+                r.publish("broadcast_tosca_reload", "tosca_reload")
             except Exception as error:
                 handle_configuration_reload_error(error)
 
@@ -112,8 +117,13 @@ def show_settings():
             groups = request.form.getlist("iamgroups[]")
             app.settings.iam_groups = groups
             auth.update_user_info()
+            try:
+                r = redis_helper.get_redis(app.config.get("REDIS_URL"))
+                r.publish("broadcast_tosca_reload", "tosca_reload")
+            except Exception as error:
+                handle_configuration_reload_error(error)
 
-
+    session["iam_groups"] = all_groups = get_all_groups()
     groups = app.settings.iam_groups
     repository_configuration = app.settings.repository_configuration
     tosca_gversion = tosca.getversion()
@@ -126,7 +136,8 @@ def show_settings():
         vault_url=app.config.get("VAULT_URL"),
         tosca_settings=repository_configuration,
         tosca_version="{0:c}.{1:c}.{2:c}".format(tosca_gversion[0], tosca_gversion[2], tosca_gversion[4]),
-        groups=groups
+        groups=groups,
+        all_groups=all_groups
     )
 
 

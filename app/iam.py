@@ -1,4 +1,4 @@
-# Copyright (c) Istituto Nazionale di Fisica Nucleare (INFN). 2019-2020
+# Copyright (c) Istituto Nazionale di Fisica Nucleare (INFN). 2019-2025
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@ from flask import g
 from flask_dance.consumer import OAuth2ConsumerBlueprint
 from werkzeug.local import LocalProxy
 import requests
+
 
 def make_iam_blueprint(
     client_id=None, client_secret=None, base_url=None, redirect_to=None, scope=[]
@@ -71,6 +72,40 @@ def make_iam_blueprint(
         g.flask_dance_iam = iam_bp.session
 
     return iam_bp
+
+
+def get_all_groups():
+
+    itemsPerPage = 10
+    startIndex = 1
+    totalGroups = 0
+    params = []
+    groups = list()
+
+    try:
+        while True:
+            params.append("startIndex={}".format(startIndex))
+            params.append("itemsPerPage={}".format(itemsPerPage))
+            str_params = "?{}".format("&".join(params))
+            url = f"/iam/group/search{str_params}"
+            response = iam.get(url)
+            response.raise_for_status()
+            totalResults = int(response.json()["totalResults"])
+            resources = response.json()["Resources"]
+            for r in resources:
+                if r["meta"]["resourceType"] == "Group":
+                    groupName = r["displayName"]
+                    if groupName not in groups:
+                        groups.append(groupName)
+                totalGroups+=1
+            if totalGroups < totalResults:
+                startIndex += itemsPerPage
+                params.clear()
+            else:
+                break
+    except Exception as e:
+        raise Exception("Error retrieving IAM groups list: {}".format(str(e)))
+    return groups
 
 
 iam = LocalProxy(lambda: g.flask_dance_iam)

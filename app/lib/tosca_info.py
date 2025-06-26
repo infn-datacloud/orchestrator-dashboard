@@ -32,6 +32,7 @@ class ToscaInfo:
         self.tosca_params_dir = None
         self.tosca_metadata_dir = None
         self.metadata_schema = None
+        self.app = None
 
     def init_app(self, app, redis_client):
         """
@@ -44,10 +45,11 @@ class ToscaInfo:
         self.tosca_params_dir = app.settings.tosca_params_dir
         self.tosca_metadata_dir = app.settings.tosca_metadata_dir
         self.metadata_schema = app.settings.metadata_schema
-        self.reload()
+        self.app = app
+        self.reload("init")
 
 
-    def reload(self):
+    def reload(self, mode):
         tosca_templates = self._loadtoscatemplates()
         tosca_info = self._extractalltoscainfo(tosca_templates)
         tosca_gmetadata, tosca_gversion = self._loadmetadata()
@@ -57,6 +59,7 @@ class ToscaInfo:
         self.redis_client.set("tosca_gmetadata", json.dumps(tosca_gmetadata))
         self.redis_client.set("tosca_gversion", tosca_gversion)
 
+        self.app.logger.info(f"Reloading tosca configuration on {mode}")
 
     def _loadmetadata(self):
         mpath = url_path_join(self.tosca_metadata_dir, "metadata.yml")
@@ -269,18 +272,21 @@ def getdeploymenttype(nodes):
     for j, u in nodes.items():
         if deployment_type == "":
             for k, v in u.items():
-                if k == "type" and v == "tosca.nodes.indigo.Compute":
-                    deployment_type = "CLOUD"
-                    break
-                if k == "type" and v == "tosca.nodes.indigo.Container.Application.Docker.Marathon":
-                    deployment_type = "MARATHON"
-                    break
-                if k == "type" and v == "tosca.nodes.indigo.Container.Application.Docker.Chronos":
-                    deployment_type = "CHRONOS"
-                    break
-                if k == "type" and v == "tosca.nodes.indigo.Qcg.Job":
-                    deployment_type = "QCG"
-                    break
+                if k == "type":
+                    if v == "tosca.nodes.indigo.Compute":
+                        deployment_type = "CLOUD"
+                        break
+                    if v == "tosca.nodes.indigo.Container.Application.Docker.Marathon":
+                        deployment_type = "MARATHON"
+                        break
+                    if v == "tosca.nodes.indigo.Container.Application.Docker.Chronos":
+                        deployment_type = "CHRONOS"
+                        break
+                    if v == "tosca.nodes.indigo.Qcg.Job":
+                        deployment_type = "QCG"
+                        break
+        else:
+            break
     return deployment_type
 
 
@@ -299,6 +305,8 @@ def getslapolicy(template):
                                 v["properties"]["sla_id"] if "sla_id" in v["properties"] else ""
                             )
                         break
+            else:
+                break
     return sla_id
 
 

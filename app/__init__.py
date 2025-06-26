@@ -15,11 +15,9 @@ import json
 import os
 import redis
 from logging.config import dictConfig
-
 from flask import Flask, flash
 from flask_migrate import upgrade
 from werkzeug.middleware.proxy_fix import ProxyFix
-
 from app.deployments.routes import deployments_bp
 from app.errors.routes import errors_bp
 from app.extensions import (
@@ -132,6 +130,7 @@ def create_app():
     with app.app_context():
         cache.clear()
 
+
     # initialize VAULT if present
     if app.config.get("FEATURE_VAULT_INTEGRATION") == "yes":
         vaultservice.init_app(app)
@@ -211,14 +210,18 @@ def register_blueprints(app):
 def redis_listener(redis_url):
     r = redis_helper.get_redis(redis_url)
     pubsub = r.pubsub()
-    pubsub.subscribe("broadcast_channel")
+    pubsub.subscribe("broadcast_tosca_reload")
 
     for message in pubsub.listen():
         if message["type"] == "message":
-            data = message["data"].decode()
+            obj = message["data"]
+            if isinstance(obj, str):
+                data = obj
+            else:
+                data = obj.decode() if isinstance(obj, bytes) else None
             if data == "tosca_reload":
                 try:
-                    tosca.reload()
+                    tosca.reload("broadcast")
                 except Exception as err:
                     flash(f"Unexpected {err=}, {type(err)=}", "danger")
 
