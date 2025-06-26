@@ -354,7 +354,7 @@ def make_flavor_label(
     """Build the flavor label to show on the dashboard."""
     if gpus > 0:
         if disk > 0:
-            return ("{} VCPUs, " + ram_f + " GB RAM, {} GB DISK, {} GPUs {} {}").format(cpu, ram, gpus, gpu_vendor, gpu_model)
+            return ("{} VCPUs, " + ram_f + " GB RAM, {} GB DISK, {} GPUs {} {}").format(cpu, ram, disk, gpus, gpu_vendor, gpu_model)
         else:
             return ("{} VCPUs, " + ram_f + " GB RAM, {} GPUs {} {}").format(cpu, ram, gpus, gpu_vendor, gpu_model)
     if disk > 0:
@@ -386,8 +386,8 @@ def sort_and_prepare_flavors(flavors: dict[str, dict]) -> list[dict]:
                 ram=v["ram"],
                 disk=v["disk"],
                 gpus=v["gpus"],
-                gpu_model=["gpu_model"],
-                gpu_vendor=["gpu_vendor"],
+                gpu_model=v["gpu_model"],
+                gpu_vendor=v["gpu_vendor"],
                 ram_f=v["ram_f"],
             ),
             "set": {
