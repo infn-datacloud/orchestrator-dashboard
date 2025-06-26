@@ -275,6 +275,7 @@ def remap_flavors(flavors: list[dict]) -> dict[str, dict]:
         disk = int(flavor["disk"])
         gpus = int(flavor["gpus"])
         gpu_model = flavor["gpu_model"]
+        gpu_vendor = flavor["gpu_vendor"]
         name = ",".join((str(cpu), str(ram), str(gpus), str(disk)))
         if name not in d:
             f = {
@@ -285,6 +286,7 @@ def remap_flavors(flavors: list[dict]) -> dict[str, dict]:
                 "disk": disk,
                 "gpus": gpus,
                 "gpu_model": gpu_model,
+                "gpu_vendor": gpu_vendor,
                 "enable_gpu": gpus > 0,
             }
             d[name] = f
@@ -346,6 +348,8 @@ def make_flavor_label(
     disk: Optional[int],
     gpus: Optional[int],
     ram_f: Optional[str],
+    gpu_vendor: Optional[str],
+    gpu_model: Optional[str],
 ) -> str:
     """Build the flavor label to show on the dashboard."""
     if gpus > 0 and disk > 0:
@@ -353,7 +357,10 @@ def make_flavor_label(
             cpu, ram, disk, gpus
         )
     if gpus > 0:
-        return ("{} VCPUs, " + ram_f + " GB RAM, {} GPUs").format(cpu, ram, gpus)
+        if disk > 0:
+            return ("{} VCPUs, " + ram_f + " GB RAM, {} GB DISK, {} GPUs {} {}").format(cpu, ram, gpus, gpu_vendor, gpu_model)
+        else:
+            return ("{} VCPUs, " + ram_f + " GB RAM, {} GPUs {} {}").format(cpu, ram, gpus, gpu_vendor, gpu_model)
     if disk > 0:
         return ("{} VCPUs, " + ram_f + " GB RAM, {} GB DISK").format(cpu, ram, disk)
     return ("{} VCPUs, " + ram_f + " GB RAM").format(cpu, ram)
@@ -383,6 +390,8 @@ def sort_and_prepare_flavors(flavors: dict[str, dict]) -> list[dict]:
                 ram=v["ram"],
                 disk=v["disk"],
                 gpus=v["gpus"],
+                gpu_model=["gpu_model"],
+                gpu_vendor=["gpu_vendor"],
                 ram_f=v["ram_f"],
             ),
             "set": {
@@ -391,6 +400,7 @@ def sort_and_prepare_flavors(flavors: dict[str, dict]) -> list[dict]:
                 "disk_size": "{} GB".format(v["disk"]),
                 "num_gpus": "{}".format(v["gpus"]),
                 "gpu_model": "{}".format(v["gpu_model"]),
+                "gpu_vendor": "{}".format(v["gpu_vendor"]),
                 "enable_gpu": "{}".format(v["enable_gpu"]),
             },
         }

@@ -1880,6 +1880,7 @@ def patch_template(
             k_def_disk = "disk_size"
             k_def_gpus = "num_gpus"
             k_def_gpu_model = "gpu_model"
+            k_def_gpu_vendor = "gpu_vendor"
 
             # override template flavors with provider flavors
             for k, v in list(template[k_inputs].items()):
@@ -1892,6 +1893,7 @@ def patch_template(
                     k_disk = None
                     k_gpus = None
                     k_gpu_model = None
+                    k_gpu_vendor = None
                     for ff in v[k_constraints]:
                         # search for cpu key
                         if not k_cpu:
@@ -1923,6 +1925,12 @@ def patch_template(
                                 if re.search("gpu_model", fk):
                                     k_gpu_model = fk
                                     break
+                        # search for gpu vendor key
+                        if not k_gpu_vendor:
+                            for fk in ff[k_set].keys():
+                                if re.search("gpu_vendor", fk):
+                                    k_gpu_vendor = fk
+                                    break
 
                     if not k_mem:
                         k_mem = k_def_mem
@@ -1934,6 +1942,8 @@ def patch_template(
                         k_gpus = k_def_gpus
                     if not k_gpu_model:
                         k_gpu_model = k_def_gpu_model
+                    if not k_gpu_vendor:
+                        k_gpu_vendor = k_def_gpu_vendor
 
                     rflavors = list()
 
@@ -1989,6 +1999,13 @@ def patch_template(
                                     if k_valid_values in c:
                                         valid_values[k_gpu_model] = c.get(k_valid_values)
 
+                    if k_gpu_vendor in template[k_inputs] and not k_gpu_vendor in valid_values:
+                        if k_constraints in template[k_inputs][k_gpu_vendor]:
+                            for c in template[k_inputs][k_gpu_vendor][k_constraints]:
+                                if isinstance(c, dict):
+                                    if k_valid_values in c:
+                                        valid_values[k_gpu_vendor] = c.get(k_valid_values)
+
                     for f in ff:
                         #filter constraints
                         if k_cpu in valid_values:
@@ -1999,14 +2016,14 @@ def patch_template(
                                 continue
 
                         if k_disk in valid_values:
-                            if not f[k_set][k_def_disk].lower() in valid_values[k_disk].lower():
+                            if not f[k_set][k_def_disk].lower() in [x.lower() for x in valid_values[k_disk]]:
                                 continue
                         if k_disk in greater_or_equal:
                             if float(f[k_set][k_def_disk].split(" ")[0]) < float(greater_or_equal[k_disk]):
                                 continue
 
                         if k_mem in valid_values:
-                            if not f[k_set][k_def_mem].lower() in valid_values[k_mem].lower():
+                            if not f[k_set][k_def_mem].lower() in [x.lower() for x in valid_values[k_mem]]:
                                 continue
                         if k_mem in greater_or_equal:
                             if float(f[k_set][k_def_mem].split(" ")[0]) < float(greater_or_equal[k_mem]):
@@ -2020,7 +2037,11 @@ def patch_template(
                                 continue
 
                         if k_gpu_model in valid_values:
-                            if not f[k_set][k_def_gpu_model].lower() in valid_values[k_gpu_model].lower():
+                            if not f[k_set][k_def_gpu_model].lower() in [x.lower() for x in valid_values[k_gpu_model]]:
+                                continue
+
+                        if k_gpu_vendor in valid_values:
+                            if not f[k_set][k_def_gpu_vendor].lower() in [x.lower() for x in valid_values[k_gpu_vendor]]:
                                 continue
 
 
@@ -2033,6 +2054,7 @@ def patch_template(
                                 k_disk: "{}".format(f[k_set][k_def_disk]),
                                 k_gpus: "{}".format(f[k_set][k_def_gpus]),
                                 k_gpu_model: "{}".format(f[k_set][k_def_gpu_model]),
+                                k_gpu_vendor: "{}".format(f[k_set][k_def_gpu_vendor]),
                             },
                         }
                         rflavors.append(flavor)
@@ -2065,10 +2087,10 @@ def patch_template(
 
             for i in images:
                 if k_os_distribution in valid_values and k_os_distribution in i[k_set]:
-                    if not i[k_set].get(k_os_distribution).lower() in  valid_values[k_os_distribution]:
+                    if not i[k_set].get(k_os_distribution).lower() in  [x.lower() for x in valid_values[k_os_distribution]]:
                         continue
                 if k_os_version in valid_values and k_os_version in i[k_set]:
-                    if not i[k_set].get(k_os_version).lower() in map(str,valid_values[k_os_version]):
+                    if not i[k_set].get(k_os_version).lower() in  [x.lower() for x in map(str, valid_values[k_os_version])]:
                         continue
                 l_images.append(i)
 
