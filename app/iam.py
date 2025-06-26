@@ -17,6 +17,7 @@ from flask_dance.consumer import OAuth2ConsumerBlueprint
 from werkzeug.local import LocalProxy
 import requests
 
+
 def make_iam_blueprint(
     client_id=None, client_secret=None, base_url=None, redirect_to=None, scope=[]
 ):
@@ -72,6 +73,7 @@ def make_iam_blueprint(
 
     return iam_bp
 
+
 def get_all_groups():
 
     itemsPerPage = 10
@@ -104,5 +106,6 @@ def get_all_groups():
     except Exception as e:
         raise Exception("Error retrieving IAM groups list: {}".format(str(e)))
     return groups
+
 
 iam = LocalProxy(lambda: g.flask_dance_iam)

@@ -272,18 +272,21 @@ def getdeploymenttype(nodes):
     for j, u in nodes.items():
         if deployment_type == "":
             for k, v in u.items():
-                if k == "type" and v == "tosca.nodes.indigo.Compute":
-                    deployment_type = "CLOUD"
-                    break
-                if k == "type" and v == "tosca.nodes.indigo.Container.Application.Docker.Marathon":
-                    deployment_type = "MARATHON"
-                    break
-                if k == "type" and v == "tosca.nodes.indigo.Container.Application.Docker.Chronos":
-                    deployment_type = "CHRONOS"
-                    break
-                if k == "type" and v == "tosca.nodes.indigo.Qcg.Job":
-                    deployment_type = "QCG"
-                    break
+                if k == "type":
+                    if v == "tosca.nodes.indigo.Compute":
+                        deployment_type = "CLOUD"
+                        break
+                    if v == "tosca.nodes.indigo.Container.Application.Docker.Marathon":
+                        deployment_type = "MARATHON"
+                        break
+                    if v == "tosca.nodes.indigo.Container.Application.Docker.Chronos":
+                        deployment_type = "CHRONOS"
+                        break
+                    if v == "tosca.nodes.indigo.Qcg.Job":
+                        deployment_type = "QCG"
+                        break
+        else:
+            break
     return deployment_type
 
 
@@ -302,6 +305,8 @@ def getslapolicy(template):
                                 v["properties"]["sla_id"] if "sla_id" in v["properties"] else ""
                             )
                         break
+            else:
+                break
     return sla_id
 
 

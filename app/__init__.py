@@ -130,6 +130,7 @@ def create_app():
     with app.app_context():
         cache.clear()
 
+
     # initialize VAULT if present
     if app.config.get("FEATURE_VAULT_INTEGRATION") == "yes":
         vaultservice.init_app(app)
@@ -217,10 +218,7 @@ def redis_listener(redis_url):
             if isinstance(obj, str):
                 data = obj
             else:
-                if isinstance(obj, bytes):
-                    data = obj.decode()
-                else:
-                    data = None
+                data = obj.decode() if isinstance(obj, bytes) else None
             if data == "tosca_reload":
                 try:
                     tosca.reload("broadcast")
