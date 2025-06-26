@@ -352,10 +352,6 @@ def make_flavor_label(
     gpu_model: Optional[str],
 ) -> str:
     """Build the flavor label to show on the dashboard."""
-    if gpus > 0 and disk > 0:
-        return ("{} VCPUs, " + ram_f + " GB RAM, {} GB DISK, {} GPUS").format(
-            cpu, ram, disk, gpus
-        )
     if gpus > 0:
         if disk > 0:
             return ("{} VCPUs, " + ram_f + " GB RAM, {} GB DISK, {} GPUs {} {}").format(cpu, ram, gpus, gpu_vendor, gpu_model)
