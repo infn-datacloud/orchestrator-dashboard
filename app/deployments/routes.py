@@ -1855,17 +1855,17 @@ def patch_template(
         # flavor patterns
         pattern = r"^(?=.*flavor)(?!.*partition).*"
 
-        flavors, nogpu_flavors, gpu_flavors, images = fed_reg.retrieve_active_user_group_resources(
+        all_flavors, nogpu_flavors, gpu_flavors, images = fed_reg.retrieve_active_user_group_resources(
             access_token=access_token, user_group=user_group, sla_id=sla_id, region_name=region_name
         )
 
         # patch flavors
-        if flavors:
-            for k in template["inputs"].keys():
-                if bool(re.match(pattern, k)):
-                    if re.search("gpu", k):
-                        flavors = nogpu_flavors
-                        break
+        if all_flavors:
+            #for k in template["inputs"].keys():
+            #    if bool(re.match(pattern, k)):
+            #        if re.search("gpu", k):
+            #            all_flavors = nogpu_flavors
+            #            break
 
             # define some keys
             k_os_distribution = "os_distribution"
@@ -1950,7 +1950,7 @@ def patch_template(
                     if re.search("gpu", k_flavors):
                         ff = gpu_flavors
                     else:
-                        ff = flavors
+                        ff = all_flavors
 
                     #parse constraints
                     valid_values = dict()
@@ -2030,7 +2030,7 @@ def patch_template(
                                 continue
 
                         if k_gpus in valid_values:
-                            if not f[k_set][k_def_gpus] in valid_values[k_gpus]:
+                            if not int(f[k_set][k_def_gpus]) in valid_values[k_gpus]:
                                 continue
                         if k_gpus in greater_or_equal:
                             if int(f[k_set][k_def_gpus]) < int(greater_or_equal[k_gpus]):

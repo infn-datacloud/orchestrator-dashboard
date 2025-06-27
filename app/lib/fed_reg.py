@@ -121,7 +121,7 @@ def deployment_supports_service(*, deployment_type: str, service_name: str):
     return True
 
 
-def remap_slas_from_user_group(
+def _remap_slas_from_user_group(
     *,
     user_group: dict[str, Any],
     service_type: Optional[str] = None,
@@ -182,7 +182,7 @@ def retrieve_slas_from_active_user_group(
         active_group = retrieve_active_user_group(access_token=access_token)
         if active_group is not None:
             # Retrieve linked user group services
-            slas = remap_slas_from_user_group(
+            slas = _remap_slas_from_user_group(
                 user_group=active_group,
                 service_type=service_type,
                 deployment_type=deployment_type,
@@ -223,7 +223,7 @@ def retrieve_active_user_group(*, access_token: str):
     return None
 
 
-def filter_resources(
+def _filter_resources(
     resources: list[dict],
     *,
     project_uid: str,
@@ -255,7 +255,7 @@ def filter_resources(
     return filtered
 
 
-def remap_flavors(flavors: list[dict]) -> dict[str, dict]:
+def _remap_flavors(flavors: list[dict]) -> dict[str, dict]:
     """Keep only flavors' relevant values and remove duplicates.
 
     Keep vcpus, disk, ram, gpus and gpu model attributes.
@@ -293,7 +293,7 @@ def remap_flavors(flavors: list[dict]) -> dict[str, dict]:
     return d
 
 
-def remap_images(images: list[dict]) -> dict[str, dict]:
+def _remap_images(images: list[dict]) -> dict[str, dict]:
     """Keep only images' relevant values and remove duplicates.
 
     Keep OS distro, OS version, name, description, creation time and support for GPUs.
@@ -324,7 +324,7 @@ def remap_images(images: list[dict]) -> dict[str, dict]:
     return d
 
 
-def make_image_label(
+def _make_image_label(
     *,
     distro: Optional[str],
     version: Optional[str],
@@ -341,13 +341,13 @@ def make_image_label(
     return "no label"
 
 
-def make_flavor_label(
+def _make_flavor_label(
     *,
     cpu: Optional[int],
     ram: Optional[float],
+    ram_f: Optional[str],
     disk: Optional[int],
     gpus: Optional[int],
-    ram_f: Optional[str],
     gpu_vendor: Optional[str],
     gpu_model: Optional[str],
 ) -> str:
@@ -362,7 +362,7 @@ def make_flavor_label(
     return ("{} VCPUs, " + ram_f + " GB RAM").format(cpu, ram)
 
 
-def sort_and_prepare_flavors(flavors: dict[str, dict]) -> list[dict]:
+def _sort_and_prepare_flavors(flavors: dict[str, dict]) -> list[dict]:
     """Sort flavors and return a list of dict with filtered values for the dashboard."""
     all = []
     no_gpu = []
@@ -381,14 +381,14 @@ def sort_and_prepare_flavors(flavors: dict[str, dict]) -> list[dict]:
     for i, v in enumerate(sorted_flavors.values()):
         flavor = {
             "value": "{}".format(i + 1),
-            "label": make_flavor_label(
+            "label": _make_flavor_label(
                 cpu=v["cpu"],
                 ram=v["ram"],
+                ram_f=v["ram_f"],
                 disk=v["disk"],
                 gpus=v["gpus"],
                 gpu_model=v["gpu_model"],
                 gpu_vendor=v["gpu_vendor"],
-                ram_f=v["ram_f"],
             ),
             "set": {
                 "num_cpus": "{}".format(v["cpu"]),
@@ -408,7 +408,7 @@ def sort_and_prepare_flavors(flavors: dict[str, dict]) -> list[dict]:
     return all, no_gpu, with_gpu
 
 
-def sort_and_prepare_images(images: dict[str, dict]) -> list[dict]:
+def _sort_and_prepare_images(images: dict[str, dict]) -> list[dict]:
     """Sort images and return a list of dict with filtered values for the dashboard."""
     outputs = []
     sorted_images = dict(
@@ -423,7 +423,7 @@ def sort_and_prepare_images(images: dict[str, dict]) -> list[dict]:
     for i, v in enumerate(sorted_images.values()):
         image = {
             "value": "{}".format(i + 1),
-            "label": make_image_label(
+            "label": _make_image_label(
                 distro=v["os_distro"],
                 version=v["os_version"],
                 description=v["description"],
@@ -466,13 +466,13 @@ def retrieve_active_user_group_resources(
     for sla in user_group["slas"]:
         if sla_id is None or sla["uid"] == sla_id:
             for project in sla["projects"]:
-                project_flavors += filter_resources(
+                project_flavors += _filter_resources(
                     region_name=region_name,
                     project_uid=project["uid"],
                     provider_uid=project["provider"]["uid"],
                     resources=fed_reg_flavors,
                 )
-                project_images += filter_resources(
+                project_images += _filter_resources(
                     region_name=region_name,
                     project_uid=project["uid"],
                     provider_uid=project["provider"]["uid"],
@@ -480,11 +480,11 @@ def retrieve_active_user_group_resources(
                 )
 
     # Handle flavors and images list: get useful fields and remove duplicates
-    temp_flavors = remap_flavors(project_flavors)
-    temp_images = remap_images(project_images)
+    temp_flavors = _remap_flavors(project_flavors)
+    temp_images = _remap_images(project_images)
 
     # Sort flavors and images
-    sorted_flavors, sorted_nogpu_flavors, sorted_gpu_flavors = sort_and_prepare_flavors(temp_flavors)
-    sorted_images = sort_and_prepare_images(temp_images)
+    sorted_flavors, sorted_nogpu_flavors, sorted_gpu_flavors = _sort_and_prepare_flavors(temp_flavors)
+    sorted_images = _sort_and_prepare_images(temp_images)
 
     return sorted_flavors, sorted_nogpu_flavors, sorted_gpu_flavors, sorted_images
