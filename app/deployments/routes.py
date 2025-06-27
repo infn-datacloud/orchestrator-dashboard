@@ -1861,11 +1861,12 @@ def patch_template(
 
         # patch flavors
         if all_flavors:
-            #for k in template["inputs"].keys():
-            #    if bool(re.match(pattern, k)):
-            #        if re.search("gpu", k):
-            #            all_flavors = nogpu_flavors
-            #            break
+            flavors = all_flavors
+            for k in template["inputs"].keys():
+                if bool(re.match(pattern, k)):
+                    if re.search("gpu", k):
+                        flavors = nogpu_flavors
+                        break
 
             # define some keys
             k_os_distribution = "os_distribution"
@@ -1950,7 +1951,7 @@ def patch_template(
                     if re.search("gpu", k_flavors):
                         ff = gpu_flavors
                     else:
-                        ff = all_flavors
+                        ff = flavors
 
                     #parse constraints
                     valid_values = dict()
