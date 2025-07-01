@@ -126,7 +126,7 @@
 				}
 
 				currentRequest = $.ajax({
-					url: rucio_connector_url + "/rse?did_scope=" + scope + "&did_name=" + name,
+					url: rucio_connector_url + "/rses?did_scope=" + scope + "&did_name=" + name,
 					method: "GET",
 					headers: {
 						"Authorization": "Bearer {{ csrf_token() }}"
