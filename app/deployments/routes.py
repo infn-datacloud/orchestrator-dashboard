@@ -1842,26 +1842,32 @@ def patch_template(
             flash("Error getting user_group (not found)", "danger")
             return redirect(url_for(SHOW_HOME_ROUTE))
 
+        k_group_overrides = "group_overrides"
+        k_inputs = "inputs"
+        k_name = "name"
+        k_operating_system = "operating_system"
+
         # Manage group overrides
-        for k, v in list(template["inputs"].items()):
+        for k, v in list(template[k_inputs].items()):
             # skip images override
-            x = re.search("operating_system", k)
-            if not x and "group_overrides" in v:
-                if user_group["name"] in v["group_overrides"]:
-                    overrides = v["group_overrides"][user_group["name"]]
-                    template["inputs"][k] = {**v, **overrides}
-                    del template["inputs"][k]["group_overrides"]
+            x = re.search(k_operating_system, k)
+            if not x and k_group_overrides in v:
+                if user_group[k_name] in v[k_group_overrides]:
+                    overrides = v[k_group_overrides][user_group[k_name]]
+                    template[k_inputs][k] = {**v, **overrides}
+                    del template[k_inputs][k][k_group_overrides]
 
         # flavor patterns
         pattern = r"^(?=.*flavor)(?!.*partition).*"
 
-        flavors, nogpu_flavors, gpu_flavors, images = fed_reg.retrieve_active_user_group_resources(
+        all_flavors, nogpu_flavors, gpu_flavors, images = fed_reg.retrieve_active_user_group_resources(
             access_token=access_token, user_group=user_group, sla_id=sla_id, region_name=region_name
         )
 
         # patch flavors
-        if flavors:
-            for k in template["inputs"].keys():
+        if all_flavors:
+            flavors = all_flavors
+            for k in template[k_inputs].keys():
                 if bool(re.match(pattern, k)):
                     if re.search("gpu", k):
                         flavors = nogpu_flavors
@@ -1872,7 +1878,6 @@ def patch_template(
             k_os_version = "os_version"
             k_valid_values = "valid_values"
             k_greater_or_equal = "greater_or_equal"
-            k_inputs = "inputs"
             k_constraints = "constraints"
             k_set = "set"
             k_def_mem = "mem_size"
@@ -1880,6 +1885,7 @@ def patch_template(
             k_def_disk = "disk_size"
             k_def_gpus = "num_gpus"
             k_def_gpu_model = "gpu_model"
+            k_def_gpu_vendor = "gpu_vendor"
 
             # override template flavors with provider flavors
             for k, v in list(template[k_inputs].items()):
@@ -1892,36 +1898,43 @@ def patch_template(
                     k_disk = None
                     k_gpus = None
                     k_gpu_model = None
+                    k_gpu_vendor = None
                     for ff in v[k_constraints]:
                         # search for cpu key
                         if not k_cpu:
                             for fk in ff[k_set].keys():
-                                if re.search("num_cpus", fk):
+                                if re.search(k_def_cpu, fk):
                                     k_cpu = fk
                                     break
                         # search for mem key
                         if not k_mem:
                             for fk in ff[k_set].keys():
-                                if re.search("mem_size", fk):
+                                if re.search(k_def_mem, fk):
                                     k_mem = fk
                                     break
                         # search for disk key
                         if not k_disk:
                             for fk in ff[k_set].keys():
-                                if re.search("disk_size", fk):
+                                if re.search(k_def_disk, fk):
                                     k_disk = fk
                                     break
                         # search for gpu key
                         if not k_gpus:
                             for fk in ff[k_set].keys():
-                                if re.search("num_gpus", fk):
+                                if re.search(k_def_gpus, fk):
                                     k_gpus = fk
                                     break
                         # search for gpu model key
                         if not k_gpu_model:
                             for fk in ff[k_set].keys():
-                                if re.search("gpu_model", fk):
+                                if re.search(k_def_gpu_model, fk):
                                     k_gpu_model = fk
+                                    break
+                        # search for gpu vendor key
+                        if not k_gpu_vendor:
+                            for fk in ff[k_set].keys():
+                                if re.search(k_def_gpu_vendor, fk):
+                                    k_gpu_vendor = fk
                                     break
 
                     if not k_mem:
@@ -1934,6 +1947,8 @@ def patch_template(
                         k_gpus = k_def_gpus
                     if not k_gpu_model:
                         k_gpu_model = k_def_gpu_model
+                    if not k_gpu_vendor:
+                        k_gpu_vendor = k_def_gpu_vendor
 
                     rflavors = list()
 
@@ -1989,6 +2004,13 @@ def patch_template(
                                     if k_valid_values in c:
                                         valid_values[k_gpu_model] = c.get(k_valid_values)
 
+                    if k_gpu_vendor in template[k_inputs] and not k_gpu_vendor in valid_values:
+                        if k_constraints in template[k_inputs][k_gpu_vendor]:
+                            for c in template[k_inputs][k_gpu_vendor][k_constraints]:
+                                if isinstance(c, dict):
+                                    if k_valid_values in c:
+                                        valid_values[k_gpu_vendor] = c.get(k_valid_values)
+
                     for f in ff:
                         #filter constraints
                         if k_cpu in valid_values:
@@ -1999,28 +2021,32 @@ def patch_template(
                                 continue
 
                         if k_disk in valid_values:
-                            if not f[k_set][k_def_disk].lower() in valid_values[k_disk].lower():
+                            if not f[k_set][k_def_disk].lower() in [x.lower() for x in valid_values[k_disk]]:
                                 continue
                         if k_disk in greater_or_equal:
                             if float(f[k_set][k_def_disk].split(" ")[0]) < float(greater_or_equal[k_disk]):
                                 continue
 
                         if k_mem in valid_values:
-                            if not f[k_set][k_def_mem].lower() in valid_values[k_mem].lower():
+                            if not f[k_set][k_def_mem].lower() in [x.lower() for x in valid_values[k_mem]]:
                                 continue
                         if k_mem in greater_or_equal:
                             if float(f[k_set][k_def_mem].split(" ")[0]) < float(greater_or_equal[k_mem]):
                                 continue
 
                         if k_gpus in valid_values:
-                            if not f[k_set][k_def_gpus] in valid_values[k_gpus]:
+                            if not int(f[k_set][k_def_gpus]) in valid_values[k_gpus]:
                                 continue
                         if k_gpus in greater_or_equal:
                             if int(f[k_set][k_def_gpus]) < int(greater_or_equal[k_gpus]):
                                 continue
 
                         if k_gpu_model in valid_values:
-                            if not f[k_set][k_def_gpu_model].lower() in valid_values[k_gpu_model].lower():
+                            if not f[k_set][k_def_gpu_model].lower() in [x.lower() for x in valid_values[k_gpu_model]]:
+                                continue
+
+                        if k_gpu_vendor in valid_values:
+                            if not f[k_set][k_def_gpu_vendor].lower() in [x.lower() for x in valid_values[k_gpu_vendor]]:
                                 continue
 
 
@@ -2033,14 +2059,15 @@ def patch_template(
                                 k_disk: "{}".format(f[k_set][k_def_disk]),
                                 k_gpus: "{}".format(f[k_set][k_def_gpus]),
                                 k_gpu_model: "{}".format(f[k_set][k_def_gpu_model]),
+                                k_gpu_vendor: "{}".format(f[k_set][k_def_gpu_vendor]),
                             },
                         }
                         rflavors.append(flavor)
 
                     template[k_inputs][k_flavors][k_constraints] = rflavors
 
-                    if "group_overrides" in v:
-                        del template[k_inputs][k_flavors]["group_overrides"]
+                    if k_group_overrides in v:
+                        del template[k_inputs][k_flavors][k_group_overrides]
 
         # patch images
         l_images = list()
@@ -2065,63 +2092,68 @@ def patch_template(
 
             for i in images:
                 if k_os_distribution in valid_values and k_os_distribution in i[k_set]:
-                    if not i[k_set].get(k_os_distribution).lower() in  valid_values[k_os_distribution]:
+                    if not i[k_set].get(k_os_distribution).lower() in  [x.lower() for x in valid_values[k_os_distribution]]:
                         continue
                 if k_os_version in valid_values and k_os_version in i[k_set]:
-                    if not i[k_set].get(k_os_version).lower() in map(str,valid_values[k_os_version]):
+                    if not i[k_set].get(k_os_version).lower() in  [x.lower() for x in map(str, valid_values[k_os_version])]:
                         continue
                 l_images.append(i)
 
             # override template operating_system with provider operating_system
             for k, v in list(template[k_inputs].items()):
                 # search for operating_system key and rename if needed
-                x = re.search("operating_system", k)
+                x = re.search(k_operating_system, k)
                 if x is not None and k_constraints in v:
                     k_images = k
                     template[k_inputs][k_images][k_constraints] = l_images
-                    if "group_overrides" in v:
-                        del template[k_inputs][k_images]["group_overrides"]
+                    if k_group_overrides in v:
+                        del template[k_inputs][k_images][k_group_overrides]
         else:
             # Manage possible overrides
-            for k, v in list(template["inputs"].items()):
-                x = re.search("operating_system", k)
+            for k, v in list(template[k_inputs].items()):
+                x = re.search(k_operating_system, k)
                 if (
                         x is not None
-                        and "group_overrides" in v
-                        and user_group["name"] in v["group_overrides"]
+                        and k_group_overrides in v
+                        and user_group[k_name] in v[k_group_overrides]
                 ):
-                    overrides = v["group_overrides"][user_group["name"]]
+                    overrides = v[k_group_overrides][user_group[k_name]]
                     template[k_inputs][k] = {**v, **overrides}
-                    del template[k_inputs][k]["group_overrides"]
+                    del template[k_inputs][k][k_group_overrides]
 
     return template
 
 
 def remove_sla_from_template(template):
-    if "topology_template" in template:
-        if "policies" in template["topology_template"]:
-            for policy in template["topology_template"]["policies"]:
+
+    k_topology_template = "topology_template"
+    k_policies = "policies"
+    k_type = "type"
+
+    if k_topology_template in template:
+        if k_policies in template[k_topology_template]:
+            for policy in template[k_topology_template][k_policies]:
                 for k, v in policy.items():
-                    if "type" in v and (
-                            v["type"] == "tosca.policies.indigo.SlaPlacement"
-                            or v["type"] == "tosca.policies.Placement"
+                    if k_type in v and (
+                            v[k_type] == "tosca.policies.indigo.SlaPlacement"
+                            or v[k_type] == "tosca.policies.Placement"
                     ):
-                        template["topology_template"]["policies"].remove(policy)
+                        template[k_topology_template][k_policies].remove(policy)
                         break
-            if len(template["topology_template"]["policies"]) == 0:
-                del template["topology_template"]["policies"]
+            if len(template[k_topology_template][k_policies]) == 0:
+                del template[k_topology_template][k_policies]
     else:
-        if "policies" in template:
-            for policy in template["policies"]:
+        if k_policies in template:
+            for policy in template[k_policies]:
                 for k, v in policy.items():
-                    if "type" in v and (
-                            v["type"] == "tosca.policies.indigo.SlaPlacement"
-                            or v["type"] == "tosca.policies.Placement"
+                    if k_type in v and (
+                            v[k_type] == "tosca.policies.indigo.SlaPlacement"
+                            or v[k_type] == "tosca.policies.Placement"
                     ):
-                        template["policies"].remove(policy)
+                        template[k_policies].remove(policy)
                         break
-            if len(template["policies"]) == 0:
-                del template["policies"]
+            if len(template[k_policies]) == 0:
+                del template[k_policies]
     return template
 
 
