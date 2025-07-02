@@ -1,4 +1,4 @@
-# Copyright (c) Istituto Nazionale di Fisica Nucleare (INFN). 2019-2020
+# Copyright (c) Istituto Nazionale di Fisica Nucleare (INFN). 2019-2025
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,9 +18,9 @@ import json
 import os
 import uuid
 from fnmatch import fnmatch
-
 import jsonschema
 import yaml
+from app.lib.path_utils import url_path_join, path_ensure_slash
 
 
 class ToscaInfo:
@@ -32,6 +32,7 @@ class ToscaInfo:
         self.tosca_params_dir = None
         self.tosca_metadata_dir = None
         self.metadata_schema = None
+        self.app = None
 
     def init_app(self, app, redis_client):
         """
@@ -40,41 +41,44 @@ class ToscaInfo:
         :param settings_dir: the dir of the params and metadata files
         """
         self.redis_client = redis_client
-        self.tosca_dir = app.config.get("TOSCA_TEMPLATES_DIR") + "/"
-        self.tosca_params_dir = os.path.join(app.config.get("SETTINGS_DIR"), "tosca-parameters")
-        self.tosca_metadata_dir = os.path.join(app.config.get("SETTINGS_DIR"), "tosca-metadata")
-        self.metadata_schema = app.config.get("METADATA_SCHEMA")
+        self.tosca_dir = app.settings.tosca_dir
+        self.tosca_params_dir = app.settings.tosca_params_dir
+        self.tosca_metadata_dir = app.settings.tosca_metadata_dir
+        self.metadata_schema = app.settings.metadata_schema
+        self.app = app
+        self.reload("init")
 
-        self.reload()
 
-
-    def reload(self):
+    def reload(self, mode):
         tosca_templates = self._loadtoscatemplates()
-        tosca_info, tosca_text = self._extractalltoscainfo(tosca_templates)
+        tosca_info = self._extractalltoscainfo(tosca_templates)
         tosca_gmetadata, tosca_gversion = self._loadmetadata()
 
         self.redis_client.set("tosca_templates", json.dumps(tosca_templates))
+        self.redis_client.set("tosca_info", json.dumps(tosca_info))
         self.redis_client.set("tosca_gmetadata", json.dumps(tosca_gmetadata))
         self.redis_client.set("tosca_gversion", tosca_gversion)
-        self.redis_client.set("tosca_info", json.dumps(tosca_info))
-        self.redis_client.set("tosca_text", json.dumps(tosca_text))
+
+        self.app.logger.info(f"Reloading tosca configuration on {mode}")
 
     def _loadmetadata(self):
-        mpath = os.path.join(self.tosca_metadata_dir, "metadata.yml")
-        if os.path.isfile(mpath):
-            with io.open(mpath) as stream:
-                metadata = yaml.full_load(stream)
+        mpath = url_path_join(self.tosca_metadata_dir, "metadata.yml")
+        if not os.path.isfile(mpath):
+            mpath = url_path_join(self.tosca_metadata_dir, "metadata.yaml")
+            if not os.path.isfile(mpath):
+                return {}, "1.0.0"
+        with io.open(mpath) as stream:
+            metadata = yaml.full_load(stream)
 
-                # validate against schema
-                jsonschema.validate(
-                    metadata,
-                    self.metadata_schema,
-                    format_checker=jsonschema.Draft202012Validator.FORMAT_CHECKER,
-                )
-                tosca_gmetadata = {str(uuid.uuid4()): service for service in metadata["services"]}
-                tosca_gversion = "1.0.0"  if "version" not in metadata else metadata["version"]
-                return tosca_gmetadata, tosca_gversion
-        return {}, "1.0.0"
+            # validate against schema
+            jsonschema.validate(
+                metadata,
+                self.metadata_schema,
+                format_checker=jsonschema.Draft202012Validator.FORMAT_CHECKER,
+            )
+            tosca_gmetadata = {str(uuid.uuid4()): service for service in metadata["services"]}
+            tosca_gversion = "1.0.0"  if "version" not in metadata else metadata["version"]
+            return tosca_gmetadata, tosca_gversion
 
     def _loadtoscatemplates(self):
         toscatemplates = []
@@ -91,18 +95,15 @@ class ToscaInfo:
 
     def _extractalltoscainfo(self, tosca_templates):
         tosca_info = {}
-        tosca_text = {}
         for tosca in tosca_templates:
             with io.open(
                     os.path.join(self.tosca_dir, tosca), encoding="utf-8"
             ) as stream:
                 template = yaml.full_load(stream)
                 tosca_info[tosca] = self.extracttoscainfo(template, tosca)
-                stream.seek(0)
-                tosca_text[tosca] = stream.read()
                 # info = self.extracttoscainfo(template, tosca)
                 # tosca_info[info.get('id')] = info
-        return tosca_info, tosca_text
+        return tosca_info
 
     def extracttoscainfo(self, template, tosca):
         tosca_info = {
@@ -136,11 +137,11 @@ class ToscaInfo:
                     tosca_info["metadata"][k] = v
 
             if tosca and self.tosca_metadata_dir:
-                tosca_metadata_path = self.tosca_metadata_dir + "/"
+                tosca_metadata_path = path_ensure_slash(self.tosca_metadata_dir)
                 for mpath, msubs, mnames in os.walk(tosca_metadata_path):
                     for mname in mnames:
                         fmname = os.path.relpath(
-                            os.path.join(mpath, mname), self.tosca_metadata_dir
+                            url_path_join(mpath, mname), self.tosca_metadata_dir
                         )
                         if fnmatch(fmname, os.path.splitext(tosca)[0] + ".metadata.yml") or \
                             fnmatch(fmname, os.path.splitext(tosca)[0] + ".metadata.yaml"
@@ -169,27 +170,22 @@ class ToscaInfo:
             tosca_inputs = {}
             tosca_outputs = {}
             # get inputs/outputs from template, if provided
-            if "inputs" in template["topology_template"]:
-                tosca_inputs = template["topology_template"]["inputs"]
-                tosca_info["inputs"] = tosca_inputs
+            topology_template = template["topology_template"]
+            if "inputs" in topology_template:
+                tosca_inputs = tosca_info["inputs"] = topology_template["inputs"]
 
-            if "outputs" in template["topology_template"]:
-                tosca_outputs = template["topology_template"]["outputs"]
-                tosca_info["outputs"] = tosca_outputs
+            if "outputs" in topology_template:
+                tosca_outputs = tosca_info["outputs"] = topology_template["outputs"]
 
-            if "node_templates" in template["topology_template"]:
-                tosca_info["deployment_type"] = getdeploymenttype(
-                    template["topology_template"]["node_templates"]
-                )
+            if "node_templates" in topology_template:
+                tosca_info["deployment_type"] = getdeploymenttype(topology_template["node_templates"])
 
-            if "policies" in template["topology_template"]:
-                tosca_info["policies"] = template["topology_template"]["policies"]
+            if "policies" in topology_template:
+                tosca_info["policies"] = topology_template["policies"]
 
             # add parameters code here
             if tosca and self.tosca_params_dir:
-                tosca_pars_path = (
-                    self.tosca_params_dir + "/"
-                )  # this has to be reassigned here because is local.
+                tosca_pars_path = path_ensure_slash(self.tosca_params_dir)
                 for fpath, subs, fnames in os.walk(tosca_pars_path):
                     for fname in fnames:
                         ffname = os.path.relpath(os.path.join(fpath, fname), self.tosca_params_dir)
@@ -247,17 +243,28 @@ class ToscaInfo:
         return tosca_info
 
     def get(self):
+        serialised_value = self.redis_client.get("tosca_info")
+        tosca_info = json.loads(serialised_value)
         serialised_value = self.redis_client.get("tosca_templates")
         tosca_templates = json.loads(serialised_value)
         serialised_value = self.redis_client.get("tosca_gmetadata")
-        tosca_gversion = self.redis_client.get("tosca_gversion")
         tosca_gmetadata = json.loads(serialised_value)
+        tosca_gversion = self.redis_client.get("tosca_gversion")
+        return tosca_info, tosca_templates, tosca_gmetadata, tosca_gversion
+
+    def getinfo(self):
         serialised_value = self.redis_client.get("tosca_info")
         tosca_info = json.loads(serialised_value)
-        serialised_value = self.redis_client.get("tosca_text")
-        tosca_text = json.loads(serialised_value)
-        return tosca_info, tosca_templates, tosca_gmetadata, tosca_gversion, tosca_text
+        return tosca_info
 
+    def getversion(self):
+        tosca_gversion = self.redis_client.get("tosca_gversion")
+        return tosca_gversion
+
+    def getmetadata(self):
+        serialised_value = self.redis_client.get("tosca_gmetadata")
+        tosca_gmetadata = json.loads(serialised_value)
+        return tosca_gmetadata
 
 # Helper functions
 def getdeploymenttype(nodes):
@@ -265,18 +272,21 @@ def getdeploymenttype(nodes):
     for j, u in nodes.items():
         if deployment_type == "":
             for k, v in u.items():
-                if k == "type" and v == "tosca.nodes.indigo.Compute":
-                    deployment_type = "CLOUD"
-                    break
-                if k == "type" and v == "tosca.nodes.indigo.Container.Application.Docker.Marathon":
-                    deployment_type = "MARATHON"
-                    break
-                if k == "type" and v == "tosca.nodes.indigo.Container.Application.Docker.Chronos":
-                    deployment_type = "CHRONOS"
-                    break
-                if k == "type" and v == "tosca.nodes.indigo.Qcg.Job":
-                    deployment_type = "QCG"
-                    break
+                if k == "type":
+                    if v == "tosca.nodes.indigo.Compute":
+                        deployment_type = "CLOUD"
+                        break
+                    if v == "tosca.nodes.indigo.Container.Application.Docker.Marathon":
+                        deployment_type = "MARATHON"
+                        break
+                    if v == "tosca.nodes.indigo.Container.Application.Docker.Chronos":
+                        deployment_type = "CHRONOS"
+                        break
+                    if v == "tosca.nodes.indigo.Qcg.Job":
+                        deployment_type = "QCG"
+                        break
+        else:
+            break
     return deployment_type
 
 
@@ -295,6 +305,8 @@ def getslapolicy(template):
                                 v["properties"]["sla_id"] if "sla_id" in v["properties"] else ""
                             )
                         break
+            else:
+                break
     return sla_id
 
 

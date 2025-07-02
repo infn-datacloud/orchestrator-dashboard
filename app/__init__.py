@@ -13,18 +13,26 @@
 # limitations under the License.
 import json
 import os
+import redis
 from logging.config import dictConfig
-
-from flask import Flask
+from flask import Flask, flash
 from flask_migrate import upgrade
 from werkzeug.middleware.proxy_fix import ProxyFix
-
 from app.deployments.routes import deployments_bp
 from app.errors.routes import errors_bp
-from app.extensions import cache, csrf, db, mail, migrate, redis_client, tosca, vaultservice
+from app.extensions import (
+    cache,
+    csrf,
+    db,
+    mail,
+    migrate,
+    redis_client,
+    tosca,
+    vaultservice
+)
 from app.home.routes import home_bp
 from app.iam import make_iam_blueprint
-from app.lib import utils
+from app.lib import redis_helper, utils
 from app.lib.cmdb import Cmdb
 from app.lib.orchestrator import Orchestrator
 from app.lib.settings import Settings
@@ -119,6 +127,9 @@ def create_app():
     if not redis_client.ping():
         raise Exception("Redis server not responding!")
     cache.init_app(app)
+    with app.app_context():
+        cache.clear()
+
 
     # initialize VAULT if present
     if app.config.get("FEATURE_VAULT_INTEGRATION") == "yes":
@@ -195,6 +206,24 @@ def register_blueprints(app):
 
     if app.config.get("FEATURE_VAULT_INTEGRATION") == "yes":
         app.register_blueprint(vault_bp, url_prefix="/vault")
+
+def redis_listener(redis_url):
+    r = redis_helper.get_redis(redis_url)
+    pubsub = r.pubsub()
+    pubsub.subscribe("broadcast_tosca_reload")
+
+    for message in pubsub.listen():
+        if message["type"] == "message":
+            obj = message["data"]
+            if isinstance(obj, str):
+                data = obj
+            else:
+                data = obj.decode() if isinstance(obj, bytes) else None
+            if data == "tosca_reload":
+                try:
+                    tosca.reload("broadcast")
+                except Exception as err:
+                    flash(f"Unexpected {err=}, {type(err)=}", "danger")
 
 
 def validate_log_level(log_level):

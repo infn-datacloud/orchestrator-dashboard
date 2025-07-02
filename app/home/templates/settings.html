@@ -27,8 +27,9 @@
 					<div class="tab-pane fade show active" id=dash_conf>
 						<br>
 						<p class="text-success">Last update at: {{ tosca_settings.updated_at }}</p>
-						<form id="settingsform" action="{{ url_for('home_bp.submit_settings')}}" method="post">
+						<form id="settingsform" action="{{ url_for('home_bp.show_settings')}}" method="post">
 							<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" id="operation" name="operation" value="">
 							<fieldset>
 								<br>
 								<div class="dashboard-text"><h5>TOSCA templates</h5></div>
@@ -125,7 +126,7 @@
 							</fieldset>
 							<br>
 							<div class="dashboard-template-buttons-container">
-								<button type="submit" onclick="set_loading(true)" class="dashboard-button dashboard-button-primary dashboard-button-lg submitBtn" style="margin-left: auto;">Apply<i class="fas fa-save"></i></button>
+								<button onclick="postRepository();" class="dashboard-button dashboard-button-primary dashboard-button-lg submitBtn" style="margin-left: auto;">Apply<i class="fas fa-save"></i></button>
 							</div>
 						</form>
 					</div>
@@ -136,35 +137,66 @@
                             <ul id="groupList" class="list-group mb-3">
                                 {% for group in groups %}
                                 <li class="list-group-item d-flex justify-content-between align-items-center">
-                                    {{ group }}
-                                    <button class="btn btn-danger btn-sm" onclick="this.parentElement.remove()">Remove</button>
+                                    <span class="gtext">{{ group }}</span>
+                                    <button class="btn btn-danger btn-sm" onclick="removeGroup(this.parentElement);">Remove</button>
                                 </li>
                                 {% endfor %}
                             </ul>
 							<div class="dashboard-template-buttons-container">
-                                <button class="dashboard-button dashboard-button-primary dashboard-button-lg" onclick="showAddGroupModal();">Add Group</button>
-                                <button class="dashboard-button dashboard-button-primary dashboard-button-lg submitBtn" onclick="saveGroupsList();" style="margin-left: auto;">Apply<i class="fas fa-save"></i></button>
+                                <button class="dashboard-button dashboard-button-primary dashboard-button-lg" onclick="showAddGroupModal();">Add Groups</button>
+                                <button class="dashboard-button dashboard-button-primary dashboard-button-lg submitBtn" onclick="postIamGroups();" style="margin-left: auto;">Apply<i class="fas fa-save"></i></button>
                             </div>
                         </div>
 
-                        <!-- Modal per aggiungere un elemento -->
-                        <div class="modal fade" id="addGroupModal" tabindex="-1" aria-hidden="true">
-                            <div class="modal-dialog">
-                                <div class="modal-content">
-                                    <div class="modal-header">
-                                        <h5 class="modal-title">Add Group</h5>
-                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                    </div>
-                                    <div class="modal-body">
-                                        <input type="text" id="newGroup" class="form-control" placeholder="Group name">
-                                    </div>
-                                    <div class="modal-footer">
-                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                                        <button type="button" class="btn btn-primary" onclick="addGroup();">Add Group</button>
-                                    </div>
+                        <!-- Modal per aggiungere elementi -->
+                        <div class="modal fade" id="addGroupModal" tabindex="-1" role="dialog" aria-labelledby="addGroupModalLabel" aria-hidden="true">
+                          <div class="modal-dialog" role="document">
+                              <div class="modal-content">
+                                <div class="modal-header">
+                                  <h5 class="modal-title" id="addGroupModalLabel">Select or insert one or more groups</h5>
+                                  <button type="button" class="btn-close" data-dismiss="modal" aria-label="Close">
+                                      <span aria-hidden="true">&times;</span>
+                                  </button>
                                 </div>
-                            </div>
+                                <div class="modal-body">
+                                  <label for="selectGroups">IAM Groups</label>
+                                  <select id="selectGroups" name="newGroups" multiple>
+                                    {% for group in all_groups %}
+                                        {% if not group in groups %}
+                                            <option value="{{ group }}">{{ group }}</option>
+                                        {% endif %}
+                                    {% endfor %}
+                                  </select>
+                                </div>
+                                <div class="modal-footer">
+                                  <button type="button" class="btn btn-primary" onclick="addGroup();">Confirm</button>
+                                  <button type="button" class="btn btn-secondary" onclick="cancelGroup();">Cancel</button>
+                                </div>
+                              </div>
+                          </div>
                         </div>
+
+                        <!-- Modal di conferma -->
+                        <div class="modal fade" id="confirmModal" tabindex="-1" role="dialog" aria-labelledby="confirmModalLabel" aria-hidden="true">
+                          <div class="modal-dialog" role="document">
+                            <div class="modal-content">
+                              <div class="modal-header bg-warning">
+                                <h5 class="modal-title" id="confirmModalLabel">Confirm changes?</h5>
+                                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                  <span aria-hidden="true">&times;</span>
+                                </button>
+                              </div>
+                              <div class="modal-body">
+                                <p id="modList" class="mb-0"></p>
+                              </div>
+                              <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                                <button type="button" class="btn btn-primary" onclick="confirmModalConfirm();">Confirm</button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
                     </div>
                 {% endif %}
             </div>
@@ -173,6 +205,10 @@
 </div>
 
 <script>
+
+const initialGroups = {{ groups | tojson }};
+let addedGroups = [];
+let removedGroups = [];
 
 $(document).ready(() => {
     $("#tosca_templates_private").change(() => {
@@ -193,6 +229,14 @@ $(document).ready(() => {
 		width: '100%'
     });
 
+    $('#selectGroups').select2({
+        tags: true,
+        width: '100%',
+        placeholder: 'Select or enter new value',
+        allowClear: true,
+        dropdownParent: $('#addGroupModal')
+      });
+
 });
 
 $('#tableServices').dataTable( {
@@ -209,51 +253,134 @@ function showAddGroupModal() {
     $("#addGroupModal").modal("show");
 };
 
-function addGroup() {
-    let newGroupText = document.getElementById("newGroup").value;
-    if (newGroupText.trim() === "") return;
-
-    let listItem = document.createElement("li");
-    listItem.className = "list-group-item d-flex justify-content-between align-items-center";
-    listItem.textContent = newGroupText;
-
-    let removeButton = document.createElement("button");
-    removeButton.className = "btn btn-danger btn-sm";
-    removeButton.textContent = "Remove";
-    removeButton.onclick = function () {
-        listItem.remove();
-    };
-
-    listItem.appendChild(removeButton);
-    document.getElementById("groupList").appendChild(listItem);
-    document.getElementById("newGroup").value = "";
-
+function cancelGroup() {
+    $('#selectGroups').val(null).trigger('change');
     $("#addGroupModal").modal("hide");
 };
 
-function saveGroupsList() {
+function removeGroup(element) {
+    let g = element.querySelector('li .gtext').innerText;
+    if (initialGroups.includes(g)) {
+        removedGroups.push(g);
+
+        const $select = $('#selectGroups');
+
+        if (!$select.find(`option[value="${g}"]`).length) {
+            const newOption = new Option(g, g, false, false);
+            $select.append(newOption).trigger('change');
+        }
+    }
+    if (addedGroups.includes(g)) {
+        addedGroups = removeItem(addedGroups, g);
+    }
+    element.remove();
+}
+
+function addGroup() {
+    let newGroups = $('#selectGroups').val() || [];
+    let arrayLength = newGroups.length;
+    if (arrayLength == 0) return;
+    for (let i = 0; i < arrayLength; i++) {
+        let g = newGroups[i];
+        if (!addedGroups.includes(g) || ( initialGroups.includes(g) && removedGroups.includes(g)) ) {
+            if (!initialGroups.includes(g)) {
+                addedGroups.push(g);
+            }
+            if (removedGroups.includes(g)) {
+                removedGroups = removeItem(removedGroups, g);
+            }
+            let listItem = document.createElement("li");
+            listItem.className = "list-group-item d-flex justify-content-between align-items-center";
+            let spanItem = document.createElement('span');
+            spanItem.className = 'gtext';
+            spanItem.innerText = g;
+            let removeButton = document.createElement("button");
+            removeButton.className = "btn btn-danger btn-sm";
+            removeButton.textContent = "Remove";
+            removeButton.onclick = function () {
+                removeGroup(listItem);
+            };
+
+            listItem.append(spanItem);
+            listItem.appendChild(removeButton);
+            document.getElementById("groupList").appendChild(listItem);
+        }
+    }
+
+    $('#selectGroups').val(null).trigger('change');
+    $("#addGroupModal").modal("hide");
+};
+
+function postRepository() {
+    set_loading(true);
+    document.getElementById("operation").value = "repo";
+    $( "#settingsform" ).submit();
+    return true;
+}
+
+function removeItem(arr, value) {
+    return arr.filter(item => item !== value)
+}
+
+function  confirmModalCancel() {
+    $('#confirmModal').modal('hide');
+}
+
+function confirmModalConfirm() {
     let groups = [];
-    document.querySelectorAll("#groupList li").forEach(li => {
-        groups.push(li.childNodes[0].textContent.trim());
+    $('#confirmModal').modal('hide');
+    document.querySelectorAll("#groupList li .gtext").forEach(li => {
+        groups.push(li.innerText.trim());
     });
     set_loading(true);
-    fetch("{{ url_for('home_bp.submit_settings_groups') }}", {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: {
-            'x-csrf-token': '{{csrf_token()}}',
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ groups: groups })
-    }).then(response => {
-        if (response.redirected) {
-            window.location.replace(response.url);
-            return;
+    document.getElementById("operation").value = "groups";
+
+    $("#settingsform input[name='iamgroups[]']").remove();
+
+    groups.forEach(value => {
+      $("<input>")
+        .attr("type", "hidden")
+        .attr("name", "iamgroups[]")
+        .val(value)
+        .appendTo("#settingsform");
+    });
+
+    $( "#settingsform" ).submit();
+    return true;
+
+}
+
+function postIamGroups() {
+
+    const currentValues = $('#selectGroups').val() || [];
+    if (addedGroups.length || removedGroups.length) {
+
+        let html = '';
+
+        if (addedGroups.length) {
+          html += `<strong>Added Groups:</strong><ul>`;
+          addedGroups.forEach(val => {
+            html += `<li>${val}</li>`;
+          });
+          html += `</ul>`;
         }
-    })
-      .then(data => alert("Groups list saved!"))
-      .catch(error => alert("Error saving groups list."));
-};
+
+        if (removedGroups.length) {
+          html += `<strong>Removed Groups:</strong><ul>`;
+          removedGroups.forEach(val => {
+            html += `<li>${val}</li>`;
+          });
+          html += `</ul>`;
+        }
+
+        $('#modList').html(html);
+        $('#confirmModal').modal('show');
+
+    } else {
+        return;
+    }
+
+}
 
 </script>
 

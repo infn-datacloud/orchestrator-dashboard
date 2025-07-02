@@ -1,4 +1,4 @@
-# Copyright (c) Istituto Nazionale di Fisica Nucleare (INFN). 2019-2020
+# Copyright (c) Istituto Nazionale di Fisica Nucleare (INFN). 2019-2025
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
 
 import json
 import re
+import redis
 from semver.version import Version
 from datetime import datetime
 
@@ -30,10 +31,17 @@ from flask import (
 from flask import current_app as app
 from markupsafe import Markup
 
-from app.extensions import csrf, redis_client, tosca
-from app.iam import iam
-from app.lib import auth, dbhelpers, openstack, utils
+from app.extensions import csrf, tosca
+from app.iam import iam, get_all_groups
+from app.lib import (
+    auth,
+    dbhelpers,
+    openstack,
+    redis_helper,
+    utils
+)
 from app.models.User import User
+from app.lib.dbhelpers import get_dbversion, build_excludedstatus_filter
 
 home_bp = Blueprint(
     "home_bp",
@@ -67,19 +75,58 @@ def show_info():
         iam_url=app.settings.iam_url,
         orchestrator_url=app.settings.orchestrator_url,
         orchestrator_conf=app.settings.orchestrator_conf,
-        vault_url=app.config.get("VAULT_URL")
+        vault_url=app.config.get("VAULT_URL"),
+        dbversion=get_dbversion()
     )
 
 
-@home_bp.route("/settings")
+@home_bp.route("/settings", methods=["GET", "POST"])
 @auth.authorized_with_valid_token
 def show_settings():
-    """
-    Route for displaying the settings page.
-    """
+
+    if request.method == "POST" and session["userrole"].lower() == "admin":
+
+        operation = request.form.to_dict()["operation"]
+
+        if operation == "repo":
+            current_config = app.settings.repository_configuration
+
+            ret1, tosca_update_msg = update_configuration(
+                current_config,
+                "tosca_templates",
+                app.settings.tosca_dir,
+                "Cloning TOSCA templates"
+            )
+            ret2, conf_update_msg = update_configuration(
+                current_config,
+                "dashboard_configuration",
+                app.settings.settings_dir,
+                "Cloning dashboard configuraton"
+            )
+
+            try:
+                r = redis_helper.get_redis(app.config.get("REDIS_URL"))
+                r.publish("broadcast_tosca_reload", "tosca_reload")
+            except Exception as error:
+                handle_configuration_reload_error(error)
+
+            if ret1 or ret2:
+                handle_configuration_reload(current_config, tosca_update_msg, conf_update_msg)
+
+        if operation == "groups":
+            groups = request.form.getlist("iamgroups[]")
+            app.settings.iam_groups = groups
+            auth.update_user_info()
+            try:
+                r = redis_helper.get_redis(app.config.get("REDIS_URL"))
+                r.publish("broadcast_tosca_reload", "tosca_reload")
+            except Exception as error:
+                handle_configuration_reload_error(error)
+
+    session["iam_groups"] = all_groups = get_all_groups()
     groups = app.settings.iam_groups
     repository_configuration = app.settings.repository_configuration
-    _, _, _, tosca_gversion, _ = tosca.get()
+    tosca_gversion = tosca.getversion()
 
     return render_template(
         "settings.html",
@@ -89,60 +136,9 @@ def show_settings():
         vault_url=app.config.get("VAULT_URL"),
         tosca_settings=repository_configuration,
         tosca_version="{0:c}.{1:c}.{2:c}".format(tosca_gversion[0], tosca_gversion[2], tosca_gversion[4]),
-        groups=groups
+        groups=groups,
+        all_groups=all_groups
     )
-
-
-@home_bp.route("/setsettingsgroups", methods=["POST"])
-@auth.authorized_with_valid_token
-def submit_settings_groups():
-    """
-    A function to update settings.
-    It checks the user's role, then updates the current configuration
-    and handles configuration reload.
-    """
-    if request.method == "POST" and session["userrole"].lower() == "admin":
-        groups  =  request.json["groups"]
-        app.settings.set_iam_groups(groups)
-        auth.update_user_info()
-
-    return redirect(url_for("home_bp.home"))
-
-
-@home_bp.route("/setsettings", methods=["POST"])
-@auth.authorized_with_valid_token
-def submit_settings():
-    """
-    A function to update settings.
-    It checks the user's role, then updates the current configuration
-    and handles configuration reload.
-    """
-    if request.method == "POST" and session["userrole"].lower() == "admin":
-
-        current_config = app.settings.repository_configuration
-
-        ret1, tosca_update_msg = update_configuration(
-            current_config,
-            "tosca_templates",
-            app.settings.tosca_dir,
-            "Cloning TOSCA templates"
-        )
-        ret2, conf_update_msg = update_configuration(
-            current_config,
-            "dashboard_configuration",
-            app.settings.settings_dir,
-            "Cloning dashboard configuraton"
-        )
-
-        try:
-            tosca.reload()
-        except Exception as error:
-            handle_configuration_reload_error(error)
-
-        if ret1 or ret2:
-            handle_configuration_reload(current_config, tosca_update_msg, conf_update_msg)
-
-    return redirect(url_for("home_bp.show_settings"))
 
 
 def update_configuration(current_config, field_prefix, repo_dir, message):
@@ -249,7 +245,7 @@ def handle_configuration_reload(current_config, message1, message2):
 
     now = datetime.now()
     current_config["updated_at"] = now.strftime("%d/%m/%Y %H:%M:%S")
-    app.settings.set_repository_configuration(current_config)
+    app.settings.repository_configuration = current_config
 
     notify_admins_and_users(message1, message2)
 
@@ -385,7 +381,7 @@ def check_template_access(user_groups, active_group):
     - templates_info: information about the accessible templates
     - enable_template_groups: a boolean indicating whether template groups are enabled
     """
-    tosca_info, _, tosca_gmetadata, tosca_gversion, _ = tosca.get()
+    tosca_info, _, tosca_gmetadata, tosca_gversion = tosca.get()
     templates_data = tosca_gmetadata if tosca_gmetadata else tosca_info
     enable_template_groups = bool(tosca_gmetadata)
 
@@ -419,15 +415,15 @@ def portfolio():
     """
 
     if session.get("userid"):
+        access_token = iam.token["access_token"]
         # check database
         # if user not found, insert
         subject = session["userid"]
         email = session["useremail"]
+        role = session["userrole"]
         user = dbhelpers.get_user(subject)
-        if user is None:
-            admins = json.dumps(app.config["ADMINS"])
-            role = "admin" if email in admins else "user"
 
+        if user is None:
             user = User(
                 sub=subject,
                 name=session["username"],
@@ -442,18 +438,17 @@ def portfolio():
             )
             dbhelpers.add_object(user)
         else:
-            # update user data but role
+            # update user data
             dbhelpers.update_user(subject, dict(
                 name=session["username"],
                 username=session["preferred_username"],
                 given_name=session["given_name"],
                 family_name=session["family_name"],
                 email=email,
+                role=role,
                 organisation_name=session["organisation_name"],
                 picture=utils.avatar(email, 26),
                 active=1))
-
-        session["userrole"] = user.role  # role
 
         services = dbhelpers.get_services(visibility="public")
         services.extend(
@@ -462,18 +457,36 @@ def portfolio():
         templates_info, enable_template_groups = check_template_access(
             session["usergroups"], session["active_usergroup"]
         )
-        
+
+        deps = []
+        excluded_status = build_excludedstatus_filter(list(["actives"]))
         try:
-            dbhelpers.update_deployments(session["userid"])
+            deps = app.orchestrator.get_deployments(
+                access_token, created_by="me", excluded_status=excluded_status
+            )
         except Exception as e:
             flash("Error retrieving deployment list: \n" + str(e), "warning")
 
-        deps = dbhelpers.get_user_deployments(session["userid"])
-        statuses = {}
+        # sanitize data and filter undesired states
+        if deps:
+            deps = dbhelpers.sanitizedeployments(deps)
+
+        statuses = dict()
+        statuses["COMPLETE"] = 0
+        statuses["PROGRESS"] = 0
+        statuses["FAILED"] = 0
+
         for dep in deps:
             status = dep.status if dep.status else "UNKNOWN"
-            if status != "DELETE_COMPLETE" and dep.remote == 1:
-                statuses[status] = 1 if status not in statuses else statuses[status] + 1
+            if "FAILED" in status:
+                statuses["FAILED"] = statuses["FAILED"] + 1
+            else :
+                if "PROGRESS" in status:
+                    statuses["PROGRESS"] = statuses["PROGRESS"] + 1
+                else:
+                    if status == "CREATE_COMPLETE" or status == "UPDATE_COMPLETE":
+                        statuses["COMPLETE"] = statuses["COMPLETE"] + 1
+
 
         return render_template(
             app.config.get("PORTFOLIO_TEMPLATE"),

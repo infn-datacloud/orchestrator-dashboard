@@ -131,7 +131,7 @@
 		<!-- end select type -->
 
 		{% elif value.type == "multiselect" %}
-			<select class="js-example-basic-multiple form-control" id="{{key}}" name="{{key}}" multiple="multiple" {{mode}}>
+			<select class="js-basic-multiple form-control" id="{{key}}" name="{{key}}" multiple="multiple" {{mode}}>
 				{% for opt in value.options | python_eval %}
 					<option value="{{opt}}" style="margin: 2px;">{{opt}}</option>
 				{% endfor %}
@@ -233,7 +233,7 @@
 				<!-- text type, hide fields with password -->
 				<input 
 					{% if 'bucket_name' in key %} incorrect=true onfocusout="check_s3_bucket_name('{{key}}')" onkeyup="check_s3_bucket_name('{{key}}')" {% endif %}
-				 	{% if key|contains_sensitive_keyword(config['SENSITIVE_KEYWORDS']) %}type="password" data-toggle="password"{% else %}type="text"{% endif %} 
+					{% if key|contains_sensitive_keyword(config['SENSITIVE_KEYWORDS']) %} type="password" data-toggle="password"{% else %} type="text"{% endif %}
 					class="form-control" id="{{key}}" name="{{key}}" value="{{value.default}}" aria-describedby="help{{key}}" 
 					{% if value.required %}data-required=true required{%endif%} {{mode}} 
 				/>
@@ -292,7 +292,7 @@ $('.custom-file-input').on('change', () => {
 });
 
 $(document).ready(() => {
-	$('.js-example-basic-multiple').select2({
+	$('.js-basic-multiple').select2({
 	  	width: '100%' // https://github.com/select2/select2/issues/4220
 	});
      $("input[class~='trigc']").trigger('change');

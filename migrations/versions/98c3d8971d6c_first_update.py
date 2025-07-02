@@ -29,8 +29,9 @@ def upgrade():
 def downgrade():
     if alembic_helper.column_exists('deployments', 'sshkey'):
         op.drop_column('users', 'sshkey')
-    if alembic_helper.fk_exists('deployments', 'users', ['sub'], ['sub']):
-        op.drop_constraint(None, 'deployments', type_='foreignkey')
+    keyname = alembic_helper.fk_exists('deployments', 'users', ['sub'], ['sub'])
+    if keyname:
+        op.drop_constraint(keyname, 'deployments', type_='foreignkey')
     if alembic_helper.column_exists('deployments', 'elastic'):
         op.drop_column('deployments', 'elastic')
     # ### end Alembic commands ###
