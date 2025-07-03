@@ -43,6 +43,42 @@ from app.users.routes import users_bp
 from app.vault.routes import vault_bp
 
 
+def create_upgrade_app():
+
+    app = Flask(__name__, instance_relative_config=True)
+    app.wsgi_app = ProxyFix(app.wsgi_app)
+
+    # 1 - from config/default.py definition
+    app.config.from_object("config.default")
+    app.config.from_file("../config/schemas/metadata_schema.json", json.load)
+
+    # 2 - from json configuration file
+    if os.environ.get("TESTING", "").lower() == "true":
+        app.config.from_file("../tests/resources/config.json", json.load)
+    else:
+        app.config.from_file("config.json", json.load)
+        app.config.from_prefixed_env()
+
+    # 3 - from user profile
+    profile = app.config.get("CONFIGURATION_PROFILE")
+    # load custom configuration profile if one defined
+    if profile is not None and profile != "default":
+        app.config.from_object("config." + profile)
+
+    # initialize CSRF
+    app.secret_key = app.config["SECRET_KEY"]
+    csrf.init_app(app)
+
+    # Configure logging using dictConfig
+    configure_logging(app)
+
+    # initialize database
+    db.init_app(app)
+    migrate.init_app(app, db, compare_server_default=True, compare_type=True)
+
+    return app
+
+
 def create_app():
     """
     Create and configure the Flask application.
@@ -95,12 +131,17 @@ def create_app():
     app.secret_key = app.config["SECRET_KEY"]
     csrf.init_app(app)
 
+    # Configure logging using dictConfig
+    configure_logging(app)
+
     # initialize database
     db.init_app(app)
     migrate.init_app(app, db, compare_server_default=True, compare_type=True)
+
     # apply schema upgrades
-    with app.app_context():
-        upgrade(directory="migrations", revision="head")
+    # moved to migrate_db.py
+    #with app.app_context():
+    #    upgrade(directory="migrations", revision="head")
 
     # generate Settings object from config
     settings = Settings(app)
@@ -129,7 +170,6 @@ def create_app():
     cache.init_app(app)
     with app.app_context():
         cache.clear()
-
 
     # initialize VAULT if present
     if app.config.get("FEATURE_VAULT_INTEGRATION") == "yes":
@@ -160,9 +200,6 @@ def create_app():
     app.jinja_env.filters["contains_sensitive_keyword"] = utils.contains_sensitive_keyword
 
     register_blueprints(app)
-
-    # Configure logging using dictConfig
-    configure_logging(app)
 
     return app
 
