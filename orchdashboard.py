@@ -25,7 +25,6 @@ app = create_app()
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5001)
 
-
 @app.before_request
 def start_redis_listener():
     app.before_request_funcs[None].remove(start_redis_listener)

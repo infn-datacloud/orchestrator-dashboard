@@ -61,10 +61,12 @@ from app.lib.dbhelpers import (
     filter_template,
     filter_date_range,
     get_all_statuses,
-    nullorempty,
-    notnullorempty,
     month_boundary,
     months_list
+)
+from app.lib.strings import (
+    nullorempty,
+    notnullorempty
 )
 from app.lib.ldap_user import LdapUserManager
 from app.models.Deployment import Deployment
@@ -1754,7 +1756,7 @@ def configure_select_scheduling(selected_tosca=None, multi_templates=True):
         selected_tosca = request.args.get("selected_tosca")  # Changed from form to args
 
     tosca_info = tosca.getinfo()
-    template = tosca_info.get(os.path.normpath(selected_tosca), None)
+    template = tosca_info.get(selected_tosca, None)
     if template is None:
         flash("Error getting template (not found)", "danger")
         return redirect(url_for(SHOW_HOME_ROUTE))
@@ -1791,7 +1793,7 @@ def configure_form():
         return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **SHOW_DEPLOYMENTS_KWARGS))
 
     tosca_info = tosca.getinfo()
-    template = copy.deepcopy(tosca_info[os.path.normpath(selected_tosca)])
+    template = copy.deepcopy(tosca_info[selected_tosca])
 
     sched_type = request.args.get(
         "extra_opts.schedtype", "auto"
@@ -2728,9 +2730,10 @@ def create_deployment(
 @auth.authorized_with_valid_token
 def createdep():
     tosca_info = tosca.getinfo()
+    tosca_filenames = tosca.getfilenames()
     access_token = iam.token["access_token"]
     # validate input
-    request_template = os.path.normpath(request.args.get("selectedTemplate"))
+    request_template = request.args.get("selectedTemplate")
     if request_template not in tosca_info.keys():
         raise ValueError("Template path invalid (not found in current configuration")
 
@@ -2743,8 +2746,8 @@ def createdep():
     additionaldescription = form_data["additional_description"]
 
     inputs = extract_inputs(form_data)
-
-    template, template_text = load_template(selected_template)
+    template_filename = tosca_filenames[selected_template]
+    template, template_text = load_template(template_filename)
 
     if form_data["extra_opts.schedtype"].lower() == "man":
         template = add_sla_to_template(template, form_data["extra_opts.selectedSLA"])
@@ -2774,7 +2777,7 @@ def retrydep(depid=None):
     - depid: str, the ID of the deployment
     """
     tosca_info = tosca.getinfo()
-
+    tosca_filenames = tosca.getfilenames()
     try:
         access_token = iam.token["access_token"]
     except Exception as e:
@@ -2848,8 +2851,8 @@ def retrydep(depid=None):
         return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **get_deployments_kwargs(dep.sub)))
 
     form_data = inputs
-
-    template, template_text = load_template(dep.selected_template)
+    template_filename = tosca_filenames[dep.selected_template]
+    template, template_text = load_template(template_filename)
 
     create_dep_method(
         source_template,

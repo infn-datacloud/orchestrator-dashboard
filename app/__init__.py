@@ -32,7 +32,7 @@ from app.extensions import (
 )
 from app.home.routes import home_bp
 from app.iam import make_iam_blueprint
-from app.lib import redis_helper, utils
+from app.lib import redis_helper, strings, utils
 from app.lib.cmdb import Cmdb
 from app.lib.orchestrator import Orchestrator
 from app.lib.settings import Settings
@@ -195,8 +195,8 @@ def create_app():
     app.jinja_env.filters["extract_netinterface_ips"] = utils.extract_netinterface_ips
     app.jinja_env.filters["intersect"] = utils.intersect
     app.jinja_env.filters["python_eval"] = utils.python_eval
-    app.jinja_env.filters["enum2str"] = utils.enum_to_string
-    app.jinja_env.filters["str2bool"] = utils.str2bool
+    app.jinja_env.filters["enum2str"] = strings.enum_to_string
+    app.jinja_env.filters["str2bool"] = strings.str2bool
     app.jinja_env.filters["contains_sensitive_keyword"] = utils.contains_sensitive_keyword
 
     register_blueprints(app)

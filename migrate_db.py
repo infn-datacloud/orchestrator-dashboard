@@ -15,9 +15,9 @@
 import logging
 import sys
 from flask_migrate import upgrade
-from app import create_upgrade_app
+from app import create_app
 
-app_upgrade = create_upgrade_app()
+app_upgrade = create_app()
 
 
 # Fallback log su stderr
