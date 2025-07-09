@@ -130,11 +130,11 @@ def showdeployments(subject, showback):
         if request.method == "POST":
             dr = request.form.to_dict()
             if "selected_group" in dr:
-                selected_group = safe_load(dr.get("selected_group"))
+                selected_group = safe_load(dr.get("selected_group"), selected_group)
             if "selected_provider" in dr:
-                selected_provider = safe_load(dr.get("selected_provider"))
+                selected_provider = safe_load(dr.get("selected_provider"), selected_provider)
             if "selected_status" in dr:
-                selected_status = safe_load(dr.get("selected_status"))
+                selected_status = safe_load(dr.get("selected_status"), selected_status)
             datestart = dr.get("start_date")
             dateend = dr.get("end_date")
             if nullorempty(datestart):
@@ -236,11 +236,11 @@ def showalldeployments(showback):
     if request.method == "POST":
         dr = request.form.to_dict()
         if "selected_group" in dr:
-            selected_group = safe_load(dr.get("selected_group"))
+            selected_group = safe_load(dr.get("selected_group"), selected_group)
         if "selected_provider" in dr:
-            selected_provider = safe_load(dr.get("selected_provider"))
+            selected_provider = safe_load(dr.get("selected_provider"), selected_provider)
         if "selected_status" in dr:
-            selected_status = safe_load(dr.get("selected_status"))
+            selected_status = safe_load(dr.get("selected_status"), selected_status)
         if "selected_template" in dr:
             selected_template = dr.get("selected_template")
         datestart = dr.get("date_start")
@@ -347,11 +347,11 @@ def showdeploymentsoverview():
     if request.method == "POST":
         dr = request.form.to_dict()
         if "selected_group" in dr:
-            selected_group = safe_load(dr.get("selected_group"))
+            selected_group = safe_load(dr.get("selected_group"), selected_group)
         if "selected_provider" in dr:
-            selected_provider = safe_load(dr.get("selected_provider"))
+            selected_provider = safe_load(dr.get("selected_provider"), selected_provider)
         if "selected_status" in dr:
-            selected_status = safe_load(dr.get("selected_status"))
+            selected_status = safe_load(dr.get("selected_status"), selected_status)
 
     excluded_status = build_excludedstatus_filter(selected_status)
 
@@ -464,17 +464,17 @@ def showdeploymentstats():
         if request.is_json:
             data = request.get_json()
             templaterq = data.get("id")
-            selected_group = safe_load(data.get("selected_group"))
-            selected_provider = safe_load(data.get("selected_provider"))
-            selected_status = safe_load(data.get("selected_status"))
+            selected_group = safe_load(data.get("selected_group"), selected_group)
+            selected_provider = safe_load(data.get("selected_provider"), selected_provider)
+            selected_status = safe_load(data.get("selected_status"), selected_status)
         else:
             dr = request.form.to_dict()
             if "selected_group" in dr:
-                selected_group = safe_load(dr.get("selected_group"))
+                selected_group = safe_load(dr.get("selected_group"), selected_group)
             if "selected_provider" in dr:
-                selected_provider = safe_load(dr.get("selected_provider"))
+                selected_provider = safe_load(dr.get("selected_provider"), selected_provider)
             if "selected_status" in dr:
-                selected_status = safe_load(dr.get("selected_status"))
+                selected_status = safe_load(dr.get("selected_status"), selected_status)
 
     excluded_status = build_excludedstatus_filter(selected_status)
 
