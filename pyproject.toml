@@ -41,6 +41,7 @@ werkzeug = "3.0.3"
 gunicorn = "^23.0.0"
 semver = "^3.0.4"
 alembic = "1.13.3"
+oauthlib = "3.2.2"
 
 
 [build-system]

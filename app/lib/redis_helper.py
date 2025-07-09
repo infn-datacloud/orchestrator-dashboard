@@ -28,4 +28,3 @@ def get_redis(redis_url):
         )
     else:
         return redis.Redis()
-

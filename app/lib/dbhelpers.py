@@ -123,29 +123,29 @@ def get_deployment_region(dep: dict[str:Any]) -> Optional[str]:
 
 
 def sanitizedeployments(deployments):
-    result = {}
-    deps = []
-    iids = []
+
+    deps = list()
 
     access_token = iam.token["access_token"]
+    providers = app.config.get("PROVIDER_NAMES_TO_SPLIT", None)
+    dtformat = "%Y-%m-%d %H:%M:%S"
 
     # update deployments status in database
     for dep_json in deployments:
         uuid = dep_json["uuid"]
-        iids.append(uuid)
 
         # sanitize date
         dt = parser.parse(dep_json["creationTime"])
-        dep_json["creationTime"] = dt.strftime("%Y-%m-%d %H:%M:%S")
+        dep_json["creationTime"] = dt.strftime(dtformat)
+        creation_time = datetime.strptime(dep_json["creationTime"], dtformat)
+
         dt = parser.parse(dep_json["updateTime"])
-        dep_json["updateTime"] = dt.strftime("%Y-%m-%d %H:%M:%S")
-        update_time = datetime.strptime(dep_json["updateTime"], "%Y-%m-%d %H:%M:%S")
-        creation_time = datetime.strptime(dep_json["creationTime"], "%Y-%m-%d %H:%M:%S")
+        dep_json["updateTime"] = dt.strftime(dtformat)
+        update_time = datetime.strptime(dep_json["updateTime"], dtformat)
 
         providername = dep_json["cloudProviderName"] if "cloudProviderName" in dep_json else ""
         # Older deployments saved as provider name both the provider name and the
         # region, but in the Fed-Reg they are separate details.
-        providers = app.config.get("PROVIDER_NAMES_TO_SPLIT", None)
         if providername != "" and providers and providername in ast.literal_eval(
             providers
         ):
@@ -168,7 +168,6 @@ def sanitizedeployments(deployments):
                 or dep.provider_type != provider_type
                 or dep.region_name != region_name
                 or str(dep.status_reason or "") != status_reason
-                #or dep.sub != subject
             ):
                 dep.update_time = update_time
                 dep.physicalId = vphid
@@ -177,7 +176,6 @@ def sanitizedeployments(deployments):
                 dep.task = dep_json["task"]
                 dep.links = json.dumps(dep_json["links"])
                 dep.remote = 1
-                #dep.sub = subject
                 dep.provider_name = providername
                 dep.provider_type = provider_type
                 dep.region_name = region_name
@@ -264,9 +262,7 @@ def sanitizedeployments(deployments):
             except Exception:
                 app.logger.info("Error sanitizing deployment with uuid:{}".format(uuid))
 
-    result["deployments"] = deps
-    result["iids"] = iids
-    return result
+    return deps
 
 
 def get_all_statuses():
@@ -390,6 +386,7 @@ def filter_provider(deployments, search_string_list, negate, providers_to_split)
         return not negate
     return list(filter(iterator_func, deployments))
 
+
 def buildprovidername(providers_to_split, dep_provider, dep_region_name):
     provider = dep_provider or "UNKNOWN"
     if dep_region_name:
@@ -398,11 +395,6 @@ def buildprovidername(providers_to_split, dep_provider, dep_region_name):
             return provider + "-" + dep_region_name.lower()
     return provider
 
-def cvdeployments(deps):
-    deployments = []
-    for d in deps:
-        deployments.append(cvdeployment(d))
-    return deployments
 
 def nullorempty(value):
     return True if value is None or value == "" or value == "None" else False
@@ -410,8 +402,17 @@ def nullorempty(value):
 def notnullorempty(value):
     return not nullorempty(value)
 
+
 def defaulttoempty(value):
     return value if value is not None else ""
+
+
+def cvdeployments(deps):
+    deployments = []
+    for d in deps:
+        deployments.append(cvdeployment(d))
+    return deployments
+
 
 def cvdeployment(d):
     deployment = Deployment(
