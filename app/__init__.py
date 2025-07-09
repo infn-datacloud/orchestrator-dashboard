@@ -13,10 +13,8 @@
 # limitations under the License.
 import json
 import os
-import redis
 from logging.config import dictConfig
 from flask import Flask, flash
-from flask_migrate import upgrade
 from werkzeug.middleware.proxy_fix import ProxyFix
 from app.deployments.routes import deployments_bp
 from app.errors.routes import errors_bp
@@ -32,7 +30,11 @@ from app.extensions import (
 )
 from app.home.routes import home_bp
 from app.iam import make_iam_blueprint
-from app.lib import redis_helper, strings, utils
+from app.lib import (
+    redis_helper,
+    strings,
+    utils
+)
 from app.lib.cmdb import Cmdb
 from app.lib.orchestrator import Orchestrator
 from app.lib.settings import Settings
@@ -41,42 +43,6 @@ from app.services.routes import services_bp
 from app.swift.routes import swift_bp
 from app.users.routes import users_bp
 from app.vault.routes import vault_bp
-
-
-def create_upgrade_app():
-
-    app = Flask(__name__, instance_relative_config=True)
-    app.wsgi_app = ProxyFix(app.wsgi_app)
-
-    # 1 - from config/default.py definition
-    app.config.from_object("config.default")
-    app.config.from_file("../config/schemas/metadata_schema.json", json.load)
-
-    # 2 - from json configuration file
-    if os.environ.get("TESTING", "").lower() == "true":
-        app.config.from_file("../tests/resources/config.json", json.load)
-    else:
-        app.config.from_file("config.json", json.load)
-        app.config.from_prefixed_env()
-
-    # 3 - from user profile
-    profile = app.config.get("CONFIGURATION_PROFILE")
-    # load custom configuration profile if one defined
-    if profile is not None and profile != "default":
-        app.config.from_object("config." + profile)
-
-    # initialize CSRF
-    app.secret_key = app.config["SECRET_KEY"]
-    csrf.init_app(app)
-
-    # Configure logging using dictConfig
-    configure_logging(app)
-
-    # initialize database
-    db.init_app(app)
-    migrate.init_app(app, db, compare_server_default=True, compare_type=True)
-
-    return app
 
 
 def create_app():
@@ -137,11 +103,6 @@ def create_app():
     # initialize database
     db.init_app(app)
     migrate.init_app(app, db, compare_server_default=True, compare_type=True)
-
-    # apply schema upgrades
-    # moved to migrate_db.py
-    #with app.app_context():
-    #    upgrade(directory="migrations", revision="head")
 
     # generate Settings object from config
     settings = Settings(app)
@@ -226,23 +187,16 @@ def register_blueprints(app):
         - `vault_bp`: Handles routes related to Vault integration ("/vault").
     """
     app.register_blueprint(errors_bp)
-
     app.register_blueprint(app.iam_blueprint, url_prefix="/login")
-
     app.register_blueprint(home_bp, url_prefix="/")
-
     app.register_blueprint(users_bp, url_prefix="/users")
-
     app.register_blueprint(deployments_bp, url_prefix="/deployments")
-
     app.register_blueprint(providers_bp, url_prefix="/providers")
-
     app.register_blueprint(swift_bp, url_prefix="/swift")
-
     app.register_blueprint(services_bp, url_prefix="/services")
-
     if app.config.get("FEATURE_VAULT_INTEGRATION") == "yes":
         app.register_blueprint(vault_bp, url_prefix="/vault")
+
 
 def redis_listener(redis_url):
     r = redis_helper.get_redis(redis_url)

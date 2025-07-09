@@ -68,6 +68,7 @@ from app.lib.strings import (
     nullorempty,
     notnullorempty
 )
+from app.lib.utils import safe_load, safe_len
 from app.lib.ldap_user import LdapUserManager
 from app.models.Deployment import Deployment
 
@@ -129,11 +130,11 @@ def showdeployments(subject, showback):
         if request.method == "POST":
             dr = request.form.to_dict()
             if "selected_group" in dr:
-                selected_group = json.loads(dr.get("selected_group"))
+                selected_group = safe_load(dr.get("selected_group"))
             if "selected_provider" in dr:
-                selected_provider = json.loads(dr.get("selected_provider"))
+                selected_provider = safe_load(dr.get("selected_provider"))
             if "selected_status" in dr:
-                selected_status = json.loads(dr.get("selected_status"))
+                selected_status = safe_load(dr.get("selected_status"))
             datestart = dr.get("start_date")
             dateend = dr.get("end_date")
             if nullorempty(datestart):
@@ -188,7 +189,7 @@ def showdeployments(subject, showback):
                 True)
 
         # filter eventually provider
-        if len(selected_provider) > 0 and "all" not in selected_provider:
+        if safe_len(selected_provider) > 0 and "all" not in selected_provider:
             deployments = filter_provider(
                 deployments,
                 selected_provider,
@@ -196,7 +197,7 @@ def showdeployments(subject, showback):
                 providers_to_split)
 
         # filter eventually group
-        if len(selected_group) > 0 and "all" not in selected_group:
+        if safe_len(selected_group) > 0 and "all" not in selected_group:
             deployments = filter_group(
                 deployments,
                 selected_group,
@@ -235,11 +236,11 @@ def showalldeployments(showback):
     if request.method == "POST":
         dr = request.form.to_dict()
         if "selected_group" in dr:
-            selected_group = json.loads(dr.get("selected_group"))
+            selected_group = safe_load(dr.get("selected_group"))
         if "selected_provider" in dr:
-            selected_provider = json.loads(dr.get("selected_provider"))
+            selected_provider = safe_load(dr.get("selected_provider"))
         if "selected_status" in dr:
-            selected_status = json.loads(dr.get("selected_status"))
+            selected_status = safe_load(dr.get("selected_status"))
         if "selected_template" in dr:
             selected_template = dr.get("selected_template")
         datestart = dr.get("date_start")
@@ -294,7 +295,7 @@ def showalldeployments(showback):
             True)
 
     # filter eventually provider
-    if len(selected_provider) > 0 and "all" not in selected_provider:
+    if safe_len(selected_provider) > 0 and "all" not in selected_provider:
         deployments = filter_provider(
             deployments,
             selected_provider,
@@ -302,7 +303,7 @@ def showalldeployments(showback):
             providers_to_split)
 
     # filter eventually group
-    if len(selected_group) > 0 and "all" not in selected_group:
+    if safe_len(selected_group) > 0 and "all" not in selected_group:
         deployments = filter_group(
             deployments,
             selected_group,
@@ -346,11 +347,11 @@ def showdeploymentsoverview():
     if request.method == "POST":
         dr = request.form.to_dict()
         if "selected_group" in dr:
-            selected_group = json.loads(dr.get("selected_group"))
+            selected_group = safe_load(dr.get("selected_group"))
         if "selected_provider" in dr:
-            selected_provider = json.loads(dr.get("selected_provider"))
+            selected_provider = safe_load(dr.get("selected_provider"))
         if "selected_status" in dr:
-            selected_status = json.loads(dr.get("selected_status"))
+            selected_status = safe_load(dr.get("selected_status"))
 
     excluded_status = build_excludedstatus_filter(selected_status)
 
@@ -389,7 +390,7 @@ def showdeploymentsoverview():
             providers_labels.append(dep_provider)
 
     # filter eventually provider
-    if len(selected_provider) > 0 and "all" not in selected_provider:
+    if safe_len(selected_provider) > 0 and "all" not in selected_provider:
         deployments = filter_provider(
             deployments,
             selected_provider,
@@ -397,7 +398,7 @@ def showdeploymentsoverview():
             providers_to_split)
 
     # filter eventually group
-    if len(selected_group) > 0 and "all" not in selected_group:
+    if safe_len(selected_group) > 0 and "all" not in selected_group:
         deployments = filter_group(
             deployments,
             selected_group,
@@ -463,17 +464,17 @@ def showdeploymentstats():
         if request.is_json:
             data = request.get_json()
             templaterq = data.get("id")
-            selected_group = json.loads(data.get("selected_group"))
-            selected_provider = json.loads(data.get("selected_provider"))
-            selected_status = json.loads(data.get("selected_status"))
+            selected_group = safe_load(data.get("selected_group"))
+            selected_provider = safe_load(data.get("selected_provider"))
+            selected_status = safe_load(data.get("selected_status"))
         else:
             dr = request.form.to_dict()
             if "selected_group" in dr:
-                selected_group = json.loads(dr.get("selected_group"))
+                selected_group = safe_load(dr.get("selected_group"))
             if "selected_provider" in dr:
-                selected_provider = json.loads(dr.get("selected_provider"))
+                selected_provider = safe_load(dr.get("selected_provider"))
             if "selected_status" in dr:
-                selected_status = json.loads(dr.get("selected_status"))
+                selected_status = safe_load(dr.get("selected_status"))
 
     excluded_status = build_excludedstatus_filter(selected_status)
 
@@ -519,7 +520,7 @@ def showdeploymentstats():
             providers_labels.append(dep_provider)
 
     # filter eventually provider
-    if len(selected_provider) > 0 and "all" not in selected_provider:
+    if safe_len(selected_provider) > 0 and "all" not in selected_provider:
         deployments = filter_provider(
             deployments,
             selected_provider,
@@ -527,7 +528,7 @@ def showdeploymentstats():
             providers_to_split)
 
     # filter eventually group
-    if len(selected_group) > 0 and "all" not in selected_group:
+    if safe_len(selected_group) > 0 and "all" not in selected_group:
         deployments = filter_group(
             deployments,
             selected_group,

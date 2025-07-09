@@ -52,6 +52,20 @@ def to_pretty_json(value):
     return json.dumps(value, sort_keys=True, indent=4, separators=(",", ": "))
 
 
+def safe_load(value, default=None):
+    try:
+        return json.loads(value)
+    except:
+        return default
+
+
+def safe_len(value):
+    try:
+        return len(value)
+    except:
+        return 0
+
+
 def python_eval(obj):
     """
     Safely evaluate a Python expression from a string.
