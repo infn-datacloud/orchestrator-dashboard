@@ -118,7 +118,7 @@ class Settings:
 
     def _jsongetter(selfself, key):
         setting = dbhelpers.get_setting(key)
-        if setting:
+        if setting and setting.value:
             return json.loads(setting.value)
         return None
 
