@@ -98,7 +98,7 @@ class Settings:
         # iam groups membership
         if not self.iam_groups:
             # get default from config file if present
-            self.iam_groups = app.config.get(self._keyiamgroups)
+            self.iam_groups = app.config.get(self._keyiamgroups, [])
 
         # repository configuration
         if not self.repository_configuration:
