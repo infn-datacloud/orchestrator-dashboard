@@ -111,14 +111,14 @@ class Settings:
             dbhelpers.add_object(Setting(id=id, value=value))
 
     def _jsonsetter(self, value, key):
-        if value:
+        if value is not None:
             self._save_setting(key, json.dumps(value))
         else:
             self._save_setting(key, None)
 
     def _jsongetter(selfself, key):
         setting = dbhelpers.get_setting(key)
-        if setting and setting.value:
+        if setting is not None and setting.value is not None:
             return json.loads(setting.value)
         return None
 
