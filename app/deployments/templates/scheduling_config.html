@@ -13,6 +13,7 @@
 		<span class="text-muted">Select a deployment provider or let the system choose automatically</span>
 	</div>
 	<div id="manschedConf">
+		{% if rucio_connector_enable == 'yes' %}
 		<div class="form-check" style="margin: 1em 0;">
 			<input type="checkbox" class="form-check-input" id="storageBinded">
 			<label class="form-check-label" for="storageBinded">Storage binded (Rucio)</label>
@@ -38,6 +39,7 @@
 				<label>RSE found! Choose one provider from the list above</label>
 			</div>
 		</div>
+		{% endif %}
 		
 		<div class="form-group">
 			<label>Provider</label>

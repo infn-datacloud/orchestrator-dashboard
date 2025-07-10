@@ -69,6 +69,7 @@ class Settings:
         self.use_fed_reg = True if self.fed_reg_url is not None else False
         
         self.rucio_connector_url = app.config.get("RUCIO_CONNECTOR_URL", "")
+        self.rucio_connector_enable = app.config.get("RUCIO_CONNECTOR_ENABLE", "")
 
         if not self.use_fed_reg:
             temp_slam_url = app.config.get("SLAM_URL", None)

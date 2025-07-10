@@ -33,5 +33,6 @@
   "FEATURE_VAULT_INTEGRATION": "yes",
   "EXTERNAL_LINKS": [ { "url": "https://paas-pre.cloud.infn.it/status-page", "menu_item_name": "Services status" } ],
   "LOG_LEVEL": "info",
+  "RUCIO_CONNECTOR_ENABLE": "yes",
   "RUCIO_CONNECTOR_URL": "http://127.0.0.1:8000"
 }

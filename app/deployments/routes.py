@@ -1767,6 +1767,7 @@ def configure_select_scheduling(selected_tosca=None, multi_templates=True):
     ssh_pub_key = dbhelpers.get_ssh_pub_key(session["userid"])
     slas_rse = map_slas_rse(slas)
     rucio_connector_url = app.settings.rucio_connector_url
+    rucio_connector_enable = app.settings.rucio_connector_enable
 
     return render_template(
         "chooseprovider.html",
@@ -1775,6 +1776,7 @@ def configure_select_scheduling(selected_tosca=None, multi_templates=True):
         steps=steps,
         ssh_pub_key=ssh_pub_key,
         rucio_connector_url=rucio_connector_url,
+        rucio_connector_enable=rucio_connector_enable,
     )
     
 def map_slas_rse(slas):
