@@ -54,7 +54,6 @@ def set_user_info():
     session["supported_usergroups"] = supported_groups
     if "active_usergroup" not in session:
         session["active_usergroup"] = next(iter(supported_groups), None)
-    session["iam_groups"] = get_all_groups()
     iam_configuration = iam.get(".well-known/openid-configuration").json()
     session["iss"] = iam_configuration["issuer"]
 

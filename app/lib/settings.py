@@ -98,7 +98,7 @@ class Settings:
         # iam groups membership
         if not self.iam_groups:
             # get default from config file if present
-            self.iam_groups = app.config.get(self._keyiamgroups)
+            self.iam_groups = app.config.get(self._keyiamgroups, [])
 
         # repository configuration
         if not self.repository_configuration:
@@ -111,14 +111,14 @@ class Settings:
             dbhelpers.add_object(Setting(id=id, value=value))
 
     def _jsonsetter(self, value, key):
-        if value:
+        if value is not None:
             self._save_setting(key, json.dumps(value))
         else:
             self._save_setting(key, None)
 
     def _jsongetter(selfself, key):
         setting = dbhelpers.get_setting(key)
-        if setting:
+        if setting is not None and setting.value is not None:
             return json.loads(setting.value)
         return None
 
