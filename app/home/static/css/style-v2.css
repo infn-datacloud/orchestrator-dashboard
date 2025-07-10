@@ -123,6 +123,11 @@ form {
     /* box-shadow: -1px 1px 2px 0px #0000003b; */
 }
 
+.dashboard-button:disabled {
+    opacity: .5;
+    cursor: not-allowed;
+}
+
 .dashboard-button:not(.dashboard-button-lg) > i {
     font-size: 12px;
 }
