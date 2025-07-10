@@ -62,9 +62,7 @@ class Settings:
         self.iam_url = app.config.get("IAM_BASE_URL")
         self.iam_client_id = app.config.get("IAM_CLIENT_ID")
         self.iam_client_secret = app.config.get("IAM_CLIENT_SECRET")
-        #CLOUD-2833
         self.iam_admin_groups =  app.config.get("IAM_ADMIN_GROUPS")
-        #
         self.fed_reg_url = app.config.get("FED_REG_URL", None)
         self.use_fed_reg = True if self.fed_reg_url is not None else False
 

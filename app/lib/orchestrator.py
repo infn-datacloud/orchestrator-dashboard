@@ -15,19 +15,19 @@
 import requests
 
 
-def next_url(links):
+def _next_url(links):
     link = [i for i in links if i["rel"] == "next"]
     return link[0]["href"] if link else None
 
 
 # manage pagination
-def get_all_results(url, timeout=60, headers={}, params={}, results=[]):
+def _get_all_results(url, timeout=60, headers={}, params={}, results=[]):
     while True:
         response = requests.get(url, headers=headers, params=params, timeout=timeout)
         response.raise_for_status()
         links = response.json()["links"]
         results.extend(response.json()["content"])
-        url = next_url(links)
+        url = _next_url(links)
 
         if not url:
             break
@@ -66,7 +66,7 @@ class Orchestrator:
         deployments = []
 
         try:
-            get_all_results(url, headers=headers, timeout=self.timeout, results=deployments)
+            _get_all_results(url, headers=headers, timeout=self.timeout, results=deployments)
         except Exception as e:
             raise Exception("Error retrieving deployment list: {}".format(str(e)))
         return deployments
@@ -141,7 +141,7 @@ class Orchestrator:
 
         resources = []
         try:
-            get_all_results(url=url, timeout=self.timeout, headers=headers, results=resources)
+            _get_all_results(url=url, timeout=self.timeout, headers=headers, results=resources)
         except Exception as e:
             raise Exception(
                 "Error retrieving resources list for deployment {}: {}".format(
