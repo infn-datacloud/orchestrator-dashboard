@@ -13,10 +13,8 @@
 # limitations under the License.
 import json
 import os
-import redis
 from logging.config import dictConfig
 from flask import Flask, flash
-from flask_migrate import upgrade
 from werkzeug.middleware.proxy_fix import ProxyFix
 from app.deployments.routes import deployments_bp
 from app.errors.routes import errors_bp
@@ -32,7 +30,11 @@ from app.extensions import (
 )
 from app.home.routes import home_bp
 from app.iam import make_iam_blueprint
-from app.lib import redis_helper, utils
+from app.lib import (
+    redis_helper,
+    strings,
+    utils
+)
 from app.lib.cmdb import Cmdb
 from app.lib.orchestrator import Orchestrator
 from app.lib.settings import Settings
@@ -95,12 +97,12 @@ def create_app():
     app.secret_key = app.config["SECRET_KEY"]
     csrf.init_app(app)
 
+    # Configure logging using dictConfig
+    configure_logging(app)
+
     # initialize database
     db.init_app(app)
     migrate.init_app(app, db, compare_server_default=True, compare_type=True)
-    # apply schema upgrades
-    with app.app_context():
-        upgrade(directory="migrations", revision="head")
 
     # generate Settings object from config
     settings = Settings(app)
@@ -130,7 +132,6 @@ def create_app():
     with app.app_context():
         cache.clear()
 
-
     # initialize VAULT if present
     if app.config.get("FEATURE_VAULT_INTEGRATION") == "yes":
         vaultservice.init_app(app)
@@ -155,14 +156,11 @@ def create_app():
     app.jinja_env.filters["extract_netinterface_ips"] = utils.extract_netinterface_ips
     app.jinja_env.filters["intersect"] = utils.intersect
     app.jinja_env.filters["python_eval"] = utils.python_eval
-    app.jinja_env.filters["enum2str"] = utils.enum_to_string
-    app.jinja_env.filters["str2bool"] = utils.str2bool
+    app.jinja_env.filters["enum2str"] = strings.enum_to_string
+    app.jinja_env.filters["str2bool"] = strings.str2bool
     app.jinja_env.filters["contains_sensitive_keyword"] = utils.contains_sensitive_keyword
 
     register_blueprints(app)
-
-    # Configure logging using dictConfig
-    configure_logging(app)
 
     return app
 
@@ -189,23 +187,16 @@ def register_blueprints(app):
         - `vault_bp`: Handles routes related to Vault integration ("/vault").
     """
     app.register_blueprint(errors_bp)
-
     app.register_blueprint(app.iam_blueprint, url_prefix="/login")
-
     app.register_blueprint(home_bp, url_prefix="/")
-
     app.register_blueprint(users_bp, url_prefix="/users")
-
     app.register_blueprint(deployments_bp, url_prefix="/deployments")
-
     app.register_blueprint(providers_bp, url_prefix="/providers")
-
     app.register_blueprint(swift_bp, url_prefix="/swift")
-
     app.register_blueprint(services_bp, url_prefix="/services")
-
     if app.config.get("FEATURE_VAULT_INTEGRATION") == "yes":
         app.register_blueprint(vault_bp, url_prefix="/vault")
+
 
 def redis_listener(redis_url):
     r = redis_helper.get_redis(redis_url)

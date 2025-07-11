@@ -6,6 +6,7 @@ Flask-Mail==0.9.1
 Flask-Redis==0.4.0
 PyYAML
 python-dateutil
+python-Levenshtein==0.27.1
 requests
 cryptography
 packaging
