@@ -23,7 +23,6 @@ from flask import (
     session,
 )
 from flask import current_app as app
-
 from app.iam import iam
 from app.lib import auth, dbhelpers, utils
 from app.lib.dbhelpers import (
@@ -31,9 +30,11 @@ from app.lib.dbhelpers import (
     months_list,
     filter_date_range,
     build_excludedstatus_filter,
-    nullorempty,
-    notnullorempty,
     get_all_statuses
+)
+from app.lib.strings import (
+    nullorempty,
+    notnullorempty
 )
 
 users_bp = Blueprint(
