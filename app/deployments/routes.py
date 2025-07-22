@@ -1778,7 +1778,7 @@ def configure_select_scheduling(selected_tosca=None, multi_templates=True):
         rucio_connector_url=rucio_connector_url,
         rucio_connector_enable=rucio_connector_enable,
     )
-    
+
 def map_slas_rse(slas):
     for sla in slas:
         match (sla["region_name"], sla["provider_name"]):
@@ -1922,8 +1922,7 @@ def patch_template(
             # override template flavors with provider flavors
             for k, v in list(template[k_inputs].items()):
                 # search for flavors key and rename if needed
-                x = bool(re.match(pattern, k))
-                if x is True and k_constraints in v:
+                if bool(re.match(pattern, k)):
                     k_flavors = k
                     k_cpu = None
                     k_mem = None
@@ -1931,43 +1930,84 @@ def patch_template(
                     k_gpus = None
                     k_gpu_model = None
                     k_gpu_vendor = None
-                    for ff in v[k_constraints]:
-                        # search for cpu key
-                        if not k_cpu:
-                            for fk in ff[k_set].keys():
-                                if re.search(k_def_cpu, fk):
-                                    k_cpu = fk
-                                    break
-                        # search for mem key
-                        if not k_mem:
-                            for fk in ff[k_set].keys():
-                                if re.search(k_def_mem, fk):
-                                    k_mem = fk
-                                    break
-                        # search for disk key
-                        if not k_disk:
-                            for fk in ff[k_set].keys():
-                                if re.search(k_def_disk, fk):
-                                    k_disk = fk
-                                    break
-                        # search for gpu key
-                        if not k_gpus:
-                            for fk in ff[k_set].keys():
-                                if re.search(k_def_gpus, fk):
-                                    k_gpus = fk
-                                    break
-                        # search for gpu model key
-                        if not k_gpu_model:
-                            for fk in ff[k_set].keys():
-                                if re.search(k_def_gpu_model, fk):
-                                    k_gpu_model = fk
-                                    break
-                        # search for gpu vendor key
-                        if not k_gpu_vendor:
-                            for fk in ff[k_set].keys():
-                                if re.search(k_def_gpu_vendor, fk):
-                                    k_gpu_vendor = fk
-                                    break
+                    if k_constraints in v:
+                        for ff in v[k_constraints]:
+                            # search for cpu key
+                            if not k_cpu:
+                                for fk in ff[k_set].keys():
+                                    if re.search(k_def_cpu, fk):
+                                        k_cpu = fk
+                                        break
+                            # search for mem key
+                            if not k_mem:
+                                for fk in ff[k_set].keys():
+                                    if re.search(k_def_mem, fk):
+                                        k_mem = fk
+                                        break
+                            # search for disk key
+                            if not k_disk:
+                                for fk in ff[k_set].keys():
+                                    if re.search(k_def_disk, fk):
+                                        k_disk = fk
+                                        break
+                            # search for gpu key
+                            if not k_gpus:
+                                for fk in ff[k_set].keys():
+                                    if re.search(k_def_gpus, fk):
+                                        k_gpus = fk
+                                        break
+                            # search for gpu model key
+                            if not k_gpu_model:
+                                for fk in ff[k_set].keys():
+                                    if re.search(k_def_gpu_model, fk):
+                                        k_gpu_model = fk
+                                        break
+                            # search for gpu vendor key
+                            if not k_gpu_vendor:
+                                for fk in ff[k_set].keys():
+                                    if re.search(k_def_gpu_vendor, fk):
+                                        k_gpu_vendor = fk
+                                        break
+                    if k_group_overrides in v:
+                        for kk,vv in v[k_group_overrides].items():
+                            if k_constraints in vv:
+                                for ff in vv[k_constraints]:
+                                    # search for cpu key
+                                    if not k_cpu:
+                                        for fk in ff[k_set].keys():
+                                            if re.search(k_def_cpu, fk):
+                                                k_cpu = fk
+                                                break
+                                    # search for mem key
+                                    if not k_mem:
+                                        for fk in ff[k_set].keys():
+                                            if re.search(k_def_mem, fk):
+                                                k_mem = fk
+                                                break
+                                    # search for disk key
+                                    if not k_disk:
+                                        for fk in ff[k_set].keys():
+                                            if re.search(k_def_disk, fk):
+                                                k_disk = fk
+                                                break
+                                    # search for gpu key
+                                    if not k_gpus:
+                                        for fk in ff[k_set].keys():
+                                            if re.search(k_def_gpus, fk):
+                                                k_gpus = fk
+                                                break
+                                    # search for gpu model key
+                                    if not k_gpu_model:
+                                        for fk in ff[k_set].keys():
+                                            if re.search(k_def_gpu_model, fk):
+                                                k_gpu_model = fk
+                                                break
+                                    # search for gpu vendor key
+                                    if not k_gpu_vendor:
+                                        for fk in ff[k_set].keys():
+                                            if re.search(k_def_gpu_vendor, fk):
+                                                k_gpu_vendor = fk
+                                                break
 
                     if not k_mem:
                         k_mem = k_def_mem
