@@ -145,10 +145,9 @@ $(document).ready(function() {
     });
 
     $('#continue_btn').on('click', () => {
-		const formValid = $('#depSubmit')[0].checkValidity();
 		const formChecked = checkForm();
 
-		if(formValid && formChecked) {
+		if(formChecked) {
 			$('#depSubmit').hide();
 			$('#checkSubmit').show();
 	
@@ -326,9 +325,7 @@ $(document).ready(function () {
         // add spinner to button
         $(this).html( `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Processing...` );
     });
-});
 
-$(document).ready(function () {
 	$('input').on("focusout", (elem) => {
 		if ( (!elem.target.disabled) && elem.target.required && (elem.target.value == '')){
 			elem.target.style.borderColor = 'red';
@@ -340,7 +337,7 @@ $(document).ready(function () {
 	$('select').on("change", (elem) => {
 		let select = elem.target;
 
-		if ( (!select.disabled) && select.required && (select.value == '')){
+		if ( select.required && !select.disabled && $(select).is(':visible')  && (select.value == '')){
 			$(select).parent().children('span.select2').children().children().css('cssText', 'border-color: red!important');
 		}
 		else {
@@ -349,11 +346,37 @@ $(document).ready(function () {
 	});
 });
 
+function excludeHiddenFieldsFromValidation(formSelector) {
+  const $form = $(formSelector);
+  const $hiddenFields = $form.find('input:hidden, select:hidden, textarea:hidden');
+
+  $hiddenFields.each(function () {
+    const $el = $(this);
+    const wasDisabled = $el.prop('disabled');
+
+    $el.attr('data-previousdisabled', wasDisabled);
+
+    $el.prop('disabled', true);
+  });
+
+  return function restoreHiddenFieldStates() {
+    $hiddenFields.each(function () {
+      const $el = $(this);
+      const wasDisabled = $el.attr('data-previousdisabled') === 'true';
+
+      $el.prop('disabled', wasDisabled);
+
+      $el.removeAttr('data-previousdisabled');
+    });
+  };
+}
+
 function checkForm() {
     var valid = true;
-    if(!$('#depSubmit')[0].checkValidity()) {
-      	$('#depSubmit')[0].reportValidity();
-    }
+
+    const restoreHiddenFields = excludeHiddenFieldsFromValidation('#depSubmit');
+    $('#depSubmit')[0].reportValidity();
+    restoreHiddenFields();
 
 	$('input').each(function() {
 		if (this.disabled) return; // Skip disabled inputs
@@ -368,7 +391,7 @@ function checkForm() {
 		}
 
 		// Check required inputs
-		if (this.required && this.value === '') {
+		if (this.required && $(this).is(':visible')  && this.value == '') {
 			this.style.borderColor = 'red';
 			valid = false;
 		} else {
@@ -377,7 +400,7 @@ function checkForm() {
 	});
 
     $('select').each(function(){
-		if ( (this.disabled == false) && this.required && (this.value == '')){
+		if ( this.required && !this.disabled && $(this).is(':visible')  && this.value == ''){
 			$(this).parent().children('span.select2').children().children().css('cssText', 'border-color: red!important');
 			valid = false; 
 		}

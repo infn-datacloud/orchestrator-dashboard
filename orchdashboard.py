@@ -18,6 +18,7 @@ This module initializes the Flask application using the `create_app` function fr
 The application is then run with the specified host and port when the script is executed directly.
 """
 from app import create_app, redis_listener
+from app.lib.pycharm_flask_debug_patch import restart_with_reloader_patch
 import threading
 
 app = create_app()

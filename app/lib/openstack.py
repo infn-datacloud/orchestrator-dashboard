@@ -14,7 +14,7 @@
 
 import json
 import requests
-from app.lib import path_utils, utils
+from app.lib import path_utils
 
 def get_unscoped_keystone_token(
     access_token, auth_url, identity_provider="infn-cc", protocol="oidc", **kwargs
