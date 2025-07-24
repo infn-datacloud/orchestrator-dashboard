@@ -62,9 +62,7 @@ class Settings:
         self.iam_url = app.config.get("IAM_BASE_URL")
         self.iam_client_id = app.config.get("IAM_CLIENT_ID")
         self.iam_client_secret = app.config.get("IAM_CLIENT_SECRET")
-        #CLOUD-2833
         self.iam_admin_groups =  app.config.get("IAM_ADMIN_GROUPS")
-        #
         self.fed_reg_url = app.config.get("FED_REG_URL", None)
         self.use_fed_reg = True if self.fed_reg_url is not None else False
         
@@ -103,7 +101,7 @@ class Settings:
         # iam groups membership
         if not self.iam_groups:
             # get default from config file if present
-            self.iam_groups = app.config.get(self._keyiamgroups)
+            self.iam_groups = app.config.get(self._keyiamgroups, [])
 
         # repository configuration
         if not self.repository_configuration:
@@ -116,14 +114,14 @@ class Settings:
             dbhelpers.add_object(Setting(id=id, value=value))
 
     def _jsonsetter(self, value, key):
-        if value:
+        if value is not None:
             self._save_setting(key, json.dumps(value))
         else:
             self._save_setting(key, None)
 
     def _jsongetter(selfself, key):
         setting = dbhelpers.get_setting(key)
-        if setting:
+        if setting is not None and setting.value is not None:
             return json.loads(setting.value)
         return None
 

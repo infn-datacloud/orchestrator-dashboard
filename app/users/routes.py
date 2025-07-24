@@ -99,7 +99,7 @@ def showuserstats():
 
     # sanitize data and filter undesired states
     if deployments:
-        deployments = dbhelpers.sanitizedeployments(deployments)["deployments"]
+        deployments = dbhelpers.sanitizedeployments(deployments)
 
     # Initialize dictionaries for occurrences
     occurrences = dict()
