@@ -140,6 +140,7 @@ function isElementInHiddenFormGroup(element) {
 
 
 $(document).ready(function() {
+
     $('.js-example-basic-single').select2({
       	width: '100%' // https://github.com/select2/select2/issues/4220
     });
@@ -179,10 +180,12 @@ $(document).ready(function() {
 					switch(input.type) {
 						case 'combined': {
 							let dataItem = findElementByName(data, key);
-							let selected = input.constraints.filter(e => e.value == dataItem.value);
-							if(selected.length > 0) {
-								html_value += `<div class="form-group" style="margin-bottom: 4px;"><label>${key.replaceAll('_', ' ')}:</label>&nbsp;${selected[0].label}</div>`;
-							}
+                            if (typeof dataItem !== 'undefined') {
+                                let selected = input.constraints.filter(e => e.value == dataItem.value);
+                                if(selected.length > 0) {
+                                    html_value += `<div class="form-group" style="margin-bottom: 4px;"><label>${key.replaceAll('_', ' ')}:</label>&nbsp;${selected[0].label}</div>`;
+                                }
+                            }
 							break;
 						}
 						case 'map': {
@@ -273,7 +276,6 @@ $(document).ready(function() {
 							break;
 					}
 				}	
-
 			}
 	
 			$('#checkSubmit > .dashboard-check-data').html(html_value);
@@ -315,12 +317,7 @@ $(document).ready(function() {
 
 		$('#depSubmit').submit();
     })
-});
-</script>
 
-<script>
-
-$(document).ready(function () {
     $("#loadToscaBtn").click(function () {
         // add spinner to button
         $(this).html( `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Processing...` );
@@ -344,6 +341,68 @@ $(document).ready(function () {
 			$(select).parent().children('span.select2').children().children().css('cssText', 'border-color: #80808056!important'); 
 		}
 	});
+
+    $("#depSubmit").submit(function () {
+        //disable button on click
+        $(".submitBtn").attr("disabled", true);
+        // add spinner to button
+        $(".submitBtn").html( `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Processing...` );
+        //disable cancel too
+        $("#cancelBtn").attr("disabled", true);
+        $("#cancelBtn").attr("onclick", "#");
+
+        // Process complex types, like list and map
+        var data_json = $('#depSubmit').serializeJSON();
+        var tmpElems = $("input[data-output-type='json']");
+
+        for (let j = 0; j < tmpElems.length; j++) {
+			let jname = tmpElems[j].name;
+
+			if ( data_json[jname + "_tmp"] == undefined)
+			{
+				document.getElementById('id-' + jname).disabled = true;
+
+			}
+			else
+			{
+				//console.log(data_json[jname + "_tmp"]);
+
+				var el = document.getElementById('id-' + jname);
+				el.value =  JSON.stringify(data_json[jname + "_tmp"]);
+				// remove the "auxiliary" container
+				document.getElementById(jname + '-container').remove();
+			}
+        }
+
+        $("select[data-action='removeOnSubmit']").remove();
+
+        // fix scalar-unit.size combining value with units
+        var tmpElems = $("input[data-type='scalar-unit.size']");
+        for (let j = 0; j < tmpElems.length; j++) {
+			let elem = tmpElems[j];
+			elem.type = "text";
+			elem.value = elem.value + " " + elem.getAttribute("data-units");
+        }
+
+        return true;
+    });
+
+	$("input[name='extra_opts.providerTimeoutSet']").click(function() {
+		if ($("#providerTimeoutSet").is(":checked")){
+			$('#providerTimeout').prop("disabled",false);
+			$('#providerTimeout').prop("value", 5);
+		}
+		else {
+			$('#providerTimeout').prop("disabled",true);
+			$('#providerTimeout').prop("value", "");
+		}
+	});
+
+    $("#depSubmit").find("input").each(() =>  {
+		__attachValidationHandler($(this));
+    });
+
+
 });
 
 function excludeHiddenFieldsFromValidation(formSelector) {
@@ -419,66 +478,6 @@ function checkForm() {
     return valid;
 };
 
-$(document).ready(function () {
-    $("#depSubmit").submit(function () {
-        //disable button on click
-        $(".submitBtn").attr("disabled", true);
-        // add spinner to button
-        $(".submitBtn").html( `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Processing...` );
-        //disable cancel too
-        $("#cancelBtn").attr("disabled", true);
-        $("#cancelBtn").attr("onclick", "#");
-
-        // Process complex types, like list and map
-        var data_json = $('#depSubmit').serializeJSON();
-        var tmpElems = $("input[data-output-type='json']");
-
-        for (let j = 0; j < tmpElems.length; j++) {
-			let jname = tmpElems[j].name;
-
-			if ( data_json[jname + "_tmp"] == undefined)
-			{
-				document.getElementById('id-' + jname).disabled = true;
-
-			}
-			else
-			{
-				//console.log(data_json[jname + "_tmp"]);
-
-				var el = document.getElementById('id-' + jname);
-				el.value =  JSON.stringify(data_json[jname + "_tmp"]);
-				// remove the "auxiliary" container
-				document.getElementById(jname + '-container').remove();
-			}
-        }
-
-        $("select[data-action='removeOnSubmit']").remove();
-
-        // fix scalar-unit.size combining value with units
-        var tmpElems = $("input[data-type='scalar-unit.size']");
-        for (let j = 0; j < tmpElems.length; j++) {
-			let elem = tmpElems[j];
-			elem.type = "text";
-			elem.value = elem.value + " " + elem.getAttribute("data-units");
-        }
-
-        return true;
-    });
-});
-
-$(document).ready(function () {
-	$("input[name='extra_opts.providerTimeoutSet']").click(function() {
-		if ($("#providerTimeoutSet").is(":checked")){
-			$('#providerTimeout').prop("disabled",false);
-			$('#providerTimeout').prop("value", 5);
-		}
-		else {
-			$('#providerTimeout').prop("disabled",true);
-			$('#providerTimeout').prop("value", "");
-		}
-	});
-});
-
 function validatePorts(input){
 	let port = $(input)
 	let val = port.val();
@@ -525,12 +524,6 @@ function __attachValidationHandler(input) {
 		});
 	}
 }
-
-$(document).ready( () => {
-	$("#depSubmit").find("input").each(() =>  {
-		__attachValidationHandler($(this));
-    });
-});
 
 </script>
 
