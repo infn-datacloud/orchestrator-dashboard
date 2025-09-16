@@ -8,12 +8,17 @@
 <script>
 
 function setfields(elem) {
-	let values = $(elem).find('option:selected').data('values').replace(/'/g, '"');;
-	let obj = JSON.parse(values);
-
-	Object.keys(obj).forEach(function(key) {
-		$("#" + key).val(obj[key]);
-	})
+    let sel = $(elem).find('option:selected');
+    if (sel) {
+        let dt = sel.data('values');
+        if (typeof dt !== 'undefined' && (typeof dt === 'string' || dt instanceof String)) {
+            let values = dt.replace(/'/g, '"');
+            let obj = JSON.parse(values);
+            Object.keys(obj).forEach(function (key) {
+                $("#" + key).val(obj[key]);
+            })
+        }
+    }
 }
 
 </script>

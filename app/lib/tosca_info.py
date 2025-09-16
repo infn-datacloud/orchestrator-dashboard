@@ -202,7 +202,14 @@ class ToscaInfo:
                                 tosca_pars_file = os.path.join(fpath, fname)
                                 with io.open(tosca_pars_file) as pars_file:
                                     tosca_info["enable_config_form"] = True
-                                    tosca_info["parameters_file"] = pars_file.read()
+                                    parameters_data = pars_file.read()
+                                if isinstance(parameters_data, str):
+                                    if parameters_data.startswith(".."):
+                                        with io.open(
+                                                os.path.realpath(os.path.join(fpath, parameters_data))) as pars_file:
+                                            parameters_data = pars_file.read()
+                                if isinstance(parameters_data, str):
+                                    tosca_info["parameters_file"] = parameters_data
                                     pars_data = yaml.full_load(
                                         io.StringIO(tosca_info["parameters_file"])
                                     )
