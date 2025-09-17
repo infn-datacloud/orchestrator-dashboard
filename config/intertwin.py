@@ -1,5 +1,5 @@
 #### LOOK AND FEEL SETTINGS
-WELCOME_MESSAGE = "Welcome to the interTwin Dashboard!"
+WELCOME_MESSAGE = "Welcome to the interTwin AI Orchestrator Dashboard!"
 NAVBAR_BRAND_TEXT = "Dashboard"
 NAVBAR_BRAND_ICON = "/static/home/images/intertwin/intertwin-logo-white.png"
 FAVICON_PATH = "/static/home/images/intertwin/favicon_io"

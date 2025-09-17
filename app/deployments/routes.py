@@ -1792,8 +1792,12 @@ def map_slas_rse(slas):
                 
             # VENETO
             case ("regionOne", "CLOUD-VENETO"):
-                sla["rses"] = ["LNL_USERDISK", "CLOUDVENETO_USERDISK"]          
-        
+                sla["rses"] = ["LNL_USERDISK", "CLOUDVENETO_USERDISK"]         
+                
+            # DEFAULT
+            case _:
+                sla["rses"] = []
+
     return slas
 
 
