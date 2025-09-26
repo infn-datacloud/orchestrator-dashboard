@@ -61,11 +61,14 @@ from app.lib.dbhelpers import (
     filter_template,
     filter_date_range,
     get_all_statuses,
-    nullorempty,
-    notnullorempty,
     month_boundary,
     months_list
 )
+from app.lib.strings import (
+    nullorempty,
+    notnullorempty
+)
+from app.lib.utils import safe_load, safe_len
 from app.lib.ldap_user import LdapUserManager
 from app.models.Deployment import Deployment
 
@@ -126,12 +129,9 @@ def showdeployments(subject, showback):
 
         if request.method == "POST":
             dr = request.form.to_dict()
-            if "selected_group" in dr:
-                selected_group = json.loads(dr.get("selected_group"))
-            if "selected_provider" in dr:
-                selected_provider = json.loads(dr.get("selected_provider"))
-            if "selected_status" in dr:
-                selected_status = json.loads(dr.get("selected_status"))
+            selected_group = safe_load(dr.get("selected_group"), selected_group)
+            selected_provider = safe_load(dr.get("selected_provider"), selected_provider)
+            selected_status = safe_load(dr.get("selected_status"), selected_status)
             datestart = dr.get("start_date")
             dateend = dr.get("end_date")
             if nullorempty(datestart):
@@ -186,7 +186,7 @@ def showdeployments(subject, showback):
                 True)
 
         # filter eventually provider
-        if len(selected_provider) > 0 and "all" not in selected_provider:
+        if safe_len(selected_provider) > 0 and "all" not in selected_provider:
             deployments = filter_provider(
                 deployments,
                 selected_provider,
@@ -194,7 +194,7 @@ def showdeployments(subject, showback):
                 providers_to_split)
 
         # filter eventually group
-        if len(selected_group) > 0 and "all" not in selected_group:
+        if safe_len(selected_group) > 0 and "all" not in selected_group:
             deployments = filter_group(
                 deployments,
                 selected_group,
@@ -232,14 +232,10 @@ def showalldeployments(showback):
 
     if request.method == "POST":
         dr = request.form.to_dict()
-        if "selected_group" in dr:
-            selected_group = json.loads(dr.get("selected_group"))
-        if "selected_provider" in dr:
-            selected_provider = json.loads(dr.get("selected_provider"))
-        if "selected_status" in dr:
-            selected_status = json.loads(dr.get("selected_status"))
-        if "selected_template" in dr:
-            selected_template = dr.get("selected_template")
+        selected_group = safe_load(dr.get("selected_group"), selected_group)
+        selected_provider = safe_load(dr.get("selected_provider"), selected_provider)
+        selected_status = safe_load(dr.get("selected_status"), selected_status)
+        selected_template = dr.get("selected_template")
         datestart = dr.get("date_start")
         dateend = dr.get("date_end")
         if nullorempty(datestart):
@@ -292,7 +288,7 @@ def showalldeployments(showback):
             True)
 
     # filter eventually provider
-    if len(selected_provider) > 0 and "all" not in selected_provider:
+    if safe_len(selected_provider) > 0 and "all" not in selected_provider:
         deployments = filter_provider(
             deployments,
             selected_provider,
@@ -300,7 +296,7 @@ def showalldeployments(showback):
             providers_to_split)
 
     # filter eventually group
-    if len(selected_group) > 0 and "all" not in selected_group:
+    if safe_len(selected_group) > 0 and "all" not in selected_group:
         deployments = filter_group(
             deployments,
             selected_group,
@@ -343,12 +339,9 @@ def showdeploymentsoverview():
 
     if request.method == "POST":
         dr = request.form.to_dict()
-        if "selected_group" in dr:
-            selected_group = json.loads(dr.get("selected_group"))
-        if "selected_provider" in dr:
-            selected_provider = json.loads(dr.get("selected_provider"))
-        if "selected_status" in dr:
-            selected_status = json.loads(dr.get("selected_status"))
+        selected_group = safe_load(dr.get("selected_group"), selected_group)
+        selected_provider = safe_load(dr.get("selected_provider"), selected_provider)
+        selected_status = safe_load(dr.get("selected_status"), selected_status)
 
     excluded_status = build_excludedstatus_filter(selected_status)
 
@@ -387,7 +380,7 @@ def showdeploymentsoverview():
             providers_labels.append(dep_provider)
 
     # filter eventually provider
-    if len(selected_provider) > 0 and "all" not in selected_provider:
+    if safe_len(selected_provider) > 0 and "all" not in selected_provider:
         deployments = filter_provider(
             deployments,
             selected_provider,
@@ -395,7 +388,7 @@ def showdeploymentsoverview():
             providers_to_split)
 
     # filter eventually group
-    if len(selected_group) > 0 and "all" not in selected_group:
+    if safe_len(selected_group) > 0 and "all" not in selected_group:
         deployments = filter_group(
             deployments,
             selected_group,
@@ -461,17 +454,14 @@ def showdeploymentstats():
         if request.is_json:
             data = request.get_json()
             templaterq = data.get("id")
-            selected_group = json.loads(data.get("selected_group"))
-            selected_provider = json.loads(data.get("selected_provider"))
-            selected_status = json.loads(data.get("selected_status"))
+            selected_group = safe_load(data.get("selected_group"), selected_group)
+            selected_provider = safe_load(data.get("selected_provider"), selected_provider)
+            selected_status = safe_load(data.get("selected_status"), selected_status)
         else:
             dr = request.form.to_dict()
-            if "selected_group" in dr:
-                selected_group = json.loads(dr.get("selected_group"))
-            if "selected_provider" in dr:
-                selected_provider = json.loads(dr.get("selected_provider"))
-            if "selected_status" in dr:
-                selected_status = json.loads(dr.get("selected_status"))
+            selected_group = safe_load(dr.get("selected_group"), selected_group)
+            selected_provider = safe_load(dr.get("selected_provider"), selected_provider)
+            selected_status = safe_load(dr.get("selected_status"), selected_status)
 
     excluded_status = build_excludedstatus_filter(selected_status)
 
@@ -517,7 +507,7 @@ def showdeploymentstats():
             providers_labels.append(dep_provider)
 
     # filter eventually provider
-    if len(selected_provider) > 0 and "all" not in selected_provider:
+    if safe_len(selected_provider) > 0 and "all" not in selected_provider:
         deployments = filter_provider(
             deployments,
             selected_provider,
@@ -525,7 +515,7 @@ def showdeploymentstats():
             providers_to_split)
 
     # filter eventually group
-    if len(selected_group) > 0 and "all" not in selected_group:
+    if safe_len(selected_group) > 0 and "all" not in selected_group:
         deployments = filter_group(
             deployments,
             selected_group,
@@ -1754,7 +1744,7 @@ def configure_select_scheduling(selected_tosca=None, multi_templates=True):
         selected_tosca = request.args.get("selected_tosca")  # Changed from form to args
 
     tosca_info = tosca.getinfo()
-    template = tosca_info.get(os.path.normpath(selected_tosca), None)
+    template = tosca_info.get(selected_tosca, None)
     if template is None:
         flash("Error getting template (not found)", "danger")
         return redirect(url_for(SHOW_HOME_ROUTE))
@@ -1827,7 +1817,7 @@ def configure_form():
         return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **SHOW_DEPLOYMENTS_KWARGS))
 
     tosca_info = tosca.getinfo()
-    template = copy.deepcopy(tosca_info[os.path.normpath(selected_tosca)])
+    template = copy.deepcopy(tosca_info[selected_tosca])
 
     sched_type = request.args.get(
         "extra_opts.schedtype", "auto"
@@ -2804,9 +2794,10 @@ def create_deployment(
 @auth.authorized_with_valid_token
 def createdep():
     tosca_info = tosca.getinfo()
+    tosca_filenames = tosca.getfilenames()
     access_token = iam.token["access_token"]
     # validate input
-    request_template = os.path.normpath(request.args.get("selectedTemplate"))
+    request_template = request.args.get("selectedTemplate")
     if request_template not in tosca_info.keys():
         raise ValueError("Template path invalid (not found in current configuration")
 
@@ -2819,8 +2810,8 @@ def createdep():
     additionaldescription = form_data["additional_description"]
 
     inputs = extract_inputs(form_data)
-
-    template, template_text = load_template(selected_template)
+    template_filename = tosca_filenames[selected_template]
+    template, template_text = load_template(template_filename)
 
     if form_data["extra_opts.schedtype"].lower() == "man":
         template = add_sla_to_template(template, form_data["extra_opts.selectedSLA"])
@@ -2850,7 +2841,7 @@ def retrydep(depid=None):
     - depid: str, the ID of the deployment
     """
     tosca_info = tosca.getinfo()
-
+    tosca_filenames = tosca.getfilenames()
     try:
         access_token = iam.token["access_token"]
     except Exception as e:
@@ -2924,8 +2915,8 @@ def retrydep(depid=None):
         return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **get_deployments_kwargs(dep.sub)))
 
     form_data = inputs
-
-    template, template_text = load_template(dep.selected_template)
+    template_filename = tosca_filenames[dep.selected_template]
+    template, template_text = load_template(template_filename)
 
     create_dep_method(
         source_template,

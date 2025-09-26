@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import redis
-from app.lib.dbhelpers import notnullorempty
+from app.lib.strings import notnullorempty
 from urllib.parse import urlparse
 
 def get_redis(redis_url):
