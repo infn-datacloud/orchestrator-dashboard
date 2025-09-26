@@ -23,7 +23,7 @@ from flask import current_app as app
 from flask import json
 from flask import session
 
-from app.extensions import db
+from app.extensions import db, tosca
 from app.iam import iam
 
 from app.models.Deployment import Deployment
@@ -32,6 +32,11 @@ from app.models.UsersGroup import UsersGroup
 from app.models.User import User
 from app.models.Setting import Setting
 from app.models.DbVersion import DbVersion
+
+from app.lib.strings import (
+    defaulttoempty,
+    notnullorempty
+)
 
 
 def add_object(object):
@@ -48,7 +53,7 @@ def get_user(subject):
     return User.query.get(subject)
 
 
-def get_users():
+def get_users() -> list[User]:
     users = User.query.order_by(User.family_name.desc(), User.given_name.desc()).all()
     return users
 
@@ -81,6 +86,9 @@ def update_deployment(depuuid, data):
 def get_deployment(uuid):
     return Deployment.query.get(uuid)
 
+def get_deployments() -> list[Deployment]:
+    deployments = Deployment.query.all()
+    return deployments
 
 def getdeploymenttype(dep):
     deptype = ""
@@ -125,7 +133,7 @@ def get_deployment_region(dep: dict[str:Any]) -> Optional[str]:
 def sanitizedeployments(deployments):
 
     deps = list()
-
+    info = tosca.getinfo()
     access_token = iam.token["access_token"]
     providers = app.config.get("PROVIDER_NAMES_TO_SPLIT", None)
     dtformat = "%Y-%m-%d %H:%M:%S"
@@ -218,7 +226,8 @@ def sanitizedeployments(deployments):
                     )
 
                     add_object(user)
-
+                #find template name for orchent deployments
+                selected_template = tosca.find_template_name(None,template,info)
                 deployment = Deployment(
                     uuid=uuid,
                     creation_time=creation_time,
@@ -234,7 +243,7 @@ def sanitizedeployments(deployments):
                     template=template,
                     template_parameters="",
                     template_metadata="",
-                    selected_template="",
+                    selected_template=selected_template,
                     inputs=json.dumps(dep_json.get("inputs", "")),
                     stinputs=json.dumps(dep_json.get("stinputs", "")),
                     params="",
@@ -396,25 +405,14 @@ def buildprovidername(providers_to_split, dep_provider, dep_region_name):
     return provider
 
 
-def nullorempty(value):
-    return True if value is None or value == "" or value == "None" else False
-
-def notnullorempty(value):
-    return not nullorempty(value)
-
-
-def defaulttoempty(value):
-    return value if value is not None else ""
-
-
-def cvdeployments(deps):
+def cvdeployments(deps) -> list[Deployment]:
     deployments = []
     for d in deps:
         deployments.append(cvdeployment(d))
     return deployments
 
 
-def cvdeployment(d):
+def cvdeployment(d) -> Deployment:
     deployment = Deployment(
         uuid=d.uuid,
         creation_time=d.creation_time,
@@ -455,8 +453,8 @@ def cvdeployment(d):
     return deployment
 
 
-def get_services(visibility, groups=[]):
-    services = []
+def get_services(visibility, groups=[]) -> list[Service]:
+    services = list()
     if visibility == "public":
         services = Service.query.filter_by(visibility="public").all()
     if visibility == "private":
@@ -472,7 +470,7 @@ def get_services(visibility, groups=[]):
     return services
 
 
-def get_service(id):
+def get_service(id) -> Service :
     return Service.query.get(id)
 
 
@@ -514,19 +512,19 @@ def add_service(data):
     db.session.commit()
 
 
-def get_usergroup(name):
+def get_usergroup(name) -> UsersGroup:
     return UsersGroup.query.get(name)
 
 
-def get_usergroups():
+def get_usergroups() -> list[UsersGroup]:
     return UsersGroup.query.all()
 
 
-def get_setting(id):
+def get_setting(id) -> Setting:
     return Setting.query.get(id)
 
 
-def get_settings():
+def get_settings() -> list[Setting]:
     return Setting.query.all()
 
 

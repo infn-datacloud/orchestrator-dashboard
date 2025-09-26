@@ -37,7 +37,7 @@ def set_user_info():
     session["gravatar"] = utils.avatar(account_info_json["email"], 26)
     session["organisation_name"] = account_info_json["organisation_name"]
 
-    user_groups = account_info_json["groups"]
+    user_groups = account_info_json.get("groups", [])
     if app.settings.iam_admin_groups:
         session["userrole"] = "admin" if set(app.settings.iam_admin_groups).intersection(user_groups) else "user"
     else:
@@ -54,7 +54,6 @@ def set_user_info():
     session["supported_usergroups"] = supported_groups
     if "active_usergroup" not in session:
         session["active_usergroup"] = next(iter(supported_groups), None)
-    session["iam_groups"] = get_all_groups()
     iam_configuration = iam.get(".well-known/openid-configuration").json()
     session["iss"] = iam_configuration["issuer"]
 
@@ -64,7 +63,7 @@ def update_user_info():
     account_info_json = account_info.json()
     user_id = account_info_json["sub"]
 
-    user_groups = account_info_json["groups"]
+    user_groups = account_info_json.get("groups", [])
     supported_groups = []
     if app.settings.iam_groups:
         supported_groups = list(set(app.settings.iam_groups) & set(user_groups))

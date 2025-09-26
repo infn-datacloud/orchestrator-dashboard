@@ -1,4 +1,4 @@
-# Copyright (c) Istituto Nazionale di Fisica Nucleare (INFN). 2019-2020
+# Copyright (c) Istituto Nazionale di Fisica Nucleare (INFN). 2019-2025
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,13 +18,13 @@ This module initializes the Flask application using the `create_app` function fr
 The application is then run with the specified host and port when the script is executed directly.
 """
 from app import create_app, redis_listener
+from app.lib.pycharm_flask_debug_patch import restart_with_reloader_patch
 import threading
 
 app = create_app()
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5001)
-
 
 @app.before_request
 def start_redis_listener():

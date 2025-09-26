@@ -61,11 +61,14 @@ from app.lib.dbhelpers import (
     filter_template,
     filter_date_range,
     get_all_statuses,
-    nullorempty,
-    notnullorempty,
     month_boundary,
     months_list
 )
+from app.lib.strings import (
+    nullorempty,
+    notnullorempty
+)
+from app.lib.utils import safe_load, safe_len
 from app.lib.ldap_user import LdapUserManager
 from app.models.Deployment import Deployment
 
@@ -126,12 +129,9 @@ def showdeployments(subject, showback):
 
         if request.method == "POST":
             dr = request.form.to_dict()
-            if "selected_group" in dr:
-                selected_group = json.loads(dr.get("selected_group"))
-            if "selected_provider" in dr:
-                selected_provider = json.loads(dr.get("selected_provider"))
-            if "selected_status" in dr:
-                selected_status = json.loads(dr.get("selected_status"))
+            selected_group = safe_load(dr.get("selected_group"), selected_group)
+            selected_provider = safe_load(dr.get("selected_provider"), selected_provider)
+            selected_status = safe_load(dr.get("selected_status"), selected_status)
             datestart = dr.get("start_date")
             dateend = dr.get("end_date")
             if nullorempty(datestart):
@@ -186,7 +186,7 @@ def showdeployments(subject, showback):
                 True)
 
         # filter eventually provider
-        if len(selected_provider) > 0 and "all" not in selected_provider:
+        if safe_len(selected_provider) > 0 and "all" not in selected_provider:
             deployments = filter_provider(
                 deployments,
                 selected_provider,
@@ -194,7 +194,7 @@ def showdeployments(subject, showback):
                 providers_to_split)
 
         # filter eventually group
-        if len(selected_group) > 0 and "all" not in selected_group:
+        if safe_len(selected_group) > 0 and "all" not in selected_group:
             deployments = filter_group(
                 deployments,
                 selected_group,
@@ -232,14 +232,10 @@ def showalldeployments(showback):
 
     if request.method == "POST":
         dr = request.form.to_dict()
-        if "selected_group" in dr:
-            selected_group = json.loads(dr.get("selected_group"))
-        if "selected_provider" in dr:
-            selected_provider = json.loads(dr.get("selected_provider"))
-        if "selected_status" in dr:
-            selected_status = json.loads(dr.get("selected_status"))
-        if "selected_template" in dr:
-            selected_template = dr.get("selected_template")
+        selected_group = safe_load(dr.get("selected_group"), selected_group)
+        selected_provider = safe_load(dr.get("selected_provider"), selected_provider)
+        selected_status = safe_load(dr.get("selected_status"), selected_status)
+        selected_template = dr.get("selected_template")
         datestart = dr.get("date_start")
         dateend = dr.get("date_end")
         if nullorempty(datestart):
@@ -292,7 +288,7 @@ def showalldeployments(showback):
             True)
 
     # filter eventually provider
-    if len(selected_provider) > 0 and "all" not in selected_provider:
+    if safe_len(selected_provider) > 0 and "all" not in selected_provider:
         deployments = filter_provider(
             deployments,
             selected_provider,
@@ -300,7 +296,7 @@ def showalldeployments(showback):
             providers_to_split)
 
     # filter eventually group
-    if len(selected_group) > 0 and "all" not in selected_group:
+    if safe_len(selected_group) > 0 and "all" not in selected_group:
         deployments = filter_group(
             deployments,
             selected_group,
@@ -343,12 +339,9 @@ def showdeploymentsoverview():
 
     if request.method == "POST":
         dr = request.form.to_dict()
-        if "selected_group" in dr:
-            selected_group = json.loads(dr.get("selected_group"))
-        if "selected_provider" in dr:
-            selected_provider = json.loads(dr.get("selected_provider"))
-        if "selected_status" in dr:
-            selected_status = json.loads(dr.get("selected_status"))
+        selected_group = safe_load(dr.get("selected_group"), selected_group)
+        selected_provider = safe_load(dr.get("selected_provider"), selected_provider)
+        selected_status = safe_load(dr.get("selected_status"), selected_status)
 
     excluded_status = build_excludedstatus_filter(selected_status)
 
@@ -387,7 +380,7 @@ def showdeploymentsoverview():
             providers_labels.append(dep_provider)
 
     # filter eventually provider
-    if len(selected_provider) > 0 and "all" not in selected_provider:
+    if safe_len(selected_provider) > 0 and "all" not in selected_provider:
         deployments = filter_provider(
             deployments,
             selected_provider,
@@ -395,7 +388,7 @@ def showdeploymentsoverview():
             providers_to_split)
 
     # filter eventually group
-    if len(selected_group) > 0 and "all" not in selected_group:
+    if safe_len(selected_group) > 0 and "all" not in selected_group:
         deployments = filter_group(
             deployments,
             selected_group,
@@ -461,17 +454,14 @@ def showdeploymentstats():
         if request.is_json:
             data = request.get_json()
             templaterq = data.get("id")
-            selected_group = json.loads(data.get("selected_group"))
-            selected_provider = json.loads(data.get("selected_provider"))
-            selected_status = json.loads(data.get("selected_status"))
+            selected_group = safe_load(data.get("selected_group"), selected_group)
+            selected_provider = safe_load(data.get("selected_provider"), selected_provider)
+            selected_status = safe_load(data.get("selected_status"), selected_status)
         else:
             dr = request.form.to_dict()
-            if "selected_group" in dr:
-                selected_group = json.loads(dr.get("selected_group"))
-            if "selected_provider" in dr:
-                selected_provider = json.loads(dr.get("selected_provider"))
-            if "selected_status" in dr:
-                selected_status = json.loads(dr.get("selected_status"))
+            selected_group = safe_load(dr.get("selected_group"), selected_group)
+            selected_provider = safe_load(dr.get("selected_provider"), selected_provider)
+            selected_status = safe_load(dr.get("selected_status"), selected_status)
 
     excluded_status = build_excludedstatus_filter(selected_status)
 
@@ -517,7 +507,7 @@ def showdeploymentstats():
             providers_labels.append(dep_provider)
 
     # filter eventually provider
-    if len(selected_provider) > 0 and "all" not in selected_provider:
+    if safe_len(selected_provider) > 0 and "all" not in selected_provider:
         deployments = filter_provider(
             deployments,
             selected_provider,
@@ -525,7 +515,7 @@ def showdeploymentstats():
             providers_to_split)
 
     # filter eventually group
-    if len(selected_group) > 0 and "all" not in selected_group:
+    if safe_len(selected_group) > 0 and "all" not in selected_group:
         deployments = filter_group(
             deployments,
             selected_group,
@@ -1754,7 +1744,7 @@ def configure_select_scheduling(selected_tosca=None, multi_templates=True):
         selected_tosca = request.args.get("selected_tosca")  # Changed from form to args
 
     tosca_info = tosca.getinfo()
-    template = tosca_info.get(os.path.normpath(selected_tosca), None)
+    template = tosca_info.get(selected_tosca, None)
     if template is None:
         flash("Error getting template (not found)", "danger")
         return redirect(url_for(SHOW_HOME_ROUTE))
@@ -1765,14 +1755,50 @@ def configure_select_scheduling(selected_tosca=None, multi_templates=True):
     # TODO: Consider saving this list in Redis for caching?)
 
     ssh_pub_key = dbhelpers.get_ssh_pub_key(session["userid"])
+    slas_rse = map_slas_rse(slas)
+    rucio_connector_url = app.settings.rucio_connector_url
+    rucio_connector_enable = app.settings.rucio_connector_enable
 
     return render_template(
         "chooseprovider.html",
-        slas=slas,
+        slas=slas_rse,
         selected_tosca=selected_tosca,
         steps=steps,
         ssh_pub_key=ssh_pub_key,
+        rucio_connector_url=rucio_connector_url,
+        rucio_connector_enable=rucio_connector_enable,
     )
+
+def map_slas_rse(slas):
+    for sla in slas:
+        match (sla["region_name"], sla["provider_name"]):
+            # BARI
+            case ("bari", "BACKBONE"):
+                sla["rses"] = ["BARI_USERDISK"]
+            
+            case ("RegionOne", "RECAS-BARI"):
+                sla["rses"] = ["BARI_USERDISK"]
+                
+            # CNAF
+            case ("cnaf", "BACKBONE"):
+                sla["rses"] = ["CNAF_USERDISK", "CNAF_USERTAPE"]
+                
+            case ("tier1", "CLOUD-CNAF-T1"):
+                sla["rses"] = ["CNAF_USERDISK", "CNAF_USERTAPE"]
+                
+            # NAPOLI
+            case ("RegionOne", "CLOUD-IBISCO-NAPOLI"):
+                sla["rses"] = ["NAPOLI_USERDISK"]
+                
+            # VENETO
+            case ("regionOne", "CLOUD-VENETO"):
+                sla["rses"] = ["LNL_USERDISK", "CLOUDVENETO_USERDISK"]         
+                
+            # DEFAULT
+            case _:
+                sla["rses"] = []
+
+    return slas
 
 
 @deployments_bp.route("/configure_form", methods=["GET"])
@@ -1791,7 +1817,7 @@ def configure_form():
         return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **SHOW_DEPLOYMENTS_KWARGS))
 
     tosca_info = tosca.getinfo()
-    template = copy.deepcopy(tosca_info[os.path.normpath(selected_tosca)])
+    template = copy.deepcopy(tosca_info[selected_tosca])
 
     sched_type = request.args.get(
         "extra_opts.schedtype", "auto"
@@ -1890,8 +1916,7 @@ def patch_template(
             # override template flavors with provider flavors
             for k, v in list(template[k_inputs].items()):
                 # search for flavors key and rename if needed
-                x = bool(re.match(pattern, k))
-                if x is True and k_constraints in v:
+                if bool(re.match(pattern, k)):
                     k_flavors = k
                     k_cpu = None
                     k_mem = None
@@ -1899,43 +1924,84 @@ def patch_template(
                     k_gpus = None
                     k_gpu_model = None
                     k_gpu_vendor = None
-                    for ff in v[k_constraints]:
-                        # search for cpu key
-                        if not k_cpu:
-                            for fk in ff[k_set].keys():
-                                if re.search(k_def_cpu, fk):
-                                    k_cpu = fk
-                                    break
-                        # search for mem key
-                        if not k_mem:
-                            for fk in ff[k_set].keys():
-                                if re.search(k_def_mem, fk):
-                                    k_mem = fk
-                                    break
-                        # search for disk key
-                        if not k_disk:
-                            for fk in ff[k_set].keys():
-                                if re.search(k_def_disk, fk):
-                                    k_disk = fk
-                                    break
-                        # search for gpu key
-                        if not k_gpus:
-                            for fk in ff[k_set].keys():
-                                if re.search(k_def_gpus, fk):
-                                    k_gpus = fk
-                                    break
-                        # search for gpu model key
-                        if not k_gpu_model:
-                            for fk in ff[k_set].keys():
-                                if re.search(k_def_gpu_model, fk):
-                                    k_gpu_model = fk
-                                    break
-                        # search for gpu vendor key
-                        if not k_gpu_vendor:
-                            for fk in ff[k_set].keys():
-                                if re.search(k_def_gpu_vendor, fk):
-                                    k_gpu_vendor = fk
-                                    break
+                    if k_constraints in v:
+                        for ff in v[k_constraints]:
+                            # search for cpu key
+                            if not k_cpu:
+                                for fk in ff[k_set].keys():
+                                    if re.search(k_def_cpu, fk):
+                                        k_cpu = fk
+                                        break
+                            # search for mem key
+                            if not k_mem:
+                                for fk in ff[k_set].keys():
+                                    if re.search(k_def_mem, fk):
+                                        k_mem = fk
+                                        break
+                            # search for disk key
+                            if not k_disk:
+                                for fk in ff[k_set].keys():
+                                    if re.search(k_def_disk, fk):
+                                        k_disk = fk
+                                        break
+                            # search for gpu key
+                            if not k_gpus:
+                                for fk in ff[k_set].keys():
+                                    if re.search(k_def_gpus, fk):
+                                        k_gpus = fk
+                                        break
+                            # search for gpu model key
+                            if not k_gpu_model:
+                                for fk in ff[k_set].keys():
+                                    if re.search(k_def_gpu_model, fk):
+                                        k_gpu_model = fk
+                                        break
+                            # search for gpu vendor key
+                            if not k_gpu_vendor:
+                                for fk in ff[k_set].keys():
+                                    if re.search(k_def_gpu_vendor, fk):
+                                        k_gpu_vendor = fk
+                                        break
+                    if k_group_overrides in v:
+                        for kk,vv in v[k_group_overrides].items():
+                            if k_constraints in vv:
+                                for ff in vv[k_constraints]:
+                                    # search for cpu key
+                                    if not k_cpu:
+                                        for fk in ff[k_set].keys():
+                                            if re.search(k_def_cpu, fk):
+                                                k_cpu = fk
+                                                break
+                                    # search for mem key
+                                    if not k_mem:
+                                        for fk in ff[k_set].keys():
+                                            if re.search(k_def_mem, fk):
+                                                k_mem = fk
+                                                break
+                                    # search for disk key
+                                    if not k_disk:
+                                        for fk in ff[k_set].keys():
+                                            if re.search(k_def_disk, fk):
+                                                k_disk = fk
+                                                break
+                                    # search for gpu key
+                                    if not k_gpus:
+                                        for fk in ff[k_set].keys():
+                                            if re.search(k_def_gpus, fk):
+                                                k_gpus = fk
+                                                break
+                                    # search for gpu model key
+                                    if not k_gpu_model:
+                                        for fk in ff[k_set].keys():
+                                            if re.search(k_def_gpu_model, fk):
+                                                k_gpu_model = fk
+                                                break
+                                    # search for gpu vendor key
+                                    if not k_gpu_vendor:
+                                        for fk in ff[k_set].keys():
+                                            if re.search(k_def_gpu_vendor, fk):
+                                                k_gpu_vendor = fk
+                                                break
 
                     if not k_mem:
                         k_mem = k_def_mem
@@ -2728,9 +2794,10 @@ def create_deployment(
 @auth.authorized_with_valid_token
 def createdep():
     tosca_info = tosca.getinfo()
+    tosca_filenames = tosca.getfilenames()
     access_token = iam.token["access_token"]
     # validate input
-    request_template = os.path.normpath(request.args.get("selectedTemplate"))
+    request_template = request.args.get("selectedTemplate")
     if request_template not in tosca_info.keys():
         raise ValueError("Template path invalid (not found in current configuration")
 
@@ -2743,8 +2810,8 @@ def createdep():
     additionaldescription = form_data["additional_description"]
 
     inputs = extract_inputs(form_data)
-
-    template, template_text = load_template(selected_template)
+    template_filename = tosca_filenames[selected_template]
+    template, template_text = load_template(template_filename)
 
     if form_data["extra_opts.schedtype"].lower() == "man":
         template = add_sla_to_template(template, form_data["extra_opts.selectedSLA"])
@@ -2774,7 +2841,7 @@ def retrydep(depid=None):
     - depid: str, the ID of the deployment
     """
     tosca_info = tosca.getinfo()
-
+    tosca_filenames = tosca.getfilenames()
     try:
         access_token = iam.token["access_token"]
     except Exception as e:
@@ -2848,8 +2915,8 @@ def retrydep(depid=None):
         return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **get_deployments_kwargs(dep.sub)))
 
     form_data = inputs
-
-    template, template_text = load_template(dep.selected_template)
+    template_filename = tosca_filenames[dep.selected_template]
+    template, template_text = load_template(template_filename)
 
     create_dep_method(
         source_template,

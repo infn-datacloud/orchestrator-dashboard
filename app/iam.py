@@ -74,6 +74,10 @@ def make_iam_blueprint(
     return iam_bp
 
 
+def get_current_iam():
+    return iam.base_url
+
+
 def get_all_groups():
 
     itemsPerPage = 10

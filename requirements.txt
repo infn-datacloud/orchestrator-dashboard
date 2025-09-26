@@ -6,6 +6,7 @@ Flask-Mail==0.9.1
 Flask-Redis==0.4.0
 PyYAML
 python-dateutil
+python-Levenshtein==0.27.1
 requests
 cryptography
 packaging
@@ -32,6 +33,7 @@ sshpubkeys
 jsonschema[format]
 semver==3.0.4
 oauthlib==3.2.2
+netifaces==0.11.0
 ###### tests
 #pytest
 #pytest-cov

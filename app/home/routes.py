@@ -123,7 +123,7 @@ def show_settings():
             except Exception as error:
                 handle_configuration_reload_error(error)
 
-    session["iam_groups"] = all_groups = get_all_groups()
+    all_groups = get_all_groups()
     groups = app.settings.iam_groups
     repository_configuration = app.settings.repository_configuration
     tosca_gversion = tosca.getversion()
@@ -381,7 +381,7 @@ def check_template_access(user_groups, active_group):
     - templates_info: information about the accessible templates
     - enable_template_groups: a boolean indicating whether template groups are enabled
     """
-    tosca_info, _, tosca_gmetadata, tosca_gversion = tosca.get()
+    tosca_info, _, _, tosca_gmetadata, tosca_gversion = tosca.get()
     templates_data = tosca_gmetadata if tosca_gmetadata else tosca_info
     enable_template_groups = bool(tosca_gmetadata)
 
