@@ -1,4 +1,4 @@
-function showIfNotZero(el) {
+function showIfNotZero(el, clean= true) {
     let fname = showIfNotZero.name.toLowerCase();
     let selector = $(el).data(`${fname}-id-filter`);
     let id_pattern = new RegExp(selector);
@@ -13,6 +13,11 @@ function showIfNotZero(el) {
             let parentFormGroup = $(this).closest('div.form-group');
             let shouldShow = value !== '0';
 
+            if (!shouldShow && clean && $(this).is('select')) {
+                clearfields(this);
+                $(this).val('').trigger('change.select2');
+            }
+
             parentFormGroup.attr('hidden', !shouldShow);
 
             let dataRequired = $(el).attr('data-required');
@@ -22,10 +27,29 @@ function showIfNotZero(el) {
             } else {
                 $(el).prop('required', false);
             }
+
         }
     });
 }
 
+function isString(s) {
+    return (typeof s !== 'undefined' && (typeof s === 'string' || s instanceof String));
+}
+
+function clearfields(elem) {
+    let sel = $(elem).find('option:selected');
+    if (sel) {
+        sel.selected = false;
+        let dt = sel.data('values');
+        if (isString(dt)) {
+            let values = dt.replace(/'/g, '"');
+            let obj = JSON.parse(values);
+            Object.keys(obj).forEach(function (key) {
+                $("#" + key).val('');
+            })
+        }
+    }
+}
 
 function showElems(el) {
     let fname = showElems.name.toLowerCase();

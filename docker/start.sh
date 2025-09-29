@@ -29,6 +29,8 @@ else
   cd -
 fi  
 
+#execute db migration
+python3 migrate_db.py
 
 if [ "${ENABLE_HTTPS,}" == "true" ]; then
   if test -e "$CERT" && test -f "$KEY" ; then

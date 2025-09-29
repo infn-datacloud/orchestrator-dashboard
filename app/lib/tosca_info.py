@@ -19,9 +19,11 @@ import os
 import uuid
 from fnmatch import fnmatch
 import jsonschema
+import Levenshtein
+import sys
 import yaml
 from app.lib.path_utils import url_path_join, path_ensure_slash
-
+from app.lib.strings import notnullorempty
 
 class ToscaInfo:
     """Class to load tosca templates and metadata at application start"""
@@ -51,11 +53,12 @@ class ToscaInfo:
 
     def reload(self, mode):
         tosca_templates = self._loadtoscatemplates()
-        tosca_info = self._extractalltoscainfo(tosca_templates)
+        tosca_info, tosca_filenames = self._extractalltoscainfo(tosca_templates)
         tosca_gmetadata, tosca_gversion = self._loadmetadata()
 
         self.redis_client.set("tosca_templates", json.dumps(tosca_templates))
         self.redis_client.set("tosca_info", json.dumps(tosca_info))
+        self.redis_client.set("tosca_filenames", json.dumps(tosca_filenames))
         self.redis_client.set("tosca_gmetadata", json.dumps(tosca_gmetadata))
         self.redis_client.set("tosca_gversion", tosca_gversion)
 
@@ -94,16 +97,18 @@ class ToscaInfo:
         return sorted(toscatemplates)
 
     def _extractalltoscainfo(self, tosca_templates):
-        tosca_info = {}
+        tosca_info = dict()
+        tosca_filenames = dict()
         for tosca in tosca_templates:
             with io.open(
-                    os.path.join(self.tosca_dir, tosca), encoding="utf-8"
+                os.path.join(self.tosca_dir, tosca), encoding="utf-8"
             ) as stream:
                 template = yaml.full_load(stream)
-                tosca_info[tosca] = self.extracttoscainfo(template, tosca)
-                # info = self.extracttoscainfo(template, tosca)
-                # tosca_info[info.get('id')] = info
-        return tosca_info
+                info = self.extracttoscainfo(template, tosca)
+                template_name = info["metadata"]["template_name"]
+                tosca_info[template_name] = info
+                tosca_filenames[template_name] = tosca
+        return tosca_info, tosca_filenames
 
     def extracttoscainfo(self, template, tosca):
         tosca_info = {
@@ -197,7 +202,14 @@ class ToscaInfo:
                                 tosca_pars_file = os.path.join(fpath, fname)
                                 with io.open(tosca_pars_file) as pars_file:
                                     tosca_info["enable_config_form"] = True
-                                    tosca_info["parameters_file"] = pars_file.read()
+                                    parameters_data = pars_file.read()
+                                if isinstance(parameters_data, str):
+                                    if parameters_data.startswith(".."):
+                                        with io.open(
+                                                os.path.realpath(os.path.join(fpath, parameters_data))) as pars_file:
+                                            parameters_data = pars_file.read()
+                                if isinstance(parameters_data, str):
+                                    tosca_info["parameters_file"] = parameters_data
                                     pars_data = yaml.full_load(
                                         io.StringIO(tosca_info["parameters_file"])
                                     )
@@ -245,17 +257,29 @@ class ToscaInfo:
     def get(self):
         serialised_value = self.redis_client.get("tosca_info")
         tosca_info = json.loads(serialised_value)
+        serialised_value = self.redis_client.get("tosca_filenames")
+        tosca_filenames = json.loads(serialised_value)
         serialised_value = self.redis_client.get("tosca_templates")
         tosca_templates = json.loads(serialised_value)
         serialised_value = self.redis_client.get("tosca_gmetadata")
         tosca_gmetadata = json.loads(serialised_value)
         tosca_gversion = self.redis_client.get("tosca_gversion")
-        return tosca_info, tosca_templates, tosca_gmetadata, tosca_gversion
+        return tosca_info, tosca_filenames, tosca_templates, tosca_gmetadata, tosca_gversion
 
-    def getinfo(self):
+    def gettemplates(self) -> list[str]:
+        serialised_value = self.redis_client.get("tosca_templates")
+        tosca_templates = json.loads(serialised_value)
+        return tosca_templates
+
+    def getinfo(self) -> dict[str, any]:
         serialised_value = self.redis_client.get("tosca_info")
         tosca_info = json.loads(serialised_value)
         return tosca_info
+
+    def getfilenames(self) -> dict[str, any]:
+        serialised_value = self.redis_client.get("tosca_filenames")
+        tosca_filenames = json.loads(serialised_value)
+        return tosca_filenames
 
     def getversion(self):
         tosca_gversion = self.redis_client.get("tosca_gversion")
@@ -265,6 +289,127 @@ class ToscaInfo:
         serialised_value = self.redis_client.get("tosca_gmetadata")
         tosca_gmetadata = json.loads(serialised_value)
         return tosca_gmetadata
+
+    def _findpublicnetwork(self, obj):
+        if isinstance(obj, dict):
+            if "pub_network" in obj:
+                return True
+            for iv in obj.values():
+                if self._findpublicnetwork(iv):
+                    return True
+        if isinstance(obj, list):
+            for iv in obj:
+                if self._findpublicnetwork(iv):
+                    return True
+        if isinstance(obj, str):
+                if "public_address" in obj or "pub_network" in obj:
+                    return True
+        return False
+
+    def find_template_name(self, selected_template, template, toscainfo=None, mindist=0.8):
+        if toscainfo is None:
+            tt = self.getinfo()
+        else:
+            tt = toscainfo
+        try:
+            # try use selected_template field
+            if notnullorempty(selected_template):
+                if selected_template in tt:
+                    t = tt[selected_template]
+                    try:
+                        tname = t["metadata"]["template_name"]
+                    except:
+                        tname = None
+                    if notnullorempty(tname):
+                        return tname
+            # try use display_name
+            ld = dict()
+            if notnullorempty(template):
+                dt = yaml.full_load(
+                    io.StringIO(template)
+                )
+                try:
+                    nt = dt["topology_template"]["node_templates"]
+                    privnetwork = not self._findpublicnetwork(nt)
+                except:
+                    privnetwork = False
+                if privnetwork:
+                    try:
+                        vo = dt["topology_template"]["outputs"]
+                        for vk, vv in vo.items():
+                            if self._findpublicnetwork(vv):
+                                privnetwork = False
+                                break
+                    except:
+                        privnetwork = False
+
+                if "metadata" in dt:
+                    try:
+                        displayname = dt["metadata"]["display_name"]
+                    except:
+                        displayname = None
+                    if notnullorempty(displayname):
+
+                        for tn, tv in tt.items():
+                            try:
+                                tvname = tv["metadata"]["display_name"]
+                            except:
+                                tvname = None
+                            if notnullorempty(tvname):
+                                if (not privnetwork and ("private" not in tn.lower())) or (
+                                        privnetwork and ("private" in tn.lower())):
+                                    ld[tn] = Levenshtein.ratio(displayname, tvname)
+                        ld = dict(sorted(ld.items(), key=lambda item: item[1], reverse=True))
+
+                        if ld:
+                            topk = list(ld.keys())[0]
+                            topv = list(ld.values())[0]
+                            if topv >= mindist:
+                                t = tt[topk]
+                                try:
+                                    tname = t["metadata"]["template_name"]
+                                except:
+                                    tname = None
+                                if notnullorempty(tname):
+                                    return tname
+                #try use description
+                ld.clear()
+                try:
+                    description = dt["description"]
+                except:
+                    description = None
+                if notnullorempty(description):
+                    for tn, tv in tt.items():
+                        try:
+                            tvdescription = tv["description"]
+                        except:
+                            tvdescription = None
+                        if notnullorempty(tvdescription):
+                            if (not privnetwork and ("private" not in tn.lower())) or (
+                                    privnetwork and ("private" in tn.lower())):
+                                ld[tn] = Levenshtein.ratio(description, tvdescription)
+                    ld = dict(sorted(ld.items(), key=lambda item: item[1], reverse=True))
+
+                    if ld:
+                        topk = list(ld.keys())[0]
+                        topv = list(ld.values())[0]
+                        if topv >= mindist:
+                            t = tt[topk]
+                            try:
+                                tname = t["metadata"]["template_name"]
+                            except:
+                                tname = None
+                            if notnullorempty(tname):
+                                return tname
+        except Exception as e:
+            exc_type, exc_obj, exc_tb = sys.exc_info()
+            fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+            print(str(e), exc_type, fname, exc_tb.tb_lineno)
+
+        return None
+
+
+
 
 # Helper functions
 def getdeploymenttype(nodes):
