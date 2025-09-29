@@ -1089,6 +1089,13 @@ def security_groups(depid=None):
         vm_id = vm_info["vm_id"]
         vm_endpoint = vm_info["vm_endpoint"]
 
+        if not vm_id:
+            flash("Operation not allowed for this VM.", "warning")
+            if subject:
+                return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **get_deployments_kwargs(subject)))
+            else:
+                return redirect(url_for(SHOW_ALLDEPLOYMENTS_ROUTE, **SHOW_ALLDEPLOYMENTS_KWARGS))
+
         conn = get_openstack_connection(
             endpoint=vm_endpoint,
             provider_name=vm_provider,
@@ -1110,7 +1117,10 @@ def security_groups(depid=None):
         return render_template("depsecgroups.html", depid=depid, sec_groups=sec_groups)
     except Exception as e:
         flash(str(e), "warning")
-        return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **get_deployments_kwargs(subject)))
+        if subject:
+            return redirect(url_for(SHOW_DEPLOYMENTS_ROUTE, **get_deployments_kwargs(subject)))
+        else:
+            return redirect(url_for(SHOW_ALLDEPLOYMENTS_ROUTE, **SHOW_ALLDEPLOYMENTS_KWARGS))
 
 
 @deployments_bp.route("/<depid>/<sec_group_id>/manage_rules")
