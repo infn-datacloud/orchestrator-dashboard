@@ -917,9 +917,13 @@ def get_openstack_connection(
         provider_name: str,
         provider_type: Optional[str] = None,
         region_name: Optional[str] = None,
+        project: Optional[str] = None
 ) -> openstack.connection.Connection:
     """Create openstack connection, to target project, using access token."""
     conn = None
+
+    if not project:
+        project = session["active_usergroup"]
 
     # Fed-Reg
     if app.settings.use_fed_reg:
@@ -962,7 +966,7 @@ def get_openstack_connection(
         # Retrieve user groups to get target project
         user_group = next(
             filter(
-                lambda x: x["name"] == session["active_usergroup"],
+                lambda x: x["name"] == project,
                 identity_provider["user_groups"],
             )
         )
@@ -999,7 +1003,7 @@ def get_openstack_connection(
             iam.token["access_token"],
             session["iss"],
             service,
-            session["active_usergroup"],
+            project,
         )
 
         if not prj or not idp:
@@ -1056,6 +1060,7 @@ def get_vm_info(depid):
         "vm_endpoint": vm_endpoint,
         "vm_provider_type": dep.provider_type,
         "vm_region": dep.region_name,
+        "vm_project": dep.user_group
     }
 
 
@@ -1088,6 +1093,7 @@ def security_groups(depid=None):
         vm_info = get_vm_info(depid)
         vm_id = vm_info["vm_id"]
         vm_endpoint = vm_info["vm_endpoint"]
+        vm_project = vm_info["vm_project"]
 
         if not vm_id:
             flash("Operation not allowed for this VM.", "warning")
@@ -1101,6 +1107,7 @@ def security_groups(depid=None):
             provider_name=vm_provider,
             provider_type=vm_info["vm_provider_type"],
             region_name=vm_info["vm_region"],
+            project=vm_project
         )
         sec_groups = get_sec_groups(conn, vm_id)
 
@@ -1134,6 +1141,7 @@ def manage_rules(depid=None, sec_group_id=None):
         provider_name=provider,
         provider_type=vm_info["vm_provider_type"],
         region_name=vm_info["vm_region"],
+        project=vm_info["vm_project"]
     )
 
     rules = conn.list_security_groups({"id": sec_group_id})
@@ -1311,6 +1319,7 @@ def create_rule(depid=None, sec_group_id=None):
             provider_name=provider,
             provider_type=vm_info["vm_provider_type"],
             region_name=vm_info["vm_region"],
+            project=vm_info["vm_project"]
         )
 
         conn.network.create_security_group_rule(
@@ -1341,6 +1350,7 @@ def delete_rule(depid=None, sec_group_id=None, rule_id=None):
             provider_name=provider,
             provider_type=vm_info["vm_provider_type"],
             region_name=vm_info["vm_region"],
+            project=vm_info["vm_project"]
         )
         conn.delete_security_group_rule(rule_id)
         flash("Port deleted successfully!", "success")
