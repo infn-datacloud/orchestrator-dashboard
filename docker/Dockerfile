@@ -26,6 +26,7 @@ COPY --chown=${USERNAME}:${USERNAME} ./config /app/config
 COPY --chown=${USERNAME}:${USERNAME} ./migrations /app/migrations
 COPY --chown=${USERNAME}:${USERNAME} ./orchdashboard.py /app/orchdashboard.py
 COPY --chown=${USERNAME}:${USERNAME} ./docker/start.sh /home/${USERNAME}/.local/bin/start.sh
+COPY --chown=${USERNAME}:${USERNAME} ./migrate_db.py /app/migrate_db.py
 
 WORKDIR /app/
 
