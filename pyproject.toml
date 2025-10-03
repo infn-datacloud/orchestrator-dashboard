@@ -42,6 +42,7 @@ gunicorn = "^23.0.0"
 semver = "^3.0.4"
 alembic = "1.13.3"
 oauthlib = "3.2.2"
+python-levenshtein = "^0.27.1"
 
 
 [build-system]
