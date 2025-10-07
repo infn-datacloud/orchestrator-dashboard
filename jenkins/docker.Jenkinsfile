@@ -25,7 +25,8 @@ pipeline {
                                 imageName: "${PROJECT_NAME}",
                                 dockerfile: "${DOCKERFILE}",
                                 registryType: 'harbor2',
-                                pythonVersion: '3.10'
+                                pythonVersion: '3.10',
+                                isLatest: true
                             )
                         }
                     }
@@ -73,7 +74,8 @@ pipeline {
                                 imageName: "${PROJECT_NAME}",
                                 dockerfile: "${DOCKERFILE}",
                                 registryType: 'dockerhub',
-                                pythonVersion: '3.10'
+                                pythonVersion: '3.10',
+                                isLatest: true
                             )
                         }
                     }
