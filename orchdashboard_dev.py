@@ -18,7 +18,7 @@ from flask_migrate import upgrade
 from app import create_app, redis_listener
 import threading
 
-app = create_app()
+app = create_app(aligndb=False)
 
 def run_migration():
     if os.environ.get("WERKZEUG_RUN_MAIN") == "true":
@@ -28,11 +28,15 @@ def run_migration():
                 # apply schema upgrades
                 upgrade(directory="migrations", revision="head")
                 app.logger.info("Database migration successfully completed.")
+                # align configuration with database
+                with app.app_context():
+                    app.settings.align_db(app)
             except Exception as e:
                 app.logger.error(f"Error during database migration: {e}", exc_info=True)
                 sys.exit(1)
     else:
         app.logger.info("Reloader process, database migration skipped.")
+
 
     if __name__ == "__main__":
         app.run(host='0.0.0.0', port=5001)

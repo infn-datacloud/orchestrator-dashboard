@@ -18,7 +18,7 @@ from flask_migrate import upgrade
 from app import create_app
 
 
-app_upgrade = create_app()
+app_upgrade = create_app(aligndb=False)
 
 # Fallback log su stderr
 console_handler = logging.StreamHandler(sys.stderr)

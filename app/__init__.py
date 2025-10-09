@@ -45,7 +45,7 @@ from app.users.routes import users_bp
 from app.vault.routes import vault_bp
 
 
-def create_app():
+def create_app(aligndb=True):
     """
     Create and configure the Flask application.
 
@@ -110,8 +110,9 @@ def create_app():
     app.settings = settings
 
     # align configuration with database
-    with app.app_context():
-        settings.align_db(app)
+    if aligndb:
+        with app.app_context():
+            settings.align_db(app)
 
     # create orchestrator object
     orchestrator = Orchestrator(settings.orchestrator_url)
