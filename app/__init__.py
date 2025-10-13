@@ -62,6 +62,12 @@ def create_app():
     """
     app = Flask(__name__, instance_relative_config=True)
     app.wsgi_app = ProxyFix(app.wsgi_app)
+    
+    # Only send cookies over HTTPS
+    app.config["SESSION_COOKIE_SECURE"] = True
+    
+    # Mitigates CSRF attacks
+    app.config["SESSION_COOKIE_SAMESITE"] = "Lax"  
 
     # load hierarchical configuration
 
