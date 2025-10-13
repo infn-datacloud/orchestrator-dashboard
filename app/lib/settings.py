@@ -96,7 +96,7 @@ class Settings:
         # settings version
         if not self.version:
             # set initial version
-            self.version = "1"
+            self.version = 1
 
         # iam groups membership
         if not self.iam_groups:
