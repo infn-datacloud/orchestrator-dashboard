@@ -256,6 +256,13 @@ docker compose -f docker/docker-compose.yml up -d
 
 For VSCode users, a devcontainer is present in the `.devcontainer` folder.
 
+## Database update (manual)
+
+The repository contains the file orchdasboard_dev.py, which should be used for developer debugging. The main difference from the main orchdashboard.py file is that it calls routines for checking and automatically updating the database.
+If you want to use the aforementioned production orchdashboard.py file for debugging, you must manually launch the migrate_db.py file when the database needs to be updated.
+This file is automatically launched in the Dockerized configuration.
+
+
 # How to build the docker image
 
 ```
