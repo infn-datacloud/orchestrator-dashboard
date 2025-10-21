@@ -40,16 +40,23 @@ def get_sla_extra_info(access_token, service_id, cmdb_url):
     return sitename, endpoint, service_type, iam_enabled
 
 
-def is_enabling_services(deployment_type, service_type):
+def is_enabling_services(deployment_type, service_type, provider_type):
     if deployment_type == "":
         return True
-
     if deployment_type == "CLOUD":
-        return (
-            True
-            if service_type in ["org.openstack.nova", "com.amazonaws.ec2"]
-            else False
-        )
+        if provider_type =="":
+            if service_type in ["org.openstack.nova", "com.amazonaws.ec2", "compute.k8s.io/v1"]:
+                return True
+            else:
+                return False
+        else:
+            if provider_type == "kubernetes":
+                if service_type in ["compute.k8s.io/v1"]:
+                    return True
+            if provider_type == "openstack":
+                if service_type in ["org.openstack.nova", "com.amazonaws.ec2"]:
+                    return True
+            return False
     elif deployment_type == "MARATHON":
         return True if "eu.indigo-datacloud.marathon" in service_type else False
     elif deployment_type == "CHRONOS":
@@ -77,7 +84,7 @@ def get_cached_slas(slam_url, headers, group):
     return slas
 
 
-def get_slas(access_token, slam_url, cmdb_url, deployment_type=""):
+def get_slas(access_token, slam_url, cmdb_url, deployment_type="", provider_type=""):
     headers = {"Authorization": "Bearer %s" % access_token}
 
     if "active_usergroup" in session and session["active_usergroup"] is not None:
@@ -93,7 +100,7 @@ def get_slas(access_token, slam_url, cmdb_url, deployment_type=""):
             access_token, slas[i]["services"][0]["service_id"], cmdb_url
         )
 
-        if is_enabling_services(deployment_type, service_type):
+        if is_enabling_services(deployment_type, service_type, provider_type):
             slas[i]["service_id"] = slas[i]["services"][0]["service_id"]
             slas[i]["service_type"] = service_type
             slas[i]["sitename"] = sitename

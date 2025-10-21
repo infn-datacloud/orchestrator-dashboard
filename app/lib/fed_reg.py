@@ -111,7 +111,7 @@ def get_images(*, access_token: str, timeout: int = 60, **kwargs):
 def deployment_supports_service(*, deployment_type: str, service_name: str):
     """A deployment type supports only specific service categories."""
     if deployment_type == "CLOUD":
-        return service_name in ["org.openstack.nova", "com.amazonaws.ec2"]
+        return service_name in ["org.openstack.nova", "com.amazonaws.ec2", "compute.k8s.io/v1"]
     if deployment_type == "MARATHON":
         return service_name in ["eu.indigo-datacloud.marathon"]
     if deployment_type == "CHRONOS":
@@ -121,11 +121,21 @@ def deployment_supports_service(*, deployment_type: str, service_name: str):
     return True
 
 
+def provider_supports_service(*, provider_type: str, service_name: str):
+    """A deployment type supports only specific service categories."""
+    if provider_type == "kubernetes":
+        return service_name in ["compute.k8s.io/v1"]
+    if provider_type == "openstack":
+        return service_name in ["org.openstack.nova", "com.amazonaws.ec2"]
+    return True
+
+
 def _remap_slas_from_user_group(
     *,
     user_group: dict[str, Any],
     service_type: Optional[str] = None,
     deployment_type: Optional[str] = None,
+    provider_type: Optional[str] = None,
 ) -> list[dict[str, str]]:
     """Extract from a user group related entities the SLA.
 
@@ -143,6 +153,9 @@ def _remap_slas_from_user_group(
                     and (service_type is None or service["type"] == service_type)
                     and deployment_supports_service(
                         deployment_type=deployment_type, service_name=service["name"]
+                    )
+                    and provider_supports_service(
+                        provider_type=provider_type, service_name=service["name"]
                     )
                 ):
                     slas[service["uid"]] = {
@@ -176,6 +189,7 @@ def retrieve_slas_from_active_user_group(
     access_token: str,
     service_type: Optional[str] = None,
     deployment_type: Optional[str] = None,
+    provider_type: Optional[str] = None,
 ) -> list[dict[str, str]]:
     slas = []
     try:
@@ -186,6 +200,7 @@ def retrieve_slas_from_active_user_group(
                 user_group=active_group,
                 service_type=service_type,
                 deployment_type=deployment_type,
+                provider_type=provider_type
             )
 
     except Exception as e:
