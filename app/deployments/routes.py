@@ -1831,7 +1831,7 @@ def configure_form():
         selected_sla = request.args.get(
             "extra_opts.selectedSLA"
         )
-        if selected_sla:
+        if selected_sla and template["metadata"].get("target_provider_type", "openstack") == "openstack":
             sla_id, region_name = selected_sla.split("_")
             template = patch_template(
                 access_token=access_token,
