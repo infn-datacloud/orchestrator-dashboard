@@ -37,12 +37,12 @@
 	{% elif value.type is defined and (update == False or value.updatable is not defined or value.updatable == True)%}
 		<!-- text type -->
 		{% if value.type == "text" %}
-			<input type="text" class="form-control" data-type="{{value.type}}" id="{{key}}" name="{{key}}" value="{{value.default}}" aria-describedby="help{{key}}" placeholder="{{value.placeholder}}" {% if value.required %}data-required=true required{%endif%} {{mode}} />
+			<input type="text" class="form-control" data-type="{{value.type}}" id="{{key}}" name="{{key}}" value="{{value.default | python_eval}}" aria-describedby="help{{key}}" placeholder="{{value.placeholder}}" {% if value.required %}data-required=true required{%endif%} {{mode}} />
 		<!-- end text type -->
 
 		<!-- textarea type -->
 		{% elif value.type == "textarea" %}
-			<textarea class="form-control" {% if value.rows %}rows="{{value.rows}}"{%endif%} data-type="text" id="{{key}}" name="{{key}}" aria-describedby="help{{key}}" placeholder="{{value.placeholder}}" {% if value.required %}data-required=true required{%endif%} {{mode}}>{{value.default}}</textarea>
+			<textarea class="form-control" {% if value.rows %}rows="{{value.rows}}"{%endif%} data-type="text" id="{{key}}" name="{{key}}" aria-describedby="help{{key}}" placeholder="{{value.placeholder}}" {% if value.required %}data-required=true required{%endif%} {{mode}}>{{value.default | python_eval}}</textarea>
 		<!-- end textarea type -->
 
 		<!-- number types -->
@@ -91,7 +91,7 @@
 
 		<!-- hidden types -->
 		{% elif value.type == "hidden" or value.type == "openstack_ec2credentials" or value.type == "uuidgen" or value.type == "ldap_user" or value.type == "ssh_user" or value.type == "userinfo" %}
-			<input type="hidden" class="form-control" data-type="{{value.type}}" id="{{key}}" name="{{key}}" value="{{value.default}}" >
+			<input type="hidden" class="form-control" data-type="{{value.type}}" id="{{key}}" name="{{key}}" value="{{value.default | python_eval}}" >
 		<!-- end hidden types -->
 
 		<!-- hostname type -->

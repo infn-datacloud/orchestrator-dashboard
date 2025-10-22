@@ -16,6 +16,7 @@
 import io
 import json
 import os
+import re
 import uuid
 from fnmatch import fnmatch
 import jsonschema
@@ -325,9 +326,9 @@ class ToscaInfo:
             # try use display_name
             ld = dict()
             if notnullorempty(template):
-                dt = yaml.full_load(
-                    io.StringIO(template)
-                )
+                # Replace tab with 2 spaces (only on loaded template not on DB)
+                clean_template = re.sub(r'\t', '  ', template)
+                dt = yaml.full_load(io.StringIO(clean_template))
                 try:
                     nt = dt["topology_template"]["node_templates"]
                     privnetwork = not self._findpublicnetwork(nt)
