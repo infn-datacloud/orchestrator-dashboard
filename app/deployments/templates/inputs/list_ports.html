@@ -19,10 +19,6 @@ function addItem(elem) {
 				<input type="number" class="form-control" name="${tagname}_tmp[][target]" class="form-control" required>
 			</div>
 			<div class="form-group" style="margin-right: 8px">
-				<label>Source</label>
-				<input type="number" class="form-control" name="${tagname}_tmp[][source]" class="form-control" required>
-			</div>
-			<div class="form-group" style="margin-right: 8px">
 				<label>Endpoint</label>
 				<input type="text" class="form-control" name="${tagname}_tmp[][endpoint]" class="form-control" required>
 			</div>
@@ -62,12 +58,10 @@ $(document).ready(() => {
 
         // Get the corresponding input fields for this index
         const targetField = document.getElementsByName(`${tagname}_tmp[][target]`)[index];
-        const sourceField = document.getElementsByName(`${tagname}_tmp[][source]`)[index];
         const endpointField = document.getElementsByName(`${tagname}_tmp[][endpoint]`)[index];
 
         // Fill only the fields that exist in this item
         if (item.target !== undefined && targetField) targetField.value = item.target;
-        if (item.source !== undefined && sourceField) sourceField.value = item.source;
         if (item.endpoint !== undefined && endpointField) endpointField.value = item.endpoint;
     });
 });

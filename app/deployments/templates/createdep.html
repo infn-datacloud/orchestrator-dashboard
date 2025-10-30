@@ -235,11 +235,10 @@ $(document).ready(function() {
 									html_value += `<div class="form-group" style="margin-bottom: 4px;"><label>${key.replaceAll('_', ' ')}:</label>&nbsp;`;
 									html_value += `<ul>`;
 
-									for (let i = 0; i < dataArray.length; i += 3) {
+									for (let i = 0; i < dataArray.length; i += 2) {
 										const target = dataArray[i].value;
-										const source = dataArray[i + 1].value;
-										const endpoint = dataArray[i + 2].value;
-										html_value += `<li>target: ${target}, source: ${source}, endpoint: ${endpoint}</li>`;
+										const endpoint = dataArray[i + 1].value;
+										html_value += `<li>target: ${target}, endpoint: ${endpoint}</li>`;
 									}
 									html_value += '</ul></div>';
 								}
