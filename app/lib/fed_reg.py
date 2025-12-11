@@ -276,7 +276,7 @@ def _remap_flavors(flavors: list[dict]) -> dict[str, dict]:
         gpus = int(flavor["gpus"])
         gpu_model = flavor["gpu_model"]
         gpu_vendor = flavor["gpu_vendor"]
-        name = ",".join((str(cpu), str(ram), str(gpus), str(disk)))
+        name = flavor["name"]
         if name not in d:
             f = {
                 "name": name,
@@ -354,9 +354,13 @@ def _make_flavor_label(
     """Build the flavor label to show on the dashboard."""
     if gpus > 0:
         if disk > 0:
-            return ("{} VCPUs, " + ram_f + " GB RAM, {} GB DISK, {} GPUs {} {}").format(cpu, ram, disk, gpus, gpu_vendor, gpu_model)
+            return ("{} VCPUs, " + ram_f + " GB RAM, {} GB DISK, {} GPUs {} {}").format(
+                cpu, ram, disk, gpus, gpu_vendor, gpu_model
+            )
         else:
-            return ("{} VCPUs, " + ram_f + " GB RAM, {} GPUs {} {}").format(cpu, ram, gpus, gpu_vendor, gpu_model)
+            return ("{} VCPUs, " + ram_f + " GB RAM, {} GPUs {} {}").format(
+                cpu, ram, gpus, gpu_vendor, gpu_model
+            )
     if disk > 0:
         return ("{} VCPUs, " + ram_f + " GB RAM, {} GB DISK").format(cpu, ram, disk)
     return ("{} VCPUs, " + ram_f + " GB RAM").format(cpu, ram)
@@ -484,7 +488,9 @@ def retrieve_active_user_group_resources(
     temp_images = _remap_images(project_images)
 
     # Sort flavors and images
-    sorted_flavors, sorted_nogpu_flavors, sorted_gpu_flavors = _sort_and_prepare_flavors(temp_flavors)
+    sorted_flavors, sorted_nogpu_flavors, sorted_gpu_flavors = (
+        _sort_and_prepare_flavors(temp_flavors)
+    )
     sorted_images = _sort_and_prepare_images(temp_images)
 
     return sorted_flavors, sorted_nogpu_flavors, sorted_gpu_flavors, sorted_images
