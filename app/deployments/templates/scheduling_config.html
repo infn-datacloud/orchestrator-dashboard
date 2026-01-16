@@ -2,14 +2,25 @@
 	<div class="form-group">
 		<label>Scheduling type</label>
 		<br>
-		<div class="form-check">
-			<input id="autosched" class="form-check-input" type="radio" name="extra_opts.schedtype" value="auto" checked>
-			<label for="autosched" class="form-check-label">Automatic</label>
-		</div>
-		<div class="form-check">
-			<input id="mansched" class="form-check-input" type="radio" name="extra_opts.schedtype" value="man" >
-			<label for="mansched" class="form-check-label">Manual</label>
-		</div>
+        {% if target_provider_type == "kubernetes" %}
+            <div class="form-check">
+                <input id="autosched" class="form-check-input" type="radio" name="extra_opts.schedtype" value="auto" disabled>
+                <label for="autosched" class="form-check-label">Automatic</label>
+            </div>
+            <div class="form-check">
+                <input id="mansched" class="form-check-input" type="radio" name="extra_opts.schedtype" value="man" checked>
+                <label for="mansched" class="form-check-label">Manual</label>
+            </div>
+        {% else %}
+            <div class="form-check">
+                <input id="autosched" class="form-check-input" type="radio" name="extra_opts.schedtype" value="auto" checked>
+                <label for="autosched" class="form-check-label">Automatic</label>
+            </div>
+            <div class="form-check">
+                <input id="mansched" class="form-check-input" type="radio" name="extra_opts.schedtype" value="man" >
+                <label for="mansched" class="form-check-label">Manual</label>
+            </div>
+        {% endif %}
 		<span class="text-muted">Select a deployment provider or let the system choose automatically</span>
 	</div>
 	<div id="manschedConf">

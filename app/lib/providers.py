@@ -47,7 +47,11 @@ def getslas(*, access_token: str):
 
 
 def getslasdt(
-    *, access_token: str, service_type: Optional[str] = "compute", deployment_type: str
+    *,
+    access_token: str,
+    service_type: Optional[str] = "compute",
+    deployment_type: str,
+    provider_type: Optional[str] = None
 ):
     slas = []
     try:
@@ -58,6 +62,7 @@ def getslasdt(
                 access_token=access_token,
                 service_type=service_type,
                 deployment_type=deployment_type,
+                provider_type=provider_type
             )
         # SLAM
         elif app.settings.slam_url is not None and app.settings.cmdb_url is not None:
@@ -67,6 +72,7 @@ def getslasdt(
                 app.settings.slam_url,
                 app.settings.cmdb_url,
                 deployment_type,
+                provider_type
             )
         app.logger.debug("SLAs: {}".format(slas))
     except Exception as e:

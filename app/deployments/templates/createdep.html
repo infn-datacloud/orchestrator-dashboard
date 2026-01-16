@@ -229,6 +229,19 @@ $(document).ready(function() {
 									}
 									html_value += '</ul></div>';
 								}
+							} else if (input.entry_schema.type == "tosca.datatypes.indigo.network.PortSpec") {
+								let dataArray = findElementsByNamePrefix(data, key);
+								if (dataArray.length > 0) {
+									html_value += `<div class="form-group" style="margin-bottom: 4px;"><label>${key.replaceAll('_', ' ')}:</label>&nbsp;`;
+									html_value += `<ul>`;
+
+									for (let i = 0; i < dataArray.length; i += 2) {
+										const target = dataArray[i].value;
+										const endpoint = dataArray[i + 1].value;
+										html_value += `<li>target: ${target}, endpoint: ${endpoint}</li>`;
+									}
+									html_value += '</ul></div>';
+								}
 							}
 							break;
 						}

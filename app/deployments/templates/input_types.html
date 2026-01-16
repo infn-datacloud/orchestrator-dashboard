@@ -75,6 +75,14 @@
 			</fieldset>
 		<!-- end list text type -->
 
+		<!-- list of ports -->
+		{% elif value.type == "list" and value.entry_schema.type == "tosca.datatypes.indigo.network.PortSpec" %}
+			<fieldset id="{{key}}" class="border p-2" {{mode}}>
+				<!--legend class="w-auto">{{key}}</legend-->
+				{% include 'inputs/list_ports.html' %}
+			</fieldset>
+		<!-- end list of ports -->
+
 		<!-- scalar-unit.size type -->
 		{% elif value.type == "scalar-unit.size" %}
 			{% if 'in_range' in value.constraints %}
