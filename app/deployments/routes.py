@@ -2112,6 +2112,7 @@ def patch_template(
                                 if isinstance(c, dict):
                                     if k_valid_values in c:
                                         valid_values[k_gpu_vendor] = c.get(k_valid_values)
+                    
                     if k_enable_gpu in template[k_inputs] and not k_enable_gpu in valid_values:
                         if k_constraints in template[k_inputs][k_enable_gpu]:
                             for c in template[k_inputs][k_enable_gpu][k_constraints]:
