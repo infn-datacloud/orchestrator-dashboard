@@ -1538,7 +1538,9 @@ def depupdate(depid=None):
     sla_id = tosca_helpers.getslapolicy(tosca_info)
 
     slas = providers.getslasdt(
-        access_token=access_token, deployment_type=dep.deployment_type
+        access_token=access_token,
+        deployment_type=dep.deployment_type,
+        provider_type=tosca_info["metadata"].get("target_provider_type", "openstack")
     )
 
     ssh_pub_key = dbhelpers.get_ssh_pub_key(session["userid"])
@@ -1768,9 +1770,11 @@ def configure_select_scheduling(selected_tosca=None, multi_templates=True):
     if template is None:
         flash("Error getting template (not found)", "danger")
         return redirect(url_for(SHOW_HOME_ROUTE))
-
+    target_provider_type = template["metadata"].get("target_provider_type", "openstack")
     slas = providers.getslasdt(
-        access_token=access_token, deployment_type=template["deployment_type"]
+        access_token=access_token,
+        deployment_type=template["deployment_type"],
+        provider_type=target_provider_type
     )
     # TODO: Consider saving this list in Redis for caching?)
 
@@ -1783,6 +1787,7 @@ def configure_select_scheduling(selected_tosca=None, multi_templates=True):
         "chooseprovider.html",
         slas=slas_rse,
         selected_tosca=selected_tosca,
+        target_provider_type=target_provider_type,
         steps=steps,
         ssh_pub_key=ssh_pub_key,
         rucio_connector_url=rucio_connector_url,
@@ -1846,7 +1851,7 @@ def configure_form():
         selected_sla = request.args.get(
             "extra_opts.selectedSLA"
         )
-        if selected_sla:
+        if selected_sla and template["metadata"].get("target_provider_type", "openstack") == "openstack":
             sla_id, region_name = selected_sla.split("_")
             template = patch_template(
                 access_token=access_token,
