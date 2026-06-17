@@ -15,6 +15,7 @@ import json
 import os
 from logging.config import dictConfig
 from flask import Flask, flash
+from flask_session import Session
 from werkzeug.middleware.proxy_fix import ProxyFix
 from app.deployments.routes import deployments_bp
 from app.errors.routes import errors_bp
@@ -68,6 +69,12 @@ def create_app(aligndb=True):
     
     # Mitigates CSRF attacks
     app.config["SESSION_COOKIE_SAMESITE"] = "Lax"  
+
+    # Fix Session not in cookie
+    app.config["SESSION_TYPE"] = "filesystem"
+    app.config["SESSION_PERMANENT"] = False
+    app.config["SESSION_USE_SIGNER"] = True
+    app.config["SESSION_FILE_DIR"] = "./.flask_session"
 
     # load hierarchical configuration
 
@@ -169,6 +176,7 @@ def create_app(aligndb=True):
 
     register_blueprints(app)
 
+    Session(app)
     return app
 
 
