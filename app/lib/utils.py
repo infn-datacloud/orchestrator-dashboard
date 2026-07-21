@@ -92,11 +92,10 @@ def python_eval(obj):
         result = python_eval(invalid_expr)
         print(result)  # Output: "3 / 0" (no division by zero error)
     """
-    if isinstance(obj, str):
-        try:
-            return eval(obj)
-        except Exception as e:
-            app.logger.warn("Error calling python_eval(): {}".format(e))
+    if isinstance(obj, str) and obj == "get_all_groups()":
+        return get_all_groups()
+    if isinstance(obj, str) and obj == "get_current_iam()":
+        return get_current_iam()
     return obj
 
 
